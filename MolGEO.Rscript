@@ -1,0 +1,140 @@
+#!/usr/bin/env Rscript
+
+suppressMessages(library(ribiosUtils))
+suppressMessages(library(ribiosArg))
+scriptInit()
+
+usage <- paste("Run BioQC algorithm with expression data\n",
+               "Usage:",
+               scriptName(),
+               "-infile FILE [-chiptype TYPE] [-outfile FILE] [-threshold VAL] [-gmt FILE] [-appendGmtDesc] [-alternative ALT] [-log FILE]\n\n",
+               "Mandatory parameters:\n",
+               "  -infile FILE\tGene expression in GCT or ChipFetcher format\n\n",
+               "Commonly used optional parameters:\n",
+               "  -outfile FILE\tOutput file name. Writing to standard output if missing\n",
+               "  -gmt FILE\tUse specified GMT file other than the tissue marker genes provided by the package\n",
+               "  -log FILE: write log file. If missing, no logging takes place. Set to '-' will direct loggings to stdout.\n",
+	       "Less commonly used optional parameters:\n",
+	       "  -alternative ALT\tOne of the following: greater, less, two.sided\n",
+               "  -chiptype TYPE\tChip type supported by GTI. Needed for GCT files\n\t\tAccepts all GTI supported chip types, and 'GeneID', 'Ensembl', 'RefSeq', 'GeneSymbol', or 'any' (case insensitive)\n\t\tSetting 'GeneSymbol' will assume that input features are human gene symbols.\n\t\tIf missing, input features are assumed to be probesets and the annotation is done automatically\n",
+               "  -threshold NUM\tSignificance level significance. Signatures without any significant hits are removed. \n\t\tThe threshold is given by -log10(p). For example: -threshold 3 filters p>0.001.\n",
+               "  -appendGmtDesc\tAppend description line to GMT gene list names.\n",
+
+               sep="")
+
+argParse("outfile,1 gmt,1 chiptype,1 threshold,1 alternative,1 appendGmtDesc log,1",
+         "infile", usage=usage)
+
+##----------------------------------------##
+## prepare logging
+##----------------------------------------##
+logfile <- argGet("log", default=NULL)
+registerLog(logfile)
+
+##----------------------------------------##
+## Loading libraries
+##----------------------------------------##
+doLog("Loading libraries")
+libordie(ribiosIO)
+libordie(BioQC)
+libordie(ribiosExpression)
+
+##----------------------------------------##
+## parsing input parameters
+##----------------------------------------##
+doLog("Parsing input parameters", level=1)
+assertFile(infile <- argGet("infile"))
+
+outfile <- argGet("outfile", default=stdout())
+
+## GMT file
+assertFile(gmtfile <- argGet("gmt",
+                             default=system.file("/extdata/exp.tissuemark.affy.roche.symbols.gmt",
+                               package="BioQC")))
+doLog("Reading in signatures", level=1)
+gmtList <- BioQC::readGmt(gmtfile)
+
+## chip type
+chiptype <- argGet("chiptype", default="")
+## Chip type can be missing. ribiosAnnotation is only needed when chiptype is not GeneSymbol
+chiptype.tl <- tolower(chiptype)
+if(chiptype.tl!="genesymbol")
+  libordie(ribiosAnnotation, minVer="2.0-0")
+
+## threshold
+threshold <- parseNumVec(argGet("threshold", default=NULL),
+                         expLen=1L, failVal=NULL)
+if(!is.null(threshold)) {
+  threshold <- 10^(-threshold)
+}
+## alternative
+alternative <- argGet("alternative", default="greater", 
+                      choices=c("greater", "less", "two.sided"))
+appendGmtDesc <- argPresent("appendGmtDesc")
+
+##----------------------------------------##
+## parse input files
+##----------------------------------------##
+doLog("Reading expression data")
+if(isGctFile(infile)) {
+  eset <- readGct(infile)
+  if (chiptype.tl=="genesymbol") {
+    fData(eset)$GeneSymbol <- featureNames(eset)
+  } else if(chiptype.tl=="geneid") {
+    doLog("Annotating GeneIDs", level=1L)
+    fData(eset) <- annotateGeneIDs(featureNames(eset), orthologue=TRUE, multiOrth=FALSE)
+  } else if (chiptype.tl=="ensembl") {
+    doLog("Annotating Ensembl IDs", level=1L)
+    fData(eset) <- annotateEnsembl(featureNames(eset), orthologue=TRUE, multiOrth=FALSE)
+  } else if (chiptype.tl=="refseq") {
+    doLog("Annotating RefSeq IDs", level=1L)
+    fData(eset) <- annotateRefSeqs(featureNames(eset), orthologue=TRUE, multiOrth=FALSE)  
+  } else if (chiptype.tl=="any") {
+    doLog("Annotating _any_ IDs", level=1L)
+    fData(eset) <- annotateAnyIDs(featureNames(eset), orthologue=TRUE, multiOrth=FALSE)  
+  } else {
+    doLog("Annotating probesets", level=1L)
+    fData(eset) <- annotateProbesets(featureNames(eset), chip=chiptype, orthologue=TRUE)
+  }
+} else {
+  eset <- ChipFetcher2ExpressionSet(infile, chip=chiptype, orthologue=TRUE)
+}
+
+## remove redundant mapping genes
+if(all(is.na(fData(eset)$GeneSymbol)))
+  qqmsg("ERROR: Probests could not be mapped to GeneSymbols. Please check the chiptype\n", status=2L)
+doLog("Removing redundantly mapped genes")
+eset <- keepMaxStatProbe(eset, probe.index.name="GeneSymbol", keepNAprobes=FALSE, stat=function(x) mean(x, na.rm=TRUE))
+
+## logic
+doLog("Running BioQC algorithm")
+mat <- wmwTest(eset, gmtList, alternative=alternative)
+
+## names, filtering, and transformation
+if(appendGmtDesc) {
+  descs <- sapply(gmtList, function(x) {
+    desc <- x$description
+    ifelse(is.null(desc), "", paste("#", desc, sep=""))
+  })
+  rownames(mat) <- paste(rownames(mat),
+                         descs, sep="")
+}
+
+## filtering
+doLog("Result reporting")
+mat <- filterPmat(mat, threshold=threshold)
+if(nrow(mat)==0)
+    warning("No significant signatures were found - consider lowering the threshold.")
+
+## p-value transform
+mat.q <- absLog10p(mat)
+## if p value is approximately 0, the lowest threshold (10E-320) is used
+mat.q[is.infinite(mat.q)] <- 320
+mat.q <- round(mat.q, 2L)
+
+## output file
+write.table(mat.q, file=outfile, quote=FALSE,
+            sep="\t", col.names=NA)
+
+doLog("Program exiting")
+qqmsg(status=0L)

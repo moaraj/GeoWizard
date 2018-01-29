@@ -1,0 +1,17 @@
+Refrence Series;Organism;Sample Id;Characteristic;Time;Type;Experiment;Sample
+GSE55584;Homo sapiens;GSM1339618;Rheumatoid arthritis, synovial membrane patient K36 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339619;Rheumatoid arthritis, synovial membrane patient K49 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339620;Rheumatoid arthritis, synovial membrane patient R39 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339621;Rheumatoid arthritis, synovial membrane patient R29 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339622;Rheumatoid arthritis, synovial membrane patient R51 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339623;Rheumatoid arthritis, synovial membrane patient R32 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339624;Rheumatoid arthritis, synovial membrane patient R46 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339625;Rheumatoid arthritis, synovial membrane patient R57 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339626;Rheumatoid arthritis, synovial membrane patient R58 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339627;Rheumatoid arthritis, synovial membrane patient R60 (U133A);No;Control;A;0
+GSE55584;Homo sapiens;GSM1339628;Osteoarthritis, synovial membrane patient R41 (U133A);No;Pert;A;1
+GSE55584;Homo sapiens;GSM1339629;Osteoarthritis, synovial membrane patient R52 (U133A);No;Pert;A;1
+GSE55584;Homo sapiens;GSM1339630;Osteoarthritis, synovial membrane patient R53 (U133A);No;Pert;A;1
+GSE55584;Homo sapiens;GSM1339631;Osteoarthritis, synovial membrane patient R54 (U133A);No;Pert;A;1
+GSE55584;Homo sapiens;GSM1339632;Osteoarthritis, synovial membrane patient R61 (U133A);No;Pert;A;1
+GSE55584;Homo sapiens;GSM1339633;Osteoarthritis, synovial membrane patient R64 (U133A);No;Pert;A;1

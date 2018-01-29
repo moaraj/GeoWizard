@@ -1,0 +1,47 @@
+Refrence Series;Organism;Sample Id;Characteristic;Time;Type;Group;Sample;Overall_Design
+GSE31317;Homo sapiens;GSM774585;A2C12 non-SP cells biological replicate 1;No;Pert;A;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM774586;A2C12 non-SP cells biological replicate 2;No;Pert;A;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM774587;A2C12 non-SP cells biological replicate 3;No;Pert;A;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM774588;A2C12 anti-EpCAM treated non-SP cells biological replicate 1;No;Pert;A;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM774589;A2C12 anti-EpCAM treated non-SP cells biological replicate 2;No;Pert;A;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM774590;A2C12 anti-EpCAM treated non-SP cells biological replicate 3;No;Pert;A;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM774591;A2C12 SP cells biological replicate 1;No;Pert;A;3;Refer to individual Series
+GSE31317;Homo sapiens;GSM774592;A2C12 SP cells biological replicate 2;No;Pert;A;3;Refer to individual Series
+GSE31317;Homo sapiens;GSM774593;A2C12 SP cells biological replicate 3;No;Pert;A;3;Refer to individual Series
+GSE31317;Homo sapiens;GSM774594;A2C12 anti-EpCAM treated SP cells biological replicate 1;No;Pert;A;4;Refer to individual Series
+GSE31317;Homo sapiens;GSM774595;A2C12 anti-EpCAM treated SP cells biological replicate 2;No;Pert;A;4;Refer to individual Series
+GSE31317;Homo sapiens;GSM774596;A2C12 anti-EpCAM treated SP cells biological replicate 3;No;Pert;A;4;Refer to individual Series
+GSE31317;Homo sapiens;GSM776477;A2C12 SP cells biological replicate 1;No;Pert;A;5;Refer to individual Series
+GSE31317;Homo sapiens;GSM776478;A2C12 SP cells biological replicate 2;No;Pert;A;5;Refer to individual Series
+GSE31317;Homo sapiens;GSM776479;A2C12 SP cells biological replicate 3;No;Pert;A;5;Refer to individual Series
+GSE31317;Homo sapiens;GSM776480;A2C12 anti-EpCAM treated SP cells biological replicate 1;No;Pert;A;6;Refer to individual Series
+GSE31317;Homo sapiens;GSM776481;A2C12 anti-EpCAM treated SP cells biological replicate 2;No;Pert;A;6;Refer to individual Series
+GSE31317;Homo sapiens;GSM776482;A2C12 anti-EpCAM treated SP cells biological replicate 3;No;Pert;A;6;Refer to individual Series
+GSE31317;Homo sapiens;GSM776483;Male lung, biological replicate 1;No;Pert;B;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776484;Male lung, biological replicate 2;No;Pert;B;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776485;Male lung, biological replicate 3;No;Pert;B;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776486;Male lung, biological replicate 4;No;Pert;B;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776487;Male lung, biological replicate 5;No;Pert;B;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776488;Male lung, biological replicate 6;No;Pert;B;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776489;Male lung, biological replicate 7;No;Pert;B;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776490;Male lung, biological replicate 8;No;Pert;B;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776491;Female lung, biological replicate 1;No;Pert;B;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776492;Female lung, biological replicate 2;No;Pert;B;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776493;Female lung, biological replicate 3;No;Pert;B;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776494;Female lung, biological replicate 4;No;Pert;B;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776495;Female lung, biological replicate 5;No;Pert;B;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776496;Female lung, biological replicate 6;No;Pert;B;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776497;Female lung, biological replicate 7;No;Pert;B;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776498;Female lung, biological replicate 8;No;Pert;B;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776523;A549 non-SP cells biological replicate 1;No;Pert;C;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776524;A549 non-SP cells biological replicate 2;No;Pert;C;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776525;A549 non-SP cells biological replicate 3;No;Pert;C;1;Refer to individual Series
+GSE31317;Homo sapiens;GSM776526;A549 anti-EpCAM treated non-SP cells biological replicate 1;No;Pert;C;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776527;A549 anti-EpCAM treated non-SP cells biological replicate 2;No;Pert;C;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776528;A549 anti-EpCAM treated non-SP cells biological replicate 3;No;Pert;C;2;Refer to individual Series
+GSE31317;Homo sapiens;GSM776529;A549 SP cells biological replicate 1;No;Pert;C;3;Refer to individual Series
+GSE31317;Homo sapiens;GSM776530;A549 SP cells biological replicate 2;No;Pert;C;3;Refer to individual Series
+GSE31317;Homo sapiens;GSM776531;A549 SP cells biological replicate 3;No;Pert;C;3;Refer to individual Series
+GSE31317;Homo sapiens;GSM776532;A549 anti-EpCAM treated SP cells biological replicate 1;No;Pert;C;4;Refer to individual Series
+GSE31317;Homo sapiens;GSM776533;A549 anti-EpCAM treated SP cells biological replicate 2;No;Pert;C;4;Refer to individual Series
+GSE31317;Homo sapiens;GSM776534;A549 anti-EpCAM treated SP cells biological replicate 3;No;Pert;C;4;Refer to individual Series

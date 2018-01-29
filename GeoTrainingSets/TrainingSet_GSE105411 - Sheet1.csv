@@ -1,0 +1,7 @@
+Refrence Series;Organism;Sample Id;Characteristic;Time;Type;Experiment;Sample;Overall_Design
+GSE105411;Homo sapiens;GSM2825710;DMSO control-1;No;Cont;A;1;Expression profiling of total RNA extracted from DSMO-treated or AAPK-treated Aurora-A and PLK-1 high expression HCT-116 cell lines was performed in triplicate using Affymetrix microarrays.
+GSE105411;Homo sapiens;GSM2825711;DMSO control-2;No;Cont;A;1;Expression profiling of total RNA extracted from DSMO-treated or AAPK-treated Aurora-A and PLK-1 high expression HCT-116 cell lines was performed in triplicate using Affymetrix microarrays.
+GSE105411;Homo sapiens;GSM2825712;DMSO control-3;No;Cont;A;1;Expression profiling of total RNA extracted from DSMO-treated or AAPK-treated Aurora-A and PLK-1 high expression HCT-116 cell lines was performed in triplicate using Affymetrix microarrays.
+GSE105411;Homo sapiens;GSM2825713;AAPK-1;No;Pert;A;1;Expression profiling of total RNA extracted from DSMO-treated or AAPK-treated Aurora-A and PLK-1 high expression HCT-116 cell lines was performed in triplicate using Affymetrix microarrays.
+GSE105411;Homo sapiens;GSM2825714;AAPK-2;No;Pert;A;1;Expression profiling of total RNA extracted from DSMO-treated or AAPK-treated Aurora-A and PLK-1 high expression HCT-116 cell lines was performed in triplicate using Affymetrix microarrays.
+GSE105411;Homo sapiens;GSM2825715;AAPK-3;No;Pert;A;1;Expression profiling of total RNA extracted from DSMO-treated or AAPK-treated Aurora-A and PLK-1 high expression HCT-116 cell lines was performed in triplicate using Affymetrix microarrays.

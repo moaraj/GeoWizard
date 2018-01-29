@@ -1,0 +1,17 @@
+Refrence Series;Organism;Sample Id;Characteristic;Time;Type;Group;Sample;Overall_Design
+GSE27975;Homo sapiens;GSM692117;Donor 1 - CSE;No;pert;A;1;
+GSE27973;Homo sapiens;GSM692115;Donor 1 - medium;No;cont;A;0;
+GSE27974;Homo sapiens;GSM692116;Donor 1 - RV16;No;pert;A;3;
+GSE27976;Homo sapiens;GSM692118;Donor 1 - RV16+CSE;No;pert;A;4;
+GSE27979;Homo sapiens;GSM692121;Donor 2 - CSE;No;pert;A;1;
+GSE27977;Homo sapiens;GSM692119;Donor 2 - medium;No;cont;A;0;
+GSE27978;Homo sapiens;GSM692120;Donor 2 - RV16;No;pert;A;3;
+GSE27980;Homo sapiens;GSM692122;Donor 2 - RV16+CSE;No;pert;A;4;
+GSE27983;Homo sapiens;GSM692125;Donor 3 - CSE;No;pert;A;1;
+GSE27981;Homo sapiens;GSM692123;Donor 3 - medium;No;cont;A;0;
+GSE27982;Homo sapiens;GSM692124;Donor 3 - RV16;No;pert;A;3;
+GSE27984;Homo sapiens;GSM692126;Donor 3 - RV16+CSE;No;pert;A;4;
+GSE27987;Homo sapiens;GSM692129;Donor 4 - CSE;No;pert;A;1;
+GSE27985;Homo sapiens;GSM692127;Donor 4 - medium;No;cont;A;0;
+GSE27986;Homo sapiens;GSM692128;Donor 4 - RV16;No;pert;A;3;
+GSE27988;Homo sapiens;GSM692130;Donor 4 - RV16+CSE;No;pert;A;4;
