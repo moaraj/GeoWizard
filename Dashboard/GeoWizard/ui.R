@@ -366,22 +366,39 @@ ui <- dashboardPage(
                               
                               column(4,
                                      
-                                     box(title = "Predicted Variables ",
+                                     box(title = "Predicted Interpretation",
                                          collapsible = T,
                                          solidHeader = T,
                                          status="danger",
                                          width = 12),
                                      
-                                     box(title = "Classification Results",
-                                         collapsible = T,
+                                     
+                                     tabBox(title = "ExpVar Table",
+                                            #collapsible = T,
+                                            #solidHeader = T,
+                                            #status = "danger",
+                                            width = 12,
+                                            side = "right",
+                                            selected = "Important Factors",
+                                            
+                                            tabPanel("All Factors", 
+                                                     DT::dataTableOutput("FullFactorTable") %>% 
+                                                          withSpinner(color = "#0dc5c1")),
+                                            
+                                            tabPanel("Selected Factors",
+                                                   DT::dataTableOutput("ImportantFactorTable") %>% 
+                                                        withSpinner(color = "#0dc5c1"))
+                                            ),
+                                     
+                                     box(title = "",
                                          solidHeader = T,
-                                         status = "danger",
+                                         status = 'danger',
+                                         colour = 'red',
                                          width = 12,
                                          
-                                         DT::dataTableOutput("DesignDataTable") %>% withSpinner(color = "#0dc5c1")
+                                         actionButton("GoToDesignPage","Use factors for analysis", width = "100%")
                                          )
-                              
-                              )
+                                     )
                               ) # Page Fluid Row containing the Column Layout
                               ), # TabItem - GSMMetadata
                     

@@ -337,7 +337,7 @@ server <- function(input, output, session) {
                                      fontWeight = 'bold')
      })
      
-     ##################{ Classify ExpVars}
+     ##################{Classify ExpVars}
      
      
      ExperimentalDesign <- reactiveValues()
@@ -358,6 +358,7 @@ server <- function(input, output, session) {
      })
      
 
+     #######################{ Data frame of all factors with more than one level }
      
      ExperimentalDesign$ExpFactorDF <- reactive({
           ExpandedDF <- ExperimentalDesign$ExpClassFactorDF()
@@ -483,12 +484,10 @@ server <- function(input, output, session) {
 
      #######################{ Output Table with Factor Selection
 
+      
      
-     output$DesignDataTable <- DT::renderDataTable({
-          if(input$ViewAllorFiltVar == "All"){ GsmDF <- ExperimentalDesign$SelectedFactorDF()
-          } else {  GsmDF <- FilteredFactorLevels()
-          }
-          
+     output$ImportantFactorTable <- DT::renderDataTable({
+          GsmDF <- FilteredFactorLevels()
           DT::datatable(data = unique(GsmDF),
                         extensions = 'ColReorder',
                         class = 'compact',
@@ -496,6 +495,7 @@ server <- function(input, output, session) {
                              dom = 't',
                              autoWidth = TRUE,
                              scrollX = T,
+                             scrollY = '500px',
                              paging = FALSE,
                              columnDefs = list(list(width = '150px', targets = c(1:ncol(GsmDF)))),
                              colReorder = list(realtime = FALSE))) %>%
@@ -504,6 +504,23 @@ server <- function(input, output, session) {
                            fontWeight = 'bold')
      })
      
+     output$FullFactorTable <- DT::renderDataTable({
+          GsmDF <- ExperimentalDesign$ExpFactorDF()
+          DT::datatable(data = unique(GsmDF),
+                        extensions = 'ColReorder',
+                        class = 'compact',
+                        options = list(
+                             dom = 't',
+                             autoWidth = TRUE,
+                             scrollX = T,
+                             scrollY = '500px',
+                             paging = FALSE,
+                             columnDefs = list(list(width = '150px', targets = c(1:ncol(GsmDF)))),
+                             colReorder = list(realtime = FALSE))) %>%
+               formatStyle(names(GsmDF),
+                           color = 'black',
+                           fontWeight = 'bold')
+     })
      
      
      ########################{ Disconnect from SQLite Server on Exit
