@@ -623,14 +623,16 @@ server <- function(input, output, session) {
      
      #########################
      
-     observeEvent(input$SubmitFormula, {
+     #observeEvent(input$SubmitFormula, {
+     isolate({
      output$ExperimentalBlocksPlot <- renderPlot({
           message("Rendering Block Plot")
           DesignExpression <- as.formula(input$formulaInputDesign)
           DesignDF <- controlLevelsDF()
           
-          mosaic(DesignExpression, DesignDF)
+          vcd::mosaic(DesignExpression, DesignDF)
      })
+     
      })
      
      

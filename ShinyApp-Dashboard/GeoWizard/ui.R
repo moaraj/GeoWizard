@@ -9,6 +9,7 @@ library(shinyjs)
 library(shinycssloaders)
 
 library(ggplot2)
+library(vcd)
 library(gplots)
 library(RColorBrewer)
 library(DT)
