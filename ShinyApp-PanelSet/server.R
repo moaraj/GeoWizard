@@ -421,8 +421,8 @@ server <- function(input, output, session) {
                
                SampleFilterIndex$RowFilterIndex <- unlist(RowsToKeep)
                DF <- DF[unlist(RowsToKeep),]
-          })
-          
+     })
+     
      
      
      
