@@ -482,7 +482,84 @@ ui <- dashboardPage(
                             ), #Design Matix TabItem 
                     
                     tabItem(tabName = "ContrastMatrix"),
-                    tabItem(tabName = "DifferentialAnalysis")
+                    tabItem(tabName = "DifferentialAnalysis",
+                            
+                            fluidRow(
+                                 column(4,
+                                        box(title = "Download Data",
+                                            solidHeader = T,
+                                            status = "primary",
+                                            width = 6,
+                                            fluidRow(
+                                                 column(4,
+                                                        HTML("<center>"),
+                                                        tags$button(
+                                                               id = "DownloadData",
+                                                               class="btn action-button",
+                                                               icon("download", lib = "font-awesome")
+                                                               ),
+                                                          HTML("</center>")),
+                                                 column(8, uiOutput("GeoQueryDownloadStatus"))
+                                                 )
+                                        ),
+                                        
+                                        tabBox(
+                                             title = "Raw Data Statistics",
+                                             width = 12,
+                                             
+                                             tabPanel("GMT File",
+                                                      solidHeader = T,
+                                                      status = "primary"),
+                                             
+                                             tabPanel("Histogram",
+                                                      bootstrapPage(
+                                                           actionButton("HistOverall", "Overall", style="display:inline-block"),
+                                                           actionButton("HistSample", "By Sample", style="display:inline-block"),
+                                                           actionButton("HistFactor", "By Factor", style="display:inline-block"),
+                                                           uiOutput("HistSampleNumberSelector"),
+                                                           uiOutput("HistSampleFactorSelector"))
+                                             ),
+                                             
+                                             tabPanel("Boxplots",
+                                                      bootstrapPage(
+                                                      actionButton("BoxPlotOverall", "Overall", style="display:inline-block"),
+                                                      actionButton("BoxPlotSample", "By Sample", style="display:inline-block"),
+                                                      actionButton("BoxPlotFactor", "By Factor", style="display:inline-block"),
+                                                      uiOutput("BoxPlotSampleNumberSelector"),
+                                                      uiOutput("BoxPlotSampleFactorSelector"))
+                                                      )
+                                             )
+                                        
+                                        ), #First Column
+                                 
+                                 column(8,
+                                        
+                                        tabBox( title = "Expression Analysis",
+                                                width = 12,
+                                                tabPanel("Volcano Plot"),
+                                                tabPanel("MA Plot"),
+                                                tabPanel("Clustering"),
+                                                tabPanel("BoxPlot"),
+                                                tabPanel("Top Table")),
+                                        
+                                        tabBox( title = "QC Analysis",
+                                                width = 12,
+                                                
+                                                tabPanel("PCA"),
+                                                tabPanel("tSNE"),
+                                                tabPanel("BioQC")
+                                                ),
+                                        
+                                        tabBox(title = "Enrichment Analysis",
+                                               width = 12,
+                                               
+                                               tabPanel("GO Enrichment")
+                                               )
+                                        
+                                        ) # Second Column of the Page
+                                 
+                                 ) #Fluid Row that Makes up the page
+                            ) #Differential Analysis Tabitem
                         
                         ) #tabItems
           
