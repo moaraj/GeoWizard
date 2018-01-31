@@ -422,6 +422,8 @@ ui <- dashboardPage(
                                             width = 12,
                                             collapsible = T,
                                             
+                                            uiOutput(outputId = "TextAhead"),
+                                            
                                             textInput(
                                                  inputId = "formulaInputDesign",
                                                  label = "Model Matrix Formula Input",

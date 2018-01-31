@@ -603,7 +603,33 @@ server <- function(input, output, session) {
           }
      })
      
+     output$TextAhead <- renderUI({
+          localDF <- controlLevelsDF()
+          DFname <- colnames(localDF)
+          DFlevs <- as.character(
+          lapply(localDF, function(x){ 
+               FactorLevels <- levels(x)
+               nLevels <- length(FactorLevels)
+               
+               paste(FactorLevels[1],
+                     FactorLevels[nLevels], 
+                     collapse = " ")
+               }))
+
+          textInput.typeaheadOptions <- list(
+               id="thti",
+               placeholder="~ ExpVa1 + ExpVar2",
+               local=data.frame(name=paste("~ ", DFname), 
+                                info= paste("levels:", DFlevs)),
+               valueKey = "name",
+               tokens=c(1:length(DFname))
+          )
+          
+          do.call(textInput.typeahead, textInput.typeaheadOptions)
+          
+     })
      
+
      
      observeEvent(input$SubmitFormula, {
           output$CustomExpressionTable <- DT::renderDataTable({
