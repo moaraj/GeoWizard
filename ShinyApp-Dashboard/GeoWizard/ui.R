@@ -19,8 +19,6 @@ library(Biobase)
 library(BioQC)
 library(GEOquery)
 library(vcd)
-#setting options('download.file.method.GEOquery'='auto')
-#Setting options('GEOquery.inmemory.gpl'=FALSE)
 library(GEOmetadb)
 
 source(file = "GeoParse.R")

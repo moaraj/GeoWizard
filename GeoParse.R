@@ -46,7 +46,7 @@ GDSeSearch <- function(keyword,
 #' WebEnvExtract(eSearchResultUrl)
 
 library(xml2)
-library(RCurl)
+#library(RCurl)
 
 WebEnvExtract <- function(eSearchResultUrl) {
      PageXML <- eSearchResultUrl
@@ -201,7 +201,6 @@ MultiGSEQuery <- function(MolQuery) {
 #' GseGsmTable <- SqlQueryMain(GseTable)
 
 library(GEOmetadb)
-library(tidyverse)
 
 SqlQueryMain <- function(GseTable) {
      colnames(GseTable)[grep(pattern = "title", x = colnames(GseTable))] <-

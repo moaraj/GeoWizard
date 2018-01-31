@@ -1,5 +1,12 @@
+GeoRepoPath <- "~/GeoWizard/"
+setwd(GeoRepoPath)
+
 source(file = "GeoParse.R")
 source(file = "GSMAnnotation.R")
+
+if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
+con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
+message(paste('Connected Database Tables:', dbListTables(con)))
 
 MolQuery = c("Mycophenolate mofetil")
 MolQuery = c("Tofacitinib")
@@ -43,10 +50,24 @@ GSM <- Step_1$gsm
 GraphDF <- cbind(GSM, Step_6)
 DesignMatrix <- model.matrix( ~ ExpVar3.Text + ExpVar4.Text, GraphDF )
 
+GeoRepoPath <- "~/GeoWizard/GEORepo"
+GeoRepoFiles <- dir(GeoRepoPath)
+GSEMatrix <- "GSE69967"
+RegularExp <- paste(GSEMatrix, ".+matrix\\.txt\\.gz", sep = "")
+MatrixFile <- grep(pattern = RegularExp, x = GeoRepoFiles)
+MatrixFilePath <- file.path(GeoRepoPath, GeoRepoFiles[MatrixFile])
 
-GSEeset <- getGEO(filename = "GeoRepo/GSE69967_series_matrix.txt.gz", GSEMatrix = T, destdir = "")
+if (file.exists(MatrixFilePath)) {
+     message(paste("Matrix File for",GSEMatrix, "Found in GEORepo at", GeoRepoPath))
+     GSEeset <- getGEO(filename = MatrixFilePath, GSEMatrix = T )
+} else {
+     message(paste("Matrix File for", GSEMatrix, " found in GEORepo at", GeoRepoPath))
+     GSEeset <- getGEO(GEO = "GSE69967", GSEMatrix = T, destdir = "~/GeoWizard/GEORepo")
+}
+
+
+
 ArrayData <- exprs(GSEeset)
-
 
 fit <- lmFit(ArrayData, DesignMatrix)
 fit <- eBayes(fit)
