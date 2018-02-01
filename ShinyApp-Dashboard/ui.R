@@ -11,12 +11,13 @@ library(shinycssloaders)
 library(ggplot2)
 library(vcd)
 library(gplots)
+library(ggridges)
 library(RColorBrewer)
 library(DT)
 
 library(limma)
 library(Biobase)
-library(BioQC)
+library(BioQC) #install.packages("https://bioarchive.galaxyproject.org/BioQC_1.4.0.tar.gz", repos = NULL)
 library(GEOquery)
 library(vcd)
 library(GEOmetadb)
@@ -501,8 +502,7 @@ ui <- dashboardPage(
                                                  
                                         hidden(
                                         div(id="GMTTable",
-                                        dataTableOutput("GMTFileTable") %>%
-                                        withSpinner(color = "#0dc5c1")))),
+                                        dataTableOutput("GMTFileTable") %>% withSpinner(color = "#0dc5c1")))),
                                         
                                         tabPanel("Histogram",
                                                  fluidRow(
@@ -511,7 +511,7 @@ ui <- dashboardPage(
                                                       uiOutput("HistFactorSelect")),
                                                  fluidRow(
                                                       style="margin-left :10px; margin-right :10px",
-                                                      plotOutput(outputId = "HistPlotGMT"))
+                                                      plotOutput(outputId = "HistPlotGMT") %>% withSpinner(color = "#0dc5c1"))
                                         ),
                                              
                                              tabPanel("Boxplots",
@@ -523,7 +523,7 @@ ui <- dashboardPage(
                                                                    selected = "Sample"),
                                                       
                                                       uiOutput("BoxFactorSelect"),
-                                                      plotOutput("BoxplotGMT")
+                                                      plotOutput("BoxplotGMT") %>% withSpinner(color = "#0dc5c1")
                                                       )
                                              )
                                         
@@ -544,7 +544,13 @@ ui <- dashboardPage(
                                                 
                                                 tabPanel("PCA"),
                                                 tabPanel("tSNE"),
-                                                tabPanel("BioQC")
+                                                tabPanel("BioQC",
+                                                         actionButton(inputId = "PerformBioQCAnalysis", label = "Perform BioQC Analysis"),
+                                                         br(),
+                                                         plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
+                                                         
+                                                         
+                                                         )
                                                 ),
                                         
                                         tabBox(title = "Enrichment Analysis",

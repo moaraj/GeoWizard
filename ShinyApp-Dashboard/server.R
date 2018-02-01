@@ -671,7 +671,8 @@ server <- function(input, output, session) {
      ####Download the Data
      GSEdata <- reactiveValues()
      
-     GSEdata$Eset <- observeEvent(input$DownloadData, {
+     observeEvent(input$DownloadData, {
+          
           shiny::req(SampleFilterIndex$RowFilterIndex)
           shinyjs::show("GMTTable")
           message("Downloading Data from GEO")
@@ -709,6 +710,7 @@ server <- function(input, output, session) {
                            destdir = "~/GeoWizard/GEORepo")
           }
           
+          GSEdata$Eset <- GSEeset
           ArrayData <- exprs(GSEeset)
           GSEdata$ArrayData <- ArrayData[, SampleFilterIndex$RowFilterIndex] # Only Keep Selected Rows
           message("eset Loaded")
@@ -722,6 +724,22 @@ server <- function(input, output, session) {
           GSEdata$ArrayDataMeltDF <- melt(FilteredArrayFactorDF)
           
           ArrayData
+          })
+     
+     
+          GSEdata$GeneSymbol <- reactive({
+               message("Loading Expression Set Data")
+               GSEeset <- GSEdata$Eset
+               
+               message("Extracting Gene Symbol feature annotations")
+               geneSymbolNames <- colsplit(
+                    string = GSEeset@featureData@data$`Gene Symbol`,
+                    pattern = " ",
+                    names = c("GeneSymbol", "SecondarySymbol"))
+               
+               GeneSymbolEset <- exprs(GSEeset)
+               rownames(GeneSymbolEset) <- geneSymbolNames$GeneSymbol
+               GeneSymbolEset
           })
 
      
@@ -745,6 +763,12 @@ server <- function(input, output, session) {
      
      ####### Hist Tab
      
+     GSEdata$SampleArrayDataMeltDF <- reactive({
+          MeltedDF <- GSEdata$ArrayDataMeltDF
+          sample_frac(MeltedDF, 0.1)     
+     })
+     
+     
      output$HistFactorSelect <- renderUI({
           MeltedDF <- GSEdata$ArrayDataMeltDF
           FactorOptions <- grep(pattern = "ExpVar[0-9]", x = colnames(MeltedDF), value = T)
@@ -752,8 +776,7 @@ server <- function(input, output, session) {
      })
 
      output$HistPlotGMT <- renderPlot({
-          MeltedDF <- GSEdata$ArrayDataMeltDF
-          SampleArrayDataMeltDF <- sample_frac(MeltedDF, 0.1) #Sample 10% of genes
+          SampleArrayDataMeltDF <- GSEdata$SampleArrayDataMeltDF()
           
           ggplot(SampleArrayDataMeltDF, aes(x = value, y = SampleArrayDataMeltDF[,input$HistFactorSelectInput] , height = ..density..)) +
                geom_density_ridges(stat = "binline", bins = 20, scale = 4, draw_baseline = F) + 
@@ -773,11 +796,12 @@ server <- function(input, output, session) {
           })
      
      output$BoxplotGMT <- renderPlot({
-          ArrayDataMeltDF <- GSEdata$ArrayDataMeltDF
+          ArrayDataMeltDF <- GSEdata$SampleArrayDataMeltDF()
           
           if (input$BoxPlotType == "Sample") {
                ggplot(ArrayDataMeltDF, 
-                      aes(y = ArrayDataMeltDF$value, x = ArrayDataMeltDF$GSM,
+                      aes(y = ArrayDataMeltDF$value, 
+                          x = ArrayDataMeltDF$GSM,
                           fill = ArrayDataMeltDF[,input$BoxFactorSelectInput])) + 
                geom_boxplot() + 
                theme(legend.position = "bottom") + 
@@ -786,23 +810,51 @@ server <- function(input, output, session) {
           } else if (input$BoxPlotType == "Factor"){
                ggplot(ArrayDataMeltDF, 
                       aes(y = ArrayDataMeltDF$value,
-                          x = ArrayDataMeltDF[,input$BoxFactorSelectInput], 
-                          fill = ArrayDataMeltDF[,input$BoxFactorSelectInput])) + 
+                          x = ArrayDataMeltDF[, input$BoxFactorSelectInput], 
+                          fill = ArrayDataMeltDF[, input$BoxFactorSelectInput])) + 
                geom_boxplot() + 
                theme(legend.position = "bottom")
                } else { NULL }
           })
      
-
      
+     ############# BioQC Analysis
      
+     observeEvent(input$PerformBioQCAnalysis, {
+     output$BioQCPlot <- renderPlot({
+               message("Loading Expression Set for BioQC")
+               myEset <- GSEdata$GeneSymbol()
+               
+               message("Loading BioQC Panels")
+               gmtFile <- system.file("extdata/exp.tissuemark.affy.roche.symbols.gmt", package="BioQC")
+               gmt <- readGmt(gmtFile)
+               
+               genesets <- BioQC::readGmt(gmtFile)
+               testIndex <- BioQC::matchGenes(genesets, myEset)
+               
+               wmwResult.greater <- wmwTest(myEset, testIndex, valType="p.greater")
+               wmwResult.less <- wmwTest(myEset, testIndex, valType="p.less")
+               wmwResult.Q <- wmwTest(myEset, testIndex, valType="Q")
+               
+               bioqcResFil <- filterPmat(wmwResult.greater, 1E-8)
+               bioqcAbsLogRes <- absLog10p(bioqcResFil)
+               bioqcAbsLogRes <- tail(bioqcAbsLogRes, n = 10)
+               
+               message("Generating BioQC HeatMap")
+               heatmap.2(bioqcAbsLogRes, Colv=TRUE, Rowv=TRUE,
+                         cexRow=1, cexCol = 1, dendrogram = "both",
+                         col=rev(brewer.pal(11, "RdBu")),
+                         labCol=1:ncol(bioqcAbsLogRes),
+                         main = "BioQC results for GSE",
+                         xlab = "Sample Number",
+                         key = T,
+                         lmat = rbind(c(4,3,0),c(2,1,0),c(0,0,0)),
+                         lwid = c(1.5,4,1),
+                         lhei = c(1.5,4,1),
+                         trace = 'none')
+          })
      
-     
-     
-     
-     
-     
-     
+     })
      
      
      ########################{ Disconnect from SQLite Server on Exit

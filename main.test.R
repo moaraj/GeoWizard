@@ -90,14 +90,65 @@ ggplot(SampleArrayDataMeltDF, aes(x = value, y = SampleArrayDataMeltDF[,2], heig
      labs(title="Expression Counts Per Group", x="Number of Counts", y = "Proportion of Genes") +
      theme(legend.position="none") +  theme_classic()
 
-
-
 ggplot(SampleArrayDataMeltDF, aes(y = value, x = ExpVar3.Text, fill = ExpVar3.Text)) + geom_boxplot() +
      theme(legend.position = "bottom")
 
 ggplot(SampleArrayDataMeltDF, aes(y = value, x = GSM, fill = ExpVar3.Text)) + geom_boxplot() +
      theme(legend.position = "bottom") + theme(axis.text.x = element_text(angle = 90))
 
+
+
+##########
+
+message("Loading Expression Set Data")
+GSEeset <- GSEeset
+
+message("Extracting Gene Symbol feature annotations")
+geneSymbolNames <- colsplit(
+     string = GSEeset@featureData@data$`Gene Symbol`,
+     pattern = " ",
+     names = c("GeneSymbol", "SecondarySymbol"))
+
+GeneSymbolEset <- exprs(GSEeset)
+rownames(GeneSymbolEset) <- geneSymbolNames$GeneSymbol
+myEset <- GeneSymbolEset
+
+
+message("Loading BioQC Panels")
+gmtFile <- system.file("extdata/exp.tissuemark.affy.roche.symbols.gmt", package="BioQC")
+gmt <- readGmt(gmtFile)
+
+genesets <- BioQC::readGmt(gmtFile)
+testIndex <- BioQC::matchGenes(genesets, myEset)
+
+wmwResult.greater <- wmwTest(myEset, testIndex, valType="p.greater")
+wmwResult.less <- wmwTest(myEset, testIndex, valType="p.less")
+wmwResult.Q <- wmwTest(myEset, testIndex, valType="Q")
+
+bioqcResFil <- filterPmat(wmwResult.greater, 1E-3)
+bioqcAbsLogRes <- absLog10p(bioqcResFil)
+bioqcAbsLogRes <- tail(bioqcAbsLogRes, n = 10)
+
+message("Generating BioQC HeatMap")
+heatmap.2(bioqcAbsLogRes, Colv=TRUE, Rowv=TRUE,
+          cexRow=1, cexCol = 1, dendrogram = "both",
+          col=rev(brewer.pal(11, "RdBu")),
+          labCol=1:ncol(bioqcAbsLogRes),
+          main = "BioQC results for GSE",
+          xlab = "Sample Number",
+          key = T,
+          lmat = rbind(c(4,3,0),c(2,1,0),c(0,0,0)),
+          lwid = c(1.5,4,1),
+          lhei = c(1.5,4,1),
+          trace = 'none')
+
+
+
+
+
+
+
+#########
 
 fit <- lmFit(ArrayData, DesignMatrix)
 fit <- eBayes(fit)
