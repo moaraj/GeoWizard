@@ -603,31 +603,31 @@ server <- function(input, output, session) {
           }
      })
      
-     output$TextAhead <- renderUI({
-          localDF <- controlLevelsDF()
-          DFname <- colnames(localDF)
-          DFlevs <- as.character(
-          lapply(localDF, function(x){ 
-               FactorLevels <- levels(x)
-               nLevels <- length(FactorLevels)
-               
-               paste(FactorLevels[1],
-                     FactorLevels[nLevels], 
-                     collapse = " ")
-               }))
-
-          textInput.typeaheadOptions <- list(
-               id="thti",
-               placeholder="~ ExpVa1 + ExpVar2",
-               local=data.frame(name=paste("~ ", DFname), 
-                                info= paste("levels:", DFlevs)),
-               valueKey = "name",
-               tokens=c(1:length(DFname))
-          )
-          
-          do.call(textInput.typeahead, textInput.typeaheadOptions)
-          
-     })
+     # output$TextAhead <- renderUI({
+     #      localDF <- controlLevelsDF()
+     #      DFname <- colnames(localDF)
+     #      DFlevs <- as.character(
+     #      lapply(localDF, function(x){ 
+     #           FactorLevels <- levels(x)
+     #           nLevels <- length(FactorLevels)
+     #           
+     #           paste(FactorLevels[1],
+     #                 FactorLevels[nLevels], 
+     #                 collapse = " ")
+     #           }))
+     # 
+     #      textInput.typeaheadOptions <- list(
+     #           id="thti",
+     #           placeholder="~ ExpVa1 + ExpVar2",
+     #           local=data.frame(name=paste("~ ", DFname), 
+     #                            info= paste("levels:", DFlevs)),
+     #           valueKey = "name",
+     #           tokens=c(1:length(DFname))
+     #      )
+     #      
+     #      do.call(textInput.typeahead, textInput.typeaheadOptions)
+     #      
+     # })
      
 
      
@@ -668,7 +668,132 @@ server <- function(input, output, session) {
      ################################################## Expression Analysis
      
      
+     ####Download the Data
+     GSEdata <- reactiveValues()
      
+     GSEdata$Eset <- observeEvent(input$DownloadData, {
+          shiny::req(SampleFilterIndex$RowFilterIndex)
+          shinyjs::show("GMTTable")
+          message("Downloading Data from GEO")
+          GSE <- input$GsmTableSelect
+          
+          GeoRepoPath <- "~/GeoWizard/GEORepo"
+          GeoRepoFiles <- dir(GeoRepoPath)
+          GSEMatrix <- GSE
+          RegularExp <-
+               paste(GSEMatrix, ".+matrix\\.txt\\.gz", sep = "")
+          MatrixFile <-
+               grep(pattern = RegularExp, x = GeoRepoFiles)
+          MatrixFilePath <-
+               file.path(GeoRepoPath, GeoRepoFiles[MatrixFile])
+          
+          if (file.exists(MatrixFilePath)) {
+               message(paste(
+                    "Matrix File for",
+                    GSEMatrix,
+                    "Found in GEORepo at",
+                    GeoRepoPath
+               ))
+               GSEeset <-
+                    getGEO(filename = MatrixFilePath, GSEMatrix = T)
+          } else {
+               message(paste(
+                    "Matrix File for",
+                    GSEMatrix,
+                    " found in GEORepo at",
+                    GeoRepoPath
+               ))
+               GSEeset <-
+                    getGEO(GEO = "GSE69967",
+                           GSEMatrix = T,
+                           destdir = "~/GeoWizard/GEORepo")
+          }
+          
+          ArrayData <- exprs(GSEeset)
+          GSEdata$ArrayData <- ArrayData[, SampleFilterIndex$RowFilterIndex] # Only Keep Selected Rows
+          message("eset Loaded")
+          
+          ArrayDataT <- t(ArrayData)
+          GSM <- rownames(ArrayDataT)
+          FactorDF <- ExperimentalDesign$SelectedFactorDF() # GSM x Factors
+          GSMFactorDF <- cbind.data.frame(GSM, FactorDF)
+          ArrayAndFactorDataDF <- cbind.data.frame(GSMFactorDF, ArrayDataT) # Matrix GSM x Genes
+          FilteredArrayFactorDF <- ArrayAndFactorDataDF[SampleFilterIndex$RowFilterIndex, ] # Rows To Keep
+          GSEdata$ArrayDataMeltDF <- melt(FilteredArrayFactorDF)
+          
+          ArrayData
+          })
+
+     
+     ######### Column 1 - GMT File Tab
+     
+     output$GMTFileTable <- renderDataTable({
+          DF <- GSEdata$ArrayData
+          DT::datatable(data = DF,
+                        rownames = TRUE,
+                        class = 'compact',
+                        extensions = 'Buttons', 
+                        options = list(
+                             scrollX = T,
+                             scrollY = '300px',
+                             paging = T,
+                             dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel')))
+          
+          })
+     
+     
+     ####### Hist Tab
+     
+     output$HistFactorSelect <- renderUI({
+          MeltedDF <- GSEdata$ArrayDataMeltDF
+          FactorOptions <- grep(pattern = "ExpVar[0-9]", x = colnames(MeltedDF), value = T)
+          selectInput(inputId = "HistFactorSelectInput",label = "Fill by Factor",choices = FactorOptions,selected = FactorOptions[1])
+     })
+
+     output$HistPlotGMT <- renderPlot({
+          MeltedDF <- GSEdata$ArrayDataMeltDF
+          SampleArrayDataMeltDF <- sample_frac(MeltedDF, 0.1) #Sample 10% of genes
+          
+          ggplot(SampleArrayDataMeltDF, aes(x = value, y = SampleArrayDataMeltDF[,input$HistFactorSelectInput] , height = ..density..)) +
+               geom_density_ridges(stat = "binline", bins = 20, scale = 4, draw_baseline = F) + 
+               labs(title="Expression Counts Per Group", 
+               x = "Number of Counts", 
+               y = input$HistFactorSelectInput) +
+               theme(legend.position="NULL") +
+               theme_ridges()
+          })
+     
+     ######### Column 1 - Boxplot
+     
+     output$BoxFactorSelect <- renderUI({
+          MeltedDF <- GSEdata$ArrayDataMeltDF
+          FactorOptions <- grep(pattern = "ExpVar[0-9]", x = colnames(MeltedDF), value = T)
+          selectInput(inputId = "BoxFactorSelectInput",label = "Fill by Factor", choices = FactorOptions,selected = FactorOptions[1])
+          })
+     
+     output$BoxplotGMT <- renderPlot({
+          ArrayDataMeltDF <- GSEdata$ArrayDataMeltDF
+          
+          if (input$BoxPlotType == "Sample") {
+               ggplot(ArrayDataMeltDF, 
+                      aes(y = ArrayDataMeltDF$value, x = ArrayDataMeltDF$GSM,
+                          fill = ArrayDataMeltDF[,input$BoxFactorSelectInput])) + 
+               geom_boxplot() + 
+               theme(legend.position = "bottom") + 
+               theme(axis.text.x = element_text(angle = 90))
+               
+          } else if (input$BoxPlotType == "Factor"){
+               ggplot(ArrayDataMeltDF, 
+                      aes(y = ArrayDataMeltDF$value,
+                          x = ArrayDataMeltDF[,input$BoxFactorSelectInput], 
+                          fill = ArrayDataMeltDF[,input$BoxFactorSelectInput])) + 
+               geom_boxplot() + 
+               theme(legend.position = "bottom")
+               } else { NULL }
+          })
+     
+
      
      
      

@@ -466,7 +466,8 @@ ui <- dashboardPage(
                                          width = 12,
                                          collapsible = T,
                                          
-                                         plotOutput("ExperimentalBlocksPlot")
+                                         plotOutput("ExperimentalBlocksPlot") %>% 
+                                              withSpinner(color = "#0dc5c1")
                                          
                                          )
                                      
@@ -483,54 +484,52 @@ ui <- dashboardPage(
                     tabItem(tabName = "DifferentialAnalysis",
                             
                             fluidRow(
-                                 column(4,
-                                        box(title = "Download Data",
-                                            solidHeader = T,
-                                            status = "primary",
-                                            width = 6,
-                                            fluidRow(
-                                                 column(4,
-                                                        HTML("<center>"),
-                                                        tags$button(
-                                                               id = "DownloadData",
-                                                               class="btn action-button",
-                                                               icon("download", lib = "font-awesome")
-                                                               ),
-                                                          HTML("</center>")),
-                                                 column(8, uiOutput("GeoQueryDownloadStatus"))
-                                                 )
-                                        ),
-                                        
+                                 column(5,
+                                   
                                         tabBox(
-                                             title = "Raw Data Statistics",
-                                             width = 12,
+                                        title = "Raw Data Statistics",
+                                        width = 12,
                                              
-                                             tabPanel("GMT File",
-                                                      solidHeader = T,
-                                                      status = "primary"),
-                                             
-                                             tabPanel("Histogram",
-                                                      bootstrapPage(
-                                                           actionButton("HistOverall", "Overall", style="display:inline-block"),
-                                                           actionButton("HistSample", "By Sample", style="display:inline-block"),
-                                                           actionButton("HistFactor", "By Factor", style="display:inline-block"),
-                                                           uiOutput("HistSampleNumberSelector"),
-                                                           uiOutput("HistSampleFactorSelector"))
-                                             ),
+                                        
+                                        
+                                        tabPanel("GMT File",
+                                                 solidHeader = T,
+                                                 status = "primary",
+                                                 
+                                        actionButton(inputId = "DownloadData",label = "Download Data from GEO", width = 12),
+                                        hr(),
+                                                 
+                                        hidden(
+                                        div(id="GMTTable",
+                                        dataTableOutput("GMTFileTable") %>%
+                                        withSpinner(color = "#0dc5c1")))),
+                                        
+                                        tabPanel("Histogram",
+                                                 fluidRow(
+                                                      style="margin-left :10px; margin-right :10px",
+                                                      h4("Count Matrix Histograms"),
+                                                      uiOutput("HistFactorSelect")),
+                                                 fluidRow(
+                                                      style="margin-left :10px; margin-right :10px",
+                                                      plotOutput(outputId = "HistPlotGMT"))
+                                        ),
                                              
                                              tabPanel("Boxplots",
-                                                      bootstrapPage(
-                                                      actionButton("BoxPlotOverall", "Overall", style="display:inline-block"),
-                                                      actionButton("BoxPlotSample", "By Sample", style="display:inline-block"),
-                                                      actionButton("BoxPlotFactor", "By Factor", style="display:inline-block"),
-                                                      uiOutput("BoxPlotSampleNumberSelector"),
-                                                      uiOutput("BoxPlotSampleFactorSelector"))
+                                                      radioButtons(inputId = "BoxPlotType",
+                                                                   label = "Boxplot by:",
+                                                                   choices = c("Sample","Factor"),
+                                                                   choiceNames = c("Sample", "Factor"),
+                                                                   inline = T,
+                                                                   selected = "Sample"),
+                                                      
+                                                      uiOutput("BoxFactorSelect"),
+                                                      plotOutput("BoxplotGMT")
                                                       )
                                              )
                                         
                                         ), #First Column
                                  
-                                 column(8,
+                                 column(7,
                                         
                                         tabBox( title = "Expression Analysis",
                                                 width = 12,

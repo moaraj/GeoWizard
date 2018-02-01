@@ -50,6 +50,7 @@ GSM <- Step_1$gsm
 GraphDF <- cbind(GSM, Step_6)
 DesignMatrix <- model.matrix( ~ ExpVar3.Text + ExpVar4.Text, GraphDF )
 
+######### Function to Download File
 GeoRepoPath <- "~/GeoWizard/GEORepo"
 GeoRepoFiles <- dir(GeoRepoPath)
 GSEMatrix <- "GSE69967"
@@ -61,13 +62,42 @@ if (file.exists(MatrixFilePath)) {
      message(paste("Matrix File for",GSEMatrix, "Found in GEORepo at", GeoRepoPath))
      GSEeset <- getGEO(filename = MatrixFilePath, GSEMatrix = T )
 } else {
-     message(paste("Matrix File for", GSEMatrix, " found in GEORepo at", GeoRepoPath))
+     message(paste("Matrix File for", GSEMatrix, "Found in GEORepo at", GeoRepoPath))
      GSEeset <- getGEO(GEO = "GSE69967", GSEMatrix = T, destdir = "~/GeoWizard/GEORepo")
 }
 
 
-
 ArrayData <- exprs(GSEeset)
+ArrayDataT <- t(ArrayData)
+
+FactorDF <- Step_6[1:2]
+GSM <- rownames(ArrayDataT)
+GSMFactorDF <- cbind.data.frame(GSM, FactorDF)
+ArrayAndFactorDataDF <- cbind.data.frame(GSMFactorDF, ArrayDataT)
+ArrayDataMeltDF <- melt(ArrayAndFactorDataDF)
+
+SampleArrayDataMeltDF <- sample_frac(ArrayDataMeltDF, .001)
+colnames(SampleArrayDataMeltDF)
+
+
+library(ggridges)
+ggplot(SampleArrayDataMeltDF, aes(x = value, group = ExpVar3.Text, fill =ExpVar3.Text, position="identity" )) 
+
+FactorOptions <- colnames(SampleArrayDataMeltDF)
+
+ggplot(SampleArrayDataMeltDF, aes(x = value, y = SampleArrayDataMeltDF[,2], height = ..density..)) + 
+     geom_density_ridges(stat = "binline", bins = 20, scale = 4, draw_baseline = T) + 
+     labs(title="Expression Counts Per Group", x="Number of Counts", y = "Proportion of Genes") +
+     theme(legend.position="none") +  theme_classic()
+
+
+
+ggplot(SampleArrayDataMeltDF, aes(y = value, x = ExpVar3.Text, fill = ExpVar3.Text)) + geom_boxplot() +
+     theme(legend.position = "bottom")
+
+ggplot(SampleArrayDataMeltDF, aes(y = value, x = GSM, fill = ExpVar3.Text)) + geom_boxplot() +
+     theme(legend.position = "bottom") + theme(axis.text.x = element_text(angle = 90))
+
 
 fit <- lmFit(ArrayData, DesignMatrix)
 fit <- eBayes(fit)
@@ -75,7 +105,6 @@ fit <- eBayes(fit,trend=TRUE)
 
 LimmaTable <- topTable(fit, coef=2, n=4000, adjust="BH")
 LimmaTable
-
 
 
 View(model.matrix(~ExpVar3.Text+ExpVar4.Text, Step_6))
