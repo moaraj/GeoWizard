@@ -533,16 +533,30 @@ ui <- dashboardPage(
                                         
                                         tabBox( title = "Expression Analysis",
                                                 width = 12,
-                                                tabPanel("Volcano Plot"),
-                                                tabPanel("MA Plot"),
-                                                tabPanel("Clustering"),
-                                                tabPanel("BoxPlot"),
+                                                
+                                                tabPanel(title = "Volcano Plot",
+                                                         fluidRow(uiOutput("PValThres"),uiOutput("LogFCThres")),
+                                                         fluidRow(plotOutput("VolcanoPlot"))
+                                                         ),
+                                                
+                                                tabPanel(title = "MA Plot",
+                                                         plotOutput("MAPlot")),
+                                                
+                                                tabPanel(title = "Clustering",
+                                                         plotOutput("Clustering")),
+                                                
+                                                tabPanel("BoxPlot", 
+                                                         uiOutput("EABoxPlotOptions"),
+                                                         plotOutput("EABoxPlot")),
+                                                
                                                 tabPanel("Top Table")),
                                         
                                         tabBox( title = "QC Analysis",
                                                 width = 12,
-                                                
-                                                tabPanel("PCA"),
+                                                tabPanel("PCA",
+                                                         plotOutput("EAPCA"),
+                                                         plotOutput("EAPLSDA")),
+                                                         
                                                 tabPanel("tSNE"),
                                                 tabPanel("BioQC",
                                                          actionButton(inputId = "PerformBioQCAnalysis", label = "Perform BioQC Analysis"),

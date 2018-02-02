@@ -818,6 +818,85 @@ server <- function(input, output, session) {
           })
      
      
+     ###################################################################### Expression Analysis
+     
+     AnalysisResults <- reactiveValues()
+     
+     AnalysisResults$LimmaResults <- reactive({
+          
+          DesignMatrix <- ExperimentalDesign$DesignMatrix
+          ArrayData <- GSEdata$ArrayData
+          
+          fit <- lmFit(ArrayData, DesignMatrix)
+          fit <- eBayes(fit)
+          fit <- eBayes(fit,trend=TRUE)
+               
+          LimmaTable <- topTable(fit, coef=2, n=4000, adjust="BH")
+          AnalysisResults$LimmaTable <- LimmaTable
+          LimmaTable
+          
+          })
+     
+     
+     ############ Volcano Plot
+     
+     
+     output$PValThres <- renderUI({
+          shiny::req(AnalysisResults$LimmaTable)
+          LimmaTable <- AnalysisResults$LimmaTable
+          numericInput(inputId = "PValThresInput",
+                       label = "pValue Threshold",
+                       value = 2,
+                       min = min(-log(LimmaTable$adj.P.Val)),
+                       max = max(-log(LimmaTable$adj.P.Val)),
+                       step = median(-log(LimmaTable$adj.P.Val))/10)
+     })
+     
+     output$LogFCThres <- renderUI({
+          numericInput(inputId = "LogFCThresInput",
+                       label = "LogFC Threshold",
+                       value = 1,
+                       min = 0,
+                       max = 5,
+                       step = 0.5)
+          })
+     
+     
+     
+     output$VolcanoPlot <- renderPlot({
+          pValueThresHold <- input$PValThresInput
+          logFCThresHold <- input$LogFCThresInput
+          
+          LimmaTable <- AnalysisResults$LimmaResults
+          LimmaTable <- LimmaTable()
+          
+          LimmaTable <- LimmaTable %>% 
+               mutate(Threshold = logFC > logFCThresHold | logFCThresHold < -1.5) %>%
+               mutate(Threshold = as.numeric(Threshold)) %>%
+               mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
+          
+          ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) + 
+               geom_point() + theme_grey()
+          
+     })
+     
+     
+     ############ MA Plot
+     
+     
+     
+     ############ Clustering
+     
+     
+     
+     ############ BoxPlot
+     
+     
+     ############ TopTable     
+     
+     
+     ####################################################################### QC Analysis
+     
      ############# BioQC Analysis
      
      observeEvent(input$PerformBioQCAnalysis, {
@@ -848,13 +927,25 @@ server <- function(input, output, session) {
                          main = "BioQC results for GSE",
                          xlab = "Sample Number",
                          key = T,
-                         lmat = rbind(c(4,3,0),c(2,1,0),c(0,0,0)),
+                         lmat = rbind(c(0,3,4),c(2,1,0),c(0,0,0)),
                          lwid = c(1.5,4,1),
                          lhei = c(1.5,4,1),
                          trace = 'none')
           })
      
      })
+     
+     
+     ################ PCA Plot
+     
+     
+     
+     
+     ################ tSNE Plot
+     
+     
+     
+     
      
      
      ########################{ Disconnect from SQLite Server on Exit
