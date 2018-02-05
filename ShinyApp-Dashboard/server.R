@@ -681,34 +681,23 @@ server <- function(input, output, session) {
           GeoRepoPath <- "~/GeoWizard/GEORepo"
           GeoRepoFiles <- dir(GeoRepoPath)
           GSEMatrix <- GSE
-          RegularExp <-
-               paste(GSEMatrix, ".+matrix\\.txt\\.gz", sep = "")
-          MatrixFile <-
-               grep(pattern = RegularExp, x = GeoRepoFiles)
-          MatrixFilePath <-
-               file.path(GeoRepoPath, GeoRepoFiles[MatrixFile])
+          
+          RegularExp <- paste(GSEMatrix, ".+matrix\\.txt\\.gz", sep = "")
+          MatrixFileIndex <- grep(pattern = RegularExp, x = GeoRepoFiles)
+          MatrixFilePath <- file.path(GeoRepoPath, GeoRepoFiles[MatrixFileIndex])
           
           if (file.exists(MatrixFilePath)) {
-               message(paste(
-                    "Matrix File for",
-                    GSEMatrix,
-                    "Found in GEORepo at",
-                    GeoRepoPath
-               ))
-               GSEeset <-
-                    getGEO(filename = MatrixFilePath, GSEMatrix = T)
-          } else {
-               message(paste(
-                    "Matrix File for",
-                    GSEMatrix,
-                    " found in GEORepo at",
-                    GeoRepoPath
-               ))
-               GSEeset <-
-                    getGEO(GEO = "GSE69967",
-                           GSEMatrix = T,
-                           destdir = "~/GeoWizard/GEORepo")
+                message(paste( "Matrix File for", GSEMatrix, "found in GEORepo at", GeoRepoPath))
+                GSEeset <- getGEO(filename = MatrixFilePath, GSEMatrix = TRUE)
+                
+           } else {
+                # Put button or warning for this failed try again
+                message(paste( "Matrix File for", GSEMatrix,"not found in GEORepo at", GeoRepoPath))
+                GSEeset <- getGEO(GEO = GSE, GSEMatrix = T, destdir = "~/GeoWizard/GEORepo/")
+                
           }
+          
+          if(class(GSEeset) == "list"){ GSEeset <- GSEeset[[1]] } #Get GEO prodces list of files sometimes
           
           GSEdata$Eset <- GSEeset
           ArrayData <- exprs(GSEeset)
@@ -937,6 +926,42 @@ server <- function(input, output, session) {
      
      
      ################ PCA Plot
+     
+     PCAData <- reactiveValues()
+     
+     PCAData$Res <- reactive({
+          dat <- GSEdata$GeneSymbol()
+          rownames(dat) = make.names(rownames(dat), unique=TRUE)
+          PCA(dat, graph = F, scale.unit = T)
+     })
+     
+     output$PCA <- renderPlot({
+          fviz_pca_ind(PCAData$Res(),
+                       col.ind = "cos2",
+                       gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                       repel = TRUE)
+     })
+     
+     output$ElbowPlot <- renderPlot({
+          fviz_eig(PCAData$Res(), ddlabels = TRUE, ylim = c(0, 50)) # ScreePlot
+     })
+     
+     output$CorrelationCircle <- renderPlot({
+          fviz_pca_var(PCAData$Res(),
+                       col.var = "contrib",
+                       gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+     })
+     
+     output$Contrib1 <- renderPlot({
+          fviz_contrib(PCAData$Res(),
+                       choice = "var", 
+                       axes = 1, 
+                       top = 10) # Contributions of variables to PC1
+     })
+     
+     output$Contrib2 <- renderPlot({
+          fviz_contrib(PCAData$Res(), choice = "var", axes = 2, top = 10) # Contributions of variables to PC1
+     })
      
      
      

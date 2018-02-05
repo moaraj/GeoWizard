@@ -22,6 +22,9 @@ library(GEOquery)
 library(vcd)
 library(GEOmetadb)
 
+library(FactoMineR)
+library(factoextra)
+
 source(file = "GeoParse.R")
 source(file = "GSMAnnotation.R")
 source(file = "MoleculeLibraries/MoleculeLibraries.R")
@@ -360,13 +363,7 @@ ui <- dashboardPage(
                                                         label = 'Hide Filter Boxes',
                                                         class = "btn-primary")
                                                    )
-                                          ),
-                                     
-                                     box(title = "Predicted Interpretation",
-                                         collapsible = T,
-                                         solidHeader = T,
-                                         status="danger",
-                                         width = 12)
+                                          )
                                      ), # Column Classifications
                               
                               column(4,
@@ -554,16 +551,21 @@ ui <- dashboardPage(
                                         tabBox( title = "QC Analysis",
                                                 width = 12,
                                                 tabPanel("PCA",
-                                                         plotOutput("EAPCA"),
-                                                         plotOutput("EAPLSDA")),
+                                                         fluidRow(column(12, plotOutput("PCA"))),
                                                          
-                                                tabPanel("tSNE"),
+                                                         fluidRow(
+                                                              column(6, plotOutput("ElbowPlot")),
+                                                              column(6, plotOutput("CorrelationCircle"))),
+                                                         
+                                                         fluidRow(
+                                                              column(6, plotOutput("Contrib1")),
+                                                              column(6, plotOutput("Contrib2")))
+                                                         ),
+                                                         
                                                 tabPanel("BioQC",
                                                          actionButton(inputId = "PerformBioQCAnalysis", label = "Perform BioQC Analysis"),
                                                          br(),
                                                          plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
-                                                         
-                                                         
                                                          )
                                                 ),
                                         
