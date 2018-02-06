@@ -27,6 +27,9 @@ library(factoextra)
 
 source(file = "GeoParse.R")
 source(file = "GSMAnnotation.R")
+source(file = "GeoFileHandling.R")
+source(file = "QCAnalysis.R")
+
 source(file = "MoleculeLibraries/MoleculeLibraries.R")
 source(file = "GeoTrainingSets/KeyWords.r")
 source(file = "helpers.R")
@@ -485,78 +488,106 @@ ui <- dashboardPage(
                                  tabBox(title = "Raw Data Statistics", 
                                         width = 12,
                                         
-                                        tabPanel(
-                                           "GMT File",
+                                        tabPanel(title = "GMT File",
                                            solidHeader = T,
                                            status = "primary",
                                            
-                                           actionButton(
-                                                inputId = "DownloadData",
+                                           actionButton( inputId = "DownloadData",
                                                 label = "Download Data from GEO",
-                                                width = 12
-                                           ),
+                                                width = 12 ),
                                            hr(),
                                            
-                                           
-                                           hidden(div(
-                                                id = "GMTTable",
-                                                dataTableOutput("GMTFileTable") %>% withSpinner(color = "#0dc5c1")
+                                           hidden(div( id = "GMTTable",
+                                                       dataTableOutput("GMTFileTable") %>% withSpinner(color = "#0dc5c1")
                                            ))
                                       ),
                                       
-                                      tabPanel(
-                                           "Histogram",
+                                      tabPanel(title = "Boxplots",
+                                               fluidRow(
+                                                    style = "margin-left :10px; margin-right :10px",
+                                                    h4("Count Matrix BoxPlot"),
+                                                
+                                                column(4,selectInput(inputId = "BoxPlotType",
+                                                                     label = "BoxPlotType",
+                                                                     choices = c("Sample", "Gene"),
+                                                                     selected = "Sample")),
+                                                
+                                                column(4,selectInput(inputId = "BoxPlotBy",
+                                                                     label = "BoxPlotBy",
+                                                                     choices = c("Overall", "Factor"),
+                                                                     selected = "Factor")),
+                                                
+                                                column(4,uiOutput("BoxFactorSelect")),
+                                                
+                                                column(4,numericInput(inputId = "BoxSampleSize",
+                                                                      label = "Number of GSM or Gene's to Sample",
+                                                                      value = 10,
+                                                                      min = 1,
+                                                                      step = 10))
+                                                ), # tabPanel(title = "Boxplots"
+                                           
                                            fluidRow(
                                                 style = "margin-left :10px; margin-right :10px",
-                                                h4("Count Matrix Histograms"),
-                                                uiOutput("HistFactorSelect")
-                                           ),
-                                           fluidRow(
-                                                style = "margin-left :10px; margin-right :10px",
-                                                plotOutput(outputId = "HistPlotGMT") %>% withSpinner(color = "#0dc5c1")
+                                                plotOutput(outputId = "BoxPlotGMT") %>% withSpinner(color = "#0dc5c1")
                                            )
                                       ),
                                       
-                                      tabPanel(
-                                           "Boxplots",
-                                           radioButtons(
-                                                inputId = "BoxPlotType",
-                                                label = "Boxplot by:",
-                                                choices = c("Sample", "Factor"),
-                                                choiceNames = c("Sample", "Factor"),
-                                                inline = T,
-                                                selected = "Sample"
-                                           ),
-                                           
-                                           uiOutput("BoxFactorSelect"),
-                                           plotOutput("BoxplotGMT") %>% withSpinner(color = "#0dc5c1")
-                                      )
-                                 )
-                                 
-                            ),
+                                      tabPanel("Histogram",
+                                               fluidRow(
+                                                    column(4, uiOutput("HistFactorSelect")),
+                                                    
+                                                    column(4,selectInput(inputId = "HistPlotType",
+                                                                         label = "BoxPlotBy",
+                                                                         choices = c("Sample", "Gene", "Factor"),
+                                                                         selected = "Sample")),
+                                                    
+                                                    column(4,numericInput(inputId = "HistSampleSize",
+                                                                          label = "Number of GSM or Gene's to Sample",
+                                                                          value = 10,
+                                                                          min = 1,
+                                                                          step = 10))),
+                                               fluidRow( plotOutput("HistPlotGMT") %>% withSpinner(color = "#0dc5c1") )
+                                               
+                                               ) # tabPanel("Histogram"
+                                      ) # tabBox(title = "Raw Data Statistics"
+                                 ), # First Column of the page
+                            
                             column(5,
                                    
                                    tabBox( title = "QC Analysis",
                                            width = 12,
-                                           tabPanel("PCA",
+                                           tabPanel(title = "PCA", 
                                                     fluidRow(column(12, plotOutput("PCA"))),
-                                                    
                                                     fluidRow(
                                                          column(6, plotOutput("ElbowPlot")),
                                                          column(6, plotOutput("CorrelationCircle"))),
-                                                    
                                                     fluidRow(
                                                          column(6, plotOutput("Contrib1")),
                                                          column(6, plotOutput("Contrib2")))
                                            ),
                                            
                                            tabPanel("BioQC",
-                                                    actionButton(inputId = "PerformBioQCAnalysis", label = "Perform BioQC Analysis"),
+                                                    style = "margin-left :10px; margin-right :10px",
                                                     br(),
-                                                    plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
+                                                    fluidRow(actionButton(inputId = "PerformBioQCAnalysis", 
+                                                                      label = "Perform BioQC Analysis", 
+                                                                      size = "large")),
+                                                    fluidRow(helpText(
+                                                    paste(
+                                                    "BioQC performs quality control of high-throughput expression data based on ",
+                                                    "tissue gene signatures. It can detect tissue heterogeneity in gene " ,
+                                                    "expression data. The core algorithm is a Wilcoxon-Mann-Whitney ",
+                                                    "test that is optimised for high performance."))),
+                                                    
+                                                    
+                                                    fluidRow(
+                                                         plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1"))
                                            )
                                    )
-                              ))), 
+                              )
+                            
+                            ) # Fluid Row For the TabItem
+                            ), 
                     
                     
                     

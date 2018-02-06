@@ -3,6 +3,8 @@ setwd(GeoRepoPath)
 
 source(file = "GeoParse.R")
 source(file = "GSMAnnotation.R")
+source(file = "GeoFileHandling.R")
+source(file = "SeriesHanding.R")
 
 if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
 con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
@@ -52,118 +54,34 @@ DesignMatrix <- model.matrix( ~ ExpVar3.Text + ExpVar4.Text, GraphDF )
 
 ######### Function to Download File
 GeoRepoPath <- "~/GeoWizard/GEORepo"
-GeoRepoFiles <- dir(GeoRepoPath)
-GSEMatrix <- "GSE69967"
-
-RegularExp <- paste(GSEMatrix, ".+matrix\\.txt\\.gz", sep = "")
-MatrixFile <- grep(pattern = RegularExp, x = GeoRepoFiles)
-MatrixFilePath <- file.path(GeoRepoPath, GeoRepoFiles[MatrixFile])
-
-RegularExp <- paste(GSEMatrix, ".+matrix\\.txt\\.gz\\.", sep = "")
-RDSFilePath <- paste(MatrixFilePath, ".rds", sep = "")
-
-if(file.exists(RDSFilePath)){
-     GSEeset <- readRDS(RDSFilePath)
-} else if (file.exists(MatrixFilePath)) {
-     message(paste("Matrix File for",GSEMatrix, "Found in GEORepo at", GeoRepoPath))
-     GSEeset <- getGEO(filename = MatrixFilePath, GSEMatrix = T )
-     saveRDS(object = GSEeset, file = RDSFilePath)
-} else {
-     message(paste("Matrix File for", GSEMatrix, "Found in GEORepo at", GeoRepoPath))
-     GSEeset <- getGEO(GEO = "GSE69967", GSEMatrix = T, destdir = "~/GeoWizard/GEORepo")
-     saveRDS(object = GSEeset, file = RDSFilePath)
-}
+GSE <- "GSE69967"
+GSEeset <- LoadGEOFiles(GSE = "GSE69967", GeoRepoPath = GeoRepoPath)
 
 
-ArrayData <- exprs(GSEeset)
-ArrayDataT <- t(ArrayData)
-
+######### Function to Make GMT Ggplotable
 FactorDF <- Step_6[1:2]
-GSM <- rownames(ArrayDataT)
-GSMFactorDF <- cbind.data.frame(GSM, FactorDF)
-ArrayAndFactorDataDF <- cbind.data.frame(GSMFactorDF, ArrayDataT)
-ArrayDataMeltDF <- melt(ArrayAndFactorDataDF)
+GSEgmtDF <- GenGMTggplotDF(GSEeset = GSEeset,FactorDF = FactorDF)
 
-SampleArrayDataMeltDF <- sample_frac(ArrayDataMeltDF, .001)
-colnames(SampleArrayDataMeltDF)
+######## GMT Boxplots and Histograms
+GMTBoxplot(GSEgmtDF = GSEgmtDF, BoxPlotType = "Sample", PlotBy = "Overall", PlotFactor = "ExpVar3.Text" )
+GMTBoxplot(GSEgmtDF = GSEgmtDF, BoxPlotType = "Sample", PlotBy = "Factor", PlotFactor = "ExpVar3.Text" )
+GMTBoxplot(GSEgmtDF = GSEgmtDF,BoxPlotType = "Gene" , PlotBy = "Overall",PlotFactor = "ExpVar3.Text")
+GMTBoxplot(GSEgmtDF = GSEgmtDF,BoxPlotType = "Gene" , PlotBy = "Factor",PlotFactor = "ExpVar3.Text")
 
+GMTHistPlot(GSEgmtDF, "Gene", "ExpVar3.Text", 10)
+GMTHistPlot(GSEgmtDF, "Sample", "ExpVar3.Text", 10)
+GMTHistPlot(GSEgmtDF, "Factor", "ExpVar3.Text", 10)
 
-library(ggridges)
-ggplot(SampleArrayDataMeltDF, aes(x = value, group = ExpVar3.Text, fill =ExpVar3.Text, position="identity" )) 
+########## Convert to Gene Symbol
+source(file = "GeoFileHandling.R")
+GeneSymbolGSEeset <- ConvertGSEAnnotations(GSEeset = GSEeset)
 
-FactorOptions <- colnames(SampleArrayDataMeltDF)
+######### QC
+source(file = "QCAnalysis.R")
+RunBioQC(GSEeset = GeneSymbolGSEeset)
 
-ggplot(SampleArrayDataMeltDF, aes(x = value, y = SampleArrayDataMeltDF[,2], height = ..density..)) + 
-     geom_density_ridges(stat = "binline", bins = 20, scale = 4, draw_baseline = T) + 
-     labs(title="Expression Counts Per Group", x="Number of Counts", y = "Proportion of Genes") +
-     theme(legend.position="none") +  theme_classic()
-
-ggplot(SampleArrayDataMeltDF, aes(y = value, x = ExpVar3.Text, fill = ExpVar3.Text)) + geom_boxplot() +
-     theme(legend.position = "bottom")
-
-ggplot(SampleArrayDataMeltDF, aes(y = value, x = GSM, fill = ExpVar3.Text)) + geom_boxplot() +
-     theme(legend.position = "bottom") + theme(axis.text.x = element_text(angle = 90))
-
-
-
-##########
-
-message("Loading Expression Set Data")
-GSEeset <- GSEeset
-
-message("Extracting Gene Symbol feature annotations")
-geneSymbolNames <- colsplit(
-     string = GSEeset@featureData@data$`Gene Symbol`,
-     pattern = " ",
-     names = c("GeneSymbol", "SecondarySymbol"))
-
-GeneSymbolEset <- exprs(GSEeset)
-rownames(GeneSymbolEset) <- geneSymbolNames$GeneSymbol
-myEset <- GeneSymbolEset
-
-
-message("Loading BioQC Panels")
-gmtFile <- system.file("extdata/exp.tissuemark.affy.roche.symbols.gmt", package="BioQC")
-gmt <- readGmt(gmtFile)
-
-genesets <- BioQC::readGmt(gmtFile)
-testIndex <- BioQC::matchGenes(genesets, myEset)
-
-wmwResult.greater <- wmwTest(myEset, testIndex, valType="p.greater")
-wmwResult.less <- wmwTest(myEset, testIndex, valType="p.less")
-wmwResult.Q <- wmwTest(myEset, testIndex, valType="Q")
-
-bioqcResFil <- filterPmat(wmwResult.greater, 1E-3)
-bioqcAbsLogRes <- absLog10p(bioqcResFil)
-bioqcAbsLogRes <- tail(bioqcAbsLogRes, n = 10)
-
-message("Generating BioQC HeatMap")
-heatmap.2(bioqcAbsLogRes, Colv=TRUE, Rowv=TRUE,
-          cexRow=1, cexCol = 1, dendrogram = "both",
-          col=rev(brewer.pal(11, "RdBu")),
-          labCol=1:ncol(bioqcAbsLogRes),
-          main = "BioQC results for GSE",
-          xlab = "Sample Number",
-          key = T,
-          lmat = rbind(c(4,3,0),c(2,1,0),c(0,0,0)),
-          lwid = c(1.5,4,1),
-          lhei = c(1.5,4,1),
-          trace = 'none')
-
-
-
-
-
-
-
-#########
-
-fit <- lmFit(ArrayData, DesignMatrix)
-fit <- eBayes(fit)
-fit <- eBayes(fit,trend=TRUE)
-
-LimmaTable <- topTable(fit, coef=2, n=4000, adjust="BH")
-LimmaTable
+######### Limma
+LimmaTopTable(LimmaRes(ArrayData, DesignMatrix))
 
 
 View(model.matrix(~ExpVar3.Text+ExpVar4.Text, Step_6))
