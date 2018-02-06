@@ -595,7 +595,6 @@ ui <- dashboardPage(
                             
                             fluidRow(
                                  
-                                 
                                  column(7,
                                         
                                         tabBox( title = "Expression Analysis",
