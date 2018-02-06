@@ -54,16 +54,24 @@ DesignMatrix <- model.matrix( ~ ExpVar3.Text + ExpVar4.Text, GraphDF )
 GeoRepoPath <- "~/GeoWizard/GEORepo"
 GeoRepoFiles <- dir(GeoRepoPath)
 GSEMatrix <- "GSE69967"
+
 RegularExp <- paste(GSEMatrix, ".+matrix\\.txt\\.gz", sep = "")
 MatrixFile <- grep(pattern = RegularExp, x = GeoRepoFiles)
 MatrixFilePath <- file.path(GeoRepoPath, GeoRepoFiles[MatrixFile])
 
-if (file.exists(MatrixFilePath)) {
+RegularExp <- paste(GSEMatrix, ".+matrix\\.txt\\.gz\\.", sep = "")
+RDSFilePath <- paste(MatrixFilePath, ".rds", sep = "")
+
+if(file.exists(RDSFilePath)){
+     GSEeset <- readRDS(RDSFilePath)
+} else if (file.exists(MatrixFilePath)) {
      message(paste("Matrix File for",GSEMatrix, "Found in GEORepo at", GeoRepoPath))
      GSEeset <- getGEO(filename = MatrixFilePath, GSEMatrix = T )
+     saveRDS(object = GSEeset, file = RDSFilePath)
 } else {
      message(paste("Matrix File for", GSEMatrix, "Found in GEORepo at", GeoRepoPath))
      GSEeset <- getGEO(GEO = "GSE69967", GSEMatrix = T, destdir = "~/GeoWizard/GEORepo")
+     saveRDS(object = GSEeset, file = RDSFilePath)
 }
 
 

@@ -85,7 +85,7 @@ ui <- dashboardPage(
                menuItem("Query Datasets",tabName = "GSESummary",icon = icon("search")),
                menuItem("Filter GSM Metadata", tabName = "GSMMetadata", icon = icon("filter")),
                menuItem( "Design Matrix", icon = icon("th"), tabName = "DesignMatrix"),
-               menuItem("Contrast Matrix", tabName = "ContrastMat", icon = icon("th")),
+               menuItem("Download and QC", tabName = "DataQC", icon = icon("download")),
                menuItem("Expression Analysis", tabName = "DifferentialAnalysis", icon = icon("bar-chart")),
                menuItem("Molecule To Target Search", tabName = "ReverseSerach", icon = icon("database"))
           )
@@ -478,53 +478,92 @@ ui <- dashboardPage(
                                  ) #FluidRow that Structures page into 3 Columns
                             ), #Design Matix TabItem 
                     
-                    tabItem(tabName = "ContrastMatrix"),
+                    tabItem(tabName = "DataQC",
+                            fluidRow(
+                                 column(5,
+                                 
+                                 tabBox(title = "Raw Data Statistics", 
+                                        width = 12,
+                                        
+                                        tabPanel(
+                                           "GMT File",
+                                           solidHeader = T,
+                                           status = "primary",
+                                           
+                                           actionButton(
+                                                inputId = "DownloadData",
+                                                label = "Download Data from GEO",
+                                                width = 12
+                                           ),
+                                           hr(),
+                                           
+                                           
+                                           hidden(div(
+                                                id = "GMTTable",
+                                                dataTableOutput("GMTFileTable") %>% withSpinner(color = "#0dc5c1")
+                                           ))
+                                      ),
+                                      
+                                      tabPanel(
+                                           "Histogram",
+                                           fluidRow(
+                                                style = "margin-left :10px; margin-right :10px",
+                                                h4("Count Matrix Histograms"),
+                                                uiOutput("HistFactorSelect")
+                                           ),
+                                           fluidRow(
+                                                style = "margin-left :10px; margin-right :10px",
+                                                plotOutput(outputId = "HistPlotGMT") %>% withSpinner(color = "#0dc5c1")
+                                           )
+                                      ),
+                                      
+                                      tabPanel(
+                                           "Boxplots",
+                                           radioButtons(
+                                                inputId = "BoxPlotType",
+                                                label = "Boxplot by:",
+                                                choices = c("Sample", "Factor"),
+                                                choiceNames = c("Sample", "Factor"),
+                                                inline = T,
+                                                selected = "Sample"
+                                           ),
+                                           
+                                           uiOutput("BoxFactorSelect"),
+                                           plotOutput("BoxplotGMT") %>% withSpinner(color = "#0dc5c1")
+                                      )
+                                 )
+                                 
+                            ),
+                            column(5,
+                                   
+                                   tabBox( title = "QC Analysis",
+                                           width = 12,
+                                           tabPanel("PCA",
+                                                    fluidRow(column(12, plotOutput("PCA"))),
+                                                    
+                                                    fluidRow(
+                                                         column(6, plotOutput("ElbowPlot")),
+                                                         column(6, plotOutput("CorrelationCircle"))),
+                                                    
+                                                    fluidRow(
+                                                         column(6, plotOutput("Contrib1")),
+                                                         column(6, plotOutput("Contrib2")))
+                                           ),
+                                           
+                                           tabPanel("BioQC",
+                                                    actionButton(inputId = "PerformBioQCAnalysis", label = "Perform BioQC Analysis"),
+                                                    br(),
+                                                    plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
+                                           )
+                                   )
+                              ))), 
+                    
+                    
+                    
                     tabItem(tabName = "DifferentialAnalysis",
                             
                             fluidRow(
-                                 column(5,
-                                   
-                                        tabBox(
-                                        title = "Raw Data Statistics",
-                                        width = 12,
-                                             
-                                        
-                                        
-                                        tabPanel("GMT File",
-                                                 solidHeader = T,
-                                                 status = "primary",
-                                                 
-                                        actionButton(inputId = "DownloadData",label = "Download Data from GEO", width = 12),
-                                        hr(),
-                                                 
-                                        hidden(
-                                        div(id="GMTTable",
-                                        dataTableOutput("GMTFileTable") %>% withSpinner(color = "#0dc5c1")))),
-                                        
-                                        tabPanel("Histogram",
-                                                 fluidRow(
-                                                      style="margin-left :10px; margin-right :10px",
-                                                      h4("Count Matrix Histograms"),
-                                                      uiOutput("HistFactorSelect")),
-                                                 fluidRow(
-                                                      style="margin-left :10px; margin-right :10px",
-                                                      plotOutput(outputId = "HistPlotGMT") %>% withSpinner(color = "#0dc5c1"))
-                                        ),
-                                             
-                                             tabPanel("Boxplots",
-                                                      radioButtons(inputId = "BoxPlotType",
-                                                                   label = "Boxplot by:",
-                                                                   choices = c("Sample","Factor"),
-                                                                   choiceNames = c("Sample", "Factor"),
-                                                                   inline = T,
-                                                                   selected = "Sample"),
-                                                      
-                                                      uiOutput("BoxFactorSelect"),
-                                                      plotOutput("BoxplotGMT") %>% withSpinner(color = "#0dc5c1")
-                                                      )
-                                             )
-                                        
-                                        ), #First Column
+                                 
                                  
                                  column(7,
                                         
@@ -548,27 +587,7 @@ ui <- dashboardPage(
                                                 
                                                 tabPanel("Top Table")),
                                         
-                                        tabBox( title = "QC Analysis",
-                                                width = 12,
-                                                tabPanel("PCA",
-                                                         fluidRow(column(12, plotOutput("PCA"))),
-                                                         
-                                                         fluidRow(
-                                                              column(6, plotOutput("ElbowPlot")),
-                                                              column(6, plotOutput("CorrelationCircle"))),
-                                                         
-                                                         fluidRow(
-                                                              column(6, plotOutput("Contrib1")),
-                                                              column(6, plotOutput("Contrib2")))
-                                                         ),
-                                                         
-                                                tabPanel("BioQC",
-                                                         actionButton(inputId = "PerformBioQCAnalysis", label = "Perform BioQC Analysis"),
-                                                         br(),
-                                                         plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
-                                                         )
-                                                ),
-                                        
+
                                         tabBox(title = "Enrichment Analysis",
                                                width = 12,
                                                
