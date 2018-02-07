@@ -111,6 +111,8 @@ GMTBoxplot <- function(GSEgmtDF, BoxPlotType = "Sample", PlotBy = "Overall", Plo
           xlab(label = xlabtext) +
           guides(fill=guide_legend(title="Experimental Factor Groups")) +
           theme(axis.text.x = element_text(angle = 90)) + 
+          theme(axis.text = element_text(size = 14)) +
+          theme(axis.title = element_text(size = 14)) +
           geom_boxplot()
      
      return(pBox)
@@ -166,21 +168,26 @@ GMTHistPlot <- function(GSEgmtDF, HistPlotType = "Sample", PlotFactor, SampleSiz
 PlotPCA <- function(ArrayData){
      
      rownames(ArrayData) = make.names(rownames(ArrayData), unique=TRUE)
-     ArrayData <- t(ArrayData)
-     ResPCA <- PCA(ArrayData, graph = F, scale.unit = T)
+     TArrayData <- t(ArrayData)
+     ResPCA <- PCA(TArrayData, graph = F, scale.unit = T)
      
      PCAPlot <- fviz_pca_ind(ResPCA, col.ind = "cos2", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), repel = F)
      ScreePlot <- fviz_eig(ResPCA, ddlabels = TRUE, ylim = c(0, 50)) # ScreePlot
-     CorrelationCircle <- fviz_pca_var(ResPCA, col.var = "contrib", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
      
-     ContributionPC1 <- fviz_contrib(ResPCA, choice = "var", axes = 1, top = 10) # Contributions of variables to PC1
-     ContributionPC2 <- fviz_contrib(ResPCA, choice = "var", axes = 2, top = 10) # Contributions of variables to PC2
+     #Correspondence Analysis (CA) is performed using the function CA() [in FactoMineR] 
+     res.ca <- CA(ArrayData, graph=FALSE)
+     CorrespondenceAnalysis <- fviz_ca_row(res.ca, select.row = list(contrib = 20), col.row="cos2") +
+          scale_color_gradient2(low="white", mid="blue", high="red", midpoint=0.5) + 
+          theme_minimal()
+     
+     # Contributions of variables to PC1
+     ContributionPC1 <- fviz_contrib(ResPCA, choice = "var", axes = 1, top = 10) 
+     
      
      PanelPlots <- list("PCA" = PCAPlot,
+                        "CA" = CorrespondenceAnalysis,
                         "Scree" = ScreePlot,
-                        "Corr" = CorrelationCircle,
-                        "Cont1" = ContributionPC1,
-                        "Cont2" = ContributionPC2)
+                        "Cont" = ContributionPC1)
      
      return(PanelPlots)
 }
