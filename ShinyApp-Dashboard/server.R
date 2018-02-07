@@ -844,14 +844,35 @@ server <- function(input, output, session) {
                mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
 
           ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) +
-               geom_point() + theme_grey()
+               geom_point() + theme_grey() + facet_wrap(~ExpVar)
 
      })
      
      
      ############ MA Plot
      
+     output$MALogFCThres <- renderUI({
+          numericInput(inputId = "MALogFCThresInput",
+                       label = "LogFC Threshold",
+                       value = 1,
+                       min = 0,
+                       max = 5,
+                       step = 0.5)
+     })
      
+     output$MAPlot <- renderPlot({
+          logFCThresHold <- input$MALogFCThresInput
+          
+          LimmaTable <- ExpressionAnalysis$LimmaResults()
+          LimmaTable <- as.data.frame(LimmaTable)
+          
+          LimmaTable <- LimmaTable %>% mutate(Threshold = abs(logFC) > logFCThresHold)
+          
+          ggplot(LimmaTable, aes(x = AveExpr, y = logFC, color = factor(Threshold))) +
+               geom_point() + 
+               theme_grey()
+          
+          })
      
      ############ Clustering
      
