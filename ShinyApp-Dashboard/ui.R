@@ -29,6 +29,7 @@ source(file = "GeoParse.R")
 source(file = "GSMAnnotation.R")
 source(file = "GeoFileHandling.R")
 source(file = "QCAnalysis.R")
+source(file = "ExpressionAnalysis.R")
 
 source(file = "MoleculeLibraries/MoleculeLibraries.R")
 source(file = "GeoTrainingSets/KeyWords.r")
@@ -483,7 +484,7 @@ ui <- dashboardPage(
                     
                     tabItem(tabName = "DataQC",
                             fluidRow(
-                                 column(5,
+                                 column(8,
                                  
                                  tabBox(title = "Raw Data Statistics", 
                                         width = 12,
@@ -507,19 +508,21 @@ ui <- dashboardPage(
                                                     style = "margin-left :10px; margin-right :10px",
                                                     h4("Count Matrix BoxPlot"),
                                                 
-                                                column(4,selectInput(inputId = "BoxPlotType",
+                                                column(2,radioButtons(inputId = "BoxPlotType",
                                                                      label = "BoxPlotType",
+                                                                     inline = F,
                                                                      choices = c("Sample", "Gene"),
                                                                      selected = "Sample")),
                                                 
-                                                column(4,selectInput(inputId = "BoxPlotBy",
+                                                column(2,radioButtons(inputId = "BoxPlotBy",
                                                                      label = "BoxPlotBy",
+                                                                     inline = F,
                                                                      choices = c("Overall", "Factor"),
                                                                      selected = "Factor")),
                                                 
-                                                column(4,uiOutput("BoxFactorSelect")),
+                                                column(2,uiOutput("BoxFactorSelect")),
                                                 
-                                                column(4,numericInput(inputId = "BoxSampleSize",
+                                                column(2,numericInput(inputId = "BoxSampleSize",
                                                                       label = "Number of GSM or Gene's to Sample",
                                                                       value = 10,
                                                                       min = 1,
@@ -534,39 +537,34 @@ ui <- dashboardPage(
                                       
                                       tabPanel("Histogram",
                                                fluidRow(
-                                                    column(4, uiOutput("HistFactorSelect")),
-                                                    
-                                                    column(4,selectInput(inputId = "HistPlotType",
+                                                    column(2,radioButtons(inputId = "HistPlotType",
                                                                          label = "BoxPlotBy",
+                                                                         inline = F,
                                                                          choices = c("Sample", "Gene", "Factor"),
                                                                          selected = "Sample")),
                                                     
-                                                    column(4,numericInput(inputId = "HistSampleSize",
+                                                    column(2, uiOutput("HistFactorSelect")),
+                                                    column(2,numericInput(inputId = "HistSampleSize",
                                                                           label = "Number of GSM or Gene's to Sample",
                                                                           value = 10,
                                                                           min = 1,
                                                                           step = 10))),
-                                               fluidRow( plotOutput("HistPlotGMT") %>% withSpinner(color = "#0dc5c1") )
+                                               fluidRow( 
+                                                    column(10, offset = 1,
+                                                           plotOutput("HistPlotGMT") %>% withSpinner(color = "#0dc5c1")) )
                                                
-                                               ) # tabPanel("Histogram"
-                                      ) # tabBox(title = "Raw Data Statistics"
-                                 ), # First Column of the page
-                            
-                            column(5,
+                                               ), # tabPanel("Histogram"
+                                      
+                                      tabPanel(title = "PCA", 
+                                               fluidRow(column(6, plotOutput("PCA")%>% withSpinner(color = "#0dc5c1")),
+                                                        column(6, plotOutput("CA")%>% withSpinner(color = "#0dc5c1"))),
+                                               
+                                               fluidRow(column(6, plotOutput("Scree")%>% withSpinner(color = "#0dc5c1")),
+                                                    column(6, plotOutput("Cont")%>% withSpinner(color = "#0dc5c1")))
+                                      ),
+                                      
                                    
-                                   tabBox( title = "QC Analysis",
-                                           width = 12,
-                                           tabPanel(title = "PCA", 
-                                                    fluidRow(column(12, plotOutput("PCA"))),
-                                                    fluidRow(
-                                                         column(6, plotOutput("ElbowPlot")),
-                                                         column(6, plotOutput("CorrelationCircle"))),
-                                                    fluidRow(
-                                                         column(6, plotOutput("Contrib1")),
-                                                         column(6, plotOutput("Contrib2")))
-                                           ),
-                                           
-                                           tabPanel("BioQC",
+                                 tabPanel("BioQC",
                                                     style = "margin-left :10px; margin-right :10px",
                                                     br(),
                                                     fluidRow(actionButton(inputId = "PerformBioQCAnalysis", 
@@ -583,8 +581,10 @@ ui <- dashboardPage(
                                                     fluidRow(
                                                          plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1"))
                                            )
-                                   )
-                              )
+                                 
+                                 ) # tabBox(title = "Raw Data Statistics"
+                                   ) # Column for Page
+                              
                             
                             ) # Fluid Row For the TabItem
                             ), 
@@ -595,13 +595,16 @@ ui <- dashboardPage(
                             
                             fluidRow(
                                  
-                                 column(7,
+                                 column(8,
                                         
                                         tabBox( title = "Expression Analysis",
                                                 width = 12,
                                                 
                                                 tabPanel(title = "Volcano Plot",
-                                                         fluidRow(uiOutput("PValThres"),uiOutput("LogFCThres")),
+                                                         actionButton("SubmitDEA", 
+                                                                      "Perform Differntial Expression Analysis"),
+                                                         fluidRow(uiOutput("PValThres"),
+                                                                  uiOutput("LogFCThres")),
                                                          fluidRow(plotOutput("VolcanoPlot"))
                                                          ),
                                                 
@@ -615,7 +618,7 @@ ui <- dashboardPage(
                                                          uiOutput("EABoxPlotOptions"),
                                                          plotOutput("EABoxPlot")),
                                                 
-                                                tabPanel("Top Table")),
+                                                tabPanel("Top Table", dataTableOutput("TopTable"))),
                                         
 
                                         tabBox(title = "Enrichment Analysis",

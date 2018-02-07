@@ -5,6 +5,8 @@ source(file = "GeoParse.R")
 source(file = "GSMAnnotation.R")
 source(file = "GeoFileHandling.R")
 source(file = "SeriesHanding.R")
+source(file = "QCAnalysis.R")
+source(file = "ExpressionAnalysis.R")
 
 if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
 con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
@@ -35,7 +37,6 @@ Step_3_colnames <- grep(pattern = "ExpVar[[:digit:]]", x = colnames(Step_3), val
 Step_3B <- data.frame(Step_3[,Step_3_colnames])
 colnames(Step_3B) <- Step_3_colnames
 
-
 # Classify All the Column in the DF
 Step_4 <- ClassGsmText(Step_3B)
 
@@ -56,7 +57,7 @@ DesignMatrix <- model.matrix( ~ ExpVar3.Text + ExpVar4.Text, GraphDF )
 GeoRepoPath <- "~/GeoWizard/GEORepo"
 GSE <- "GSE69967"
 GSEeset <- LoadGEOFiles(GSE = "GSE69967", GeoRepoPath = GeoRepoPath)
-
+ArrayData <- exprs(GSEeset)
 
 ######### Function to Make GMT Ggplotable
 FactorDF <- Step_6[1:2]
@@ -74,14 +75,16 @@ GMTHistPlot(GSEgmtDF, "Factor", "ExpVar3.Text", 10)
 
 ########## Convert to Gene Symbol
 source(file = "GeoFileHandling.R")
-GeneSymbolGSEeset <- ConvertGSEAnnotations(GSEeset = GSEeset)
+GeneSymbolArrayData <- ConvertGSEAnnotations(GSEeset = GSEeset)
 
 ######### QC
 source(file = "QCAnalysis.R")
 RunBioQC(GSEeset = GeneSymbolGSEeset)
 
+PCAPlots <- PlotPCA(ArrayData)
+
 ######### Limma
-LimmaTopTable(LimmaRes(ArrayData, DesignMatrix))
+LimmaOutput(GeneSymbolArrayData,DesignMatrix)
 
 
 View(model.matrix(~ExpVar3.Text+ExpVar4.Text, Step_6))

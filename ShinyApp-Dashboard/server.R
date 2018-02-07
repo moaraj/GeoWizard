@@ -761,83 +761,6 @@ server <- function(input, output, session) {
      })
 
      
-     ###################################################################### Expression Analysis
-     
-     AnalysisResults <- reactiveValues()
-     
-     AnalysisResults$LimmaResults <- reactive({
-          
-          DesignMatrix <- ExperimentalDesign$DesignMatrix
-          ArrayData <- GSEdata$ArrayData
-          
-          fit <- lmFit(ArrayData, DesignMatrix)
-          fit <- eBayes(fit)
-          fit <- eBayes(fit,trend=TRUE)
-               
-          LimmaTable <- topTable(fit, coef=2, n=4000, adjust="BH")
-          AnalysisResults$LimmaTable <- LimmaTable
-          LimmaTable
-          
-          })
-     
-     
-     ############ Volcano Plot
-     
-     
-     output$PValThres <- renderUI({
-          shiny::req(AnalysisResults$LimmaTable)
-          LimmaTable <- AnalysisResults$LimmaTable
-          numericInput(inputId = "PValThresInput",
-                       label = "pValue Threshold",
-                       value = 2,
-                       min = min(-log(LimmaTable$adj.P.Val)),
-                       max = max(-log(LimmaTable$adj.P.Val)),
-                       step = median(-log(LimmaTable$adj.P.Val))/10)
-     })
-     
-     output$LogFCThres <- renderUI({
-          numericInput(inputId = "LogFCThresInput",
-                       label = "LogFC Threshold",
-                       value = 1,
-                       min = 0,
-                       max = 5,
-                       step = 0.5)
-          })
-     
-     
-     
-     output$VolcanoPlot <- renderPlot({
-          pValueThresHold <- input$PValThresInput
-          logFCThresHold <- input$LogFCThresInput
-          
-          LimmaTable <- AnalysisResults$LimmaResults
-          LimmaTable <- LimmaTable()
-          
-          LimmaTable <- LimmaTable %>% 
-               mutate(Threshold = logFC > logFCThresHold | logFCThresHold < -1.5) %>%
-               mutate(Threshold = as.numeric(Threshold)) %>%
-               mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
-          
-          ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) + 
-               geom_point() + theme_grey()
-          
-     })
-     
-     
-     ############ MA Plot
-     
-     
-     
-     ############ Clustering
-     
-     
-     
-     ############ BoxPlot
-     
-     
-     ############ TopTable     
-     
-     
      ####################################################################### QC Analysis
      
      ############# BioQC Analysis
@@ -856,26 +779,103 @@ server <- function(input, output, session) {
      DataPCA <- reactiveValues()
      
      output$PCA <- renderPlot({ 
+          GSEeset <- GSEdata$GSEeset
           ArrayData <- exprs(GSEeset)
+          
           ListPlotPCA <- PlotPCA(ArrayData = ArrayData)
           
+          DataPCA$CA <- ListPlotPCA$CA
           DataPCA$Scree <- ListPlotPCA$Scree
-          DataPCA$Corr <- ListPlotPCA$Corr
-          DataPCA$Cont1 <- ListPlotPCA$Cont1
-          DataPCA$Cont2 <- ListPlotPCA$Cont2
+          DataPCA$Cont <- ListPlotPCA$Cont
           
           ListPlotPCA$PCA
           })
      
-     output$ElbowPlot <- renderPlot({ DataPCA$Scree })
-     output$CorrelationCircle <- renderPlot({ DataPCA$Corr })
-     output$Contrib1 <- renderPlot({ DataPCA$Cont1 })
-     output$Contrib2 <- renderPlot({ DataPCA$Cont2 })
+     output$CA <- renderPlot({ DataPCA$CA })
+     output$Scree <- renderPlot({ DataPCA$Scree })
+     output$Cont <- renderPlot({ DataPCA$Cont })
+     
+     
+     ###################################################################### Expression Analysis
+     ExpressionAnalysis <- reactiveValues()
+     
+     ExpressionAnalysis$LimmaResults <- reactive({
+          input$SubmitDEA
+          
+          GSEeset <- GSEdata$GSEeset  #Expression Set
+          ArrayData <- exprs(GSEeset) #Matrix
+          GMTMatrix <- t(ArrayData)
+          DesignMatrix <- ExperimentalDesign$DesignMatrix #Matrix
+          
+          LimmaOutput(ArrayData = ArrayData, DesignMatrix = DesignMatrix)
+          })
+     
+     ############ Volcano Plot
+
+     output$PValThres <- renderUI({
+          numericInput(inputId = "PValThresInput",
+                       label = "pValue Threshold",
+                       value = 2,
+                       min = 1,
+                       step = 0.5)
+     })
+
+     output$LogFCThres <- renderUI({
+          numericInput(inputId = "LogFCThresInput",
+                       label = "LogFC Threshold",
+                       value = 1,
+                       min = 0,
+                       max = 5,
+                       step = 0.5)
+     })
+
+     output$VolcanoPlot <- renderPlot({
+
+          pValueThresHold <- input$PValThresInput
+          logFCThresHold <- input$LogFCThresInput
+
+          LimmaTable <- ExpressionAnalysis$LimmaResults()
+          LimmaTable <- as.data.frame(LimmaTable)
+
+
+          LimmaTable <- LimmaTable %>%
+               mutate(Threshold = abs(logFC) > logFCThresHold) %>%
+               mutate(Threshold = as.numeric(Threshold)) %>%
+               mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
+
+          ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) +
+               geom_point() + theme_grey()
+
+     })
+     
+     
+     ############ MA Plot
      
      
      
+     ############ Clustering
      
      
+     
+     ############ BoxPlot
+     
+     
+     ############ TopTable     
+     
+     output$TopTable <- DT::renderDataTable({
+          LimmaTable <- ExpressionAnalysis$LimmaResults()
+          LimmaTable <- as.data.frame(LimmaTable)
+          
+          DT::datatable(data = LimmaTable,
+                        rownames = TRUE,
+                        class = 'compact',
+                        extensions = 'Buttons', 
+                        options = list(
+                             scrollY = '500px',
+                             paging = T,
+                             dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel')))
+     })
      
      
      
