@@ -3,7 +3,6 @@
 #'
 #'
 #'
-#'
 LimmaRes <- function(ArrayData, DesignMatrix){
      fit <- lmFit(ArrayData, DesignMatrix)
      fit <- eBayes(fit)
@@ -14,13 +13,27 @@ LimmaRes <- function(ArrayData, DesignMatrix){
 #'
 #'
 #'
-#'
 LimmaTopTable <- function(fit) {
-     LimmaTable <- topTable(fit, coef=2, n=4000, adjust="BH")
+     DesignMatrix <- fit$design 
+     
+     ExpVar <- colnames(DesignMatrix)
+     ExpVarIndex <- 1:length(ExpVar)
+     if (grep(pattern = "Intercept", x = ExpVar[1])) {
+          ExpVarIndex <- ExpVarIndex[-1]
+     }
+     
+     TopTableList <- lapply(ExpVarIndex, function(Index){
+          LimmaTable <- topTable(fit, coef = Index, n=1000, adjust="BH")
+          LimmaTable$ExpVar <- ExpVars[Index]
+          LimmaTable
+     })
+     
+     names(TopTableList) <- ExpVar[ExpVarIndex]
+     LimmaTable <- bind_rows(TopTableList)
+     
      return(LimmaTable)
 }
 
-#'
 #'
 #'
 #'
@@ -29,8 +42,6 @@ LimmaOutput <- function(ArrayData, DesignMatrix){
      TopTable <- LimmaTopTable(fit)
      return(TopTable)
 }
-
-
 
 #Deseq Pipline
 

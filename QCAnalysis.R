@@ -2,7 +2,7 @@
 #'
 #'
 #'
-RunBioQC <- function(GSEeset){
+RunBioQC <- function(GMT){
      
      # Function to determine if GeneSymbol
      
@@ -11,9 +11,9 @@ RunBioQC <- function(GSEeset){
      gmt <- readGmt(gmtFile)
      
      genesets <- BioQC::readGmt(gmtFile)
-     testIndex <- BioQC::matchGenes(genesets, GSEeset)
+     testIndex <- BioQC::matchGenes(genesets, GMT)
      
-     wmwResult.greater <- wmwTest(GSEeset, testIndex, valType="p.greater")
+     wmwResult.greater <- wmwTest(GMT, testIndex, valType="p.greater")
      #wmwResult.less <- wmwTest(GSEeset, testIndex, valType="p.less")
      #wmwResult.Q <- wmwTest(GSEeset, testIndex, valType="Q")
      

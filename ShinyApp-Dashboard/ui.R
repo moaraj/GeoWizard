@@ -492,10 +492,10 @@ ui <- dashboardPage(
                                         tabPanel(title = "GMT File",
                                            solidHeader = T,
                                            status = "primary",
-                                           
+                                           wellPanel(
                                            actionButton( inputId = "DownloadData",
                                                 label = "Download Data from GEO",
-                                                width = 12 ),
+                                                width = 12 )),
                                            hr(),
                                            
                                            hidden(div( id = "GMTTable",
@@ -504,10 +504,11 @@ ui <- dashboardPage(
                                       ),
                                       
                                       tabPanel(title = "Boxplots",
-                                               fluidRow(
+                                               wellPanel(
+                                                    fluidRow(
                                                     style = "margin-left :10px; margin-right :10px",
                                                     h4("Count Matrix BoxPlot"),
-                                                
+                                                    
                                                 column(2,radioButtons(inputId = "BoxPlotType",
                                                                      label = "BoxPlotType",
                                                                      inline = F,
@@ -526,7 +527,7 @@ ui <- dashboardPage(
                                                                       label = "Number of GSM or Gene's to Sample",
                                                                       value = 10,
                                                                       min = 1,
-                                                                      step = 10))
+                                                                      step = 10)))
                                                 ), # tabPanel(title = "Boxplots"
                                            
                                            fluidRow(
@@ -536,7 +537,9 @@ ui <- dashboardPage(
                                       ),
                                       
                                       tabPanel("Histogram",
+                                               wellPanel(
                                                fluidRow(
+                                                    
                                                     column(2,radioButtons(inputId = "HistPlotType",
                                                                          label = "BoxPlotBy",
                                                                          inline = F,
@@ -548,7 +551,7 @@ ui <- dashboardPage(
                                                                           label = "Number of GSM or Gene's to Sample",
                                                                           value = 10,
                                                                           min = 1,
-                                                                          step = 10))),
+                                                                          step = 10)))),
                                                fluidRow( 
                                                     column(10, offset = 1,
                                                            plotOutput("HistPlotGMT") %>% withSpinner(color = "#0dc5c1")) )
@@ -567,9 +570,11 @@ ui <- dashboardPage(
                                  tabPanel("BioQC",
                                                     style = "margin-left :10px; margin-right :10px",
                                                     br(),
-                                                    fluidRow(actionButton(inputId = "PerformBioQCAnalysis", 
+                                                    fluidRow(
+                                                         wellPanel(
+                                                         actionButton(inputId = "PerformBioQCAnalysis", 
                                                                       label = "Perform BioQC Analysis", 
-                                                                      size = "large")),
+                                                                      size = "large"))),
                                                     fluidRow(helpText(
                                                     paste(
                                                     "BioQC performs quality control of high-throughput expression data based on ",
@@ -594,22 +599,32 @@ ui <- dashboardPage(
                     tabItem(tabName = "DifferentialAnalysis",
                             
                             fluidRow(
-                                 
                                  column(8,
-                                        
                                         tabBox( title = "Expression Analysis",
                                                 width = 12,
                                                 
                                                 tabPanel(title = "Volcano Plot",
+                                                         wellPanel(
+                                                              fluidRow(
+                                                                   column(4,
                                                          actionButton("SubmitDEA", 
-                                                                      "Perform Differntial Expression Analysis"),
-                                                         fluidRow(uiOutput("PValThres"),
-                                                                  uiOutput("LogFCThres")),
-                                                         fluidRow(plotOutput("VolcanoPlot"))
-                                                         ),
+                                                                      "Perform Differntial Expression Analysis")),
+                                                         
+                                                              column(4,uiOutput("PValThres")),
+                                                              column(4,uiOutput("LogFCThres")))),
+                                                         fluidRow(column(12,plotOutput("VolcanoPlot")))),
                                                 
                                                 tabPanel(title = "MA Plot",
-                                                         plotOutput("MAPlot")),
+                                                         fluidRow(
+                                                              column(4,
+                                                                     wellPanel(
+                                                                          uiOutput("MALogFCThres")
+                                                                     )),
+                                                              column(12,
+                                                                     plotOutput("MAPlot"))
+                                                              )
+                                                         
+                                                         ),
                                                 
                                                 tabPanel(title = "Clustering",
                                                          plotOutput("Clustering")),

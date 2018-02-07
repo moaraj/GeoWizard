@@ -79,13 +79,15 @@ GeneSymbolArrayData <- ConvertGSEAnnotations(GSEeset = GSEeset)
 
 ######### QC
 source(file = "QCAnalysis.R")
-RunBioQC(GSEeset = GeneSymbolGSEeset)
+RunBioQC(GMT = GeneSymbolArrayData)
 
 PCAPlots <- PlotPCA(ArrayData)
 
 ######### Limma
-LimmaOutput(GeneSymbolArrayData,DesignMatrix)
-
+res <- LimmaOutput(GeneSymbolArrayData,DesignMatrix)
+View(head(res))
+limma::plotMA(GSEeset)
+limma::plotMA(fit, 3)
 
 View(model.matrix(~ExpVar3.Text+ExpVar4.Text, Step_6))
 
