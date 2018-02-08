@@ -22,6 +22,9 @@ library(GEOquery)
 library(vcd)
 library(GEOmetadb)
 
+library(plotly)
+library(heatmaply)
+
 library(FactoMineR)
 library(factoextra)
 
@@ -101,29 +104,30 @@ ui <- dashboardPage(
           useShinyjs(),
                tabItems(
                     tabItem(
-                             tabName = "GSESummary",
+                    tabName = "GSESummary",
                              
-                             fluidRow(
-                                  box(width = 4,
-                                      status = 'warning',
-                                      title = "Inputs for GEO Query",
-                                      solidHeader = TRUE,
+                    fluidRow(
+                    box(width = 4,
+                        status = 'warning',
+                        title = "Inputs for GEO Query",
+                        solidHeader = TRUE,
                                                
-                                               column(6,
-                                               div(id = 'MolSelectLibraryDiv',
-                                                   uiOutput('MolSelectFromLibrary')
-                                                   ),
+                    column(6,
+                    div(id = 'MolSelectLibraryDiv',
+                    uiOutput('MolSelectFromLibrary')
+                    ),
                                                
-                                               div(
-                                                    id = 'MolSelectTextDiv',
-                                                    textAreaInput(
-                                                         inputId = "MolSelectTextBox",
-                                                         height = "150px",
-                                                         label = "Comma Separated Text input",
-                                                         value = c("Mycophenolate mofetil,\nTofacitinib"))
-                                                    ),
+                    div(
+                    id = 'MolSelectTextDiv',
+                    textAreaInput(
+                         inputId = "MolSelectTextBox",
+                         height = "150px",
+                         label = "Comma Separated Text input",
+                         value = c("Mycophenolate mofetil,\nTofacitinib"))
+                    ),
                                                
-                                               
+                    
+                    
                                                actionButton(
                                                     inputId = "StructureSerach",
                                                     label = HTML("Retrieve Datasets for<br />Related Chemotypes<br />"),
@@ -482,124 +486,143 @@ ui <- dashboardPage(
                                  ) #FluidRow that Structures page into 3 Columns
                             ), #Design Matix TabItem 
                     
-                    tabItem(tabName = "DataQC",
-                            fluidRow(
-                                 column(8,
+                    tabItem(
+                    tabName = "DataQC",
+                    fluidRow(
+                    column(4,
+                    box(title = "GMT File",
+                        width = 12,
+                        solidHeader = T,
+                        status = "primary",
+                        
+                        wellPanel(
+                        actionButton(
+                             inputId = "DownloadData",
+                             label = "Download Data from GEO",
+                             width = 12)
+                        ),
+                                         hr(),
+                                         hidden(
+                                             div( id = "GMTTable",
+                                                  dataTableOutput("GMTFileTable") %>% 
+                                                       withSpinner(color = "#0dc5c1")
+                                                  ))
+                                         ) #Box
+                                        ), #First Column for Page
                                  
-                                 tabBox(title = "Raw Data Statistics", 
-                                        width = 12,
-                                        
-                                        tabPanel(title = "GMT File",
-                                           solidHeader = T,
-                                           status = "primary",
-                                           wellPanel(
-                                           actionButton( inputId = "DownloadData",
-                                                label = "Download Data from GEO",
-                                                width = 12 )),
-                                           hr(),
-                                           
-                                           hidden(div( id = "GMTTable",
-                                                       dataTableOutput("GMTFileTable") %>% withSpinner(color = "#0dc5c1")
-                                           ))
-                                      ),
+                                 column(8,
+                                        tabBox(title = "Raw Data Statistics",
+                                               width = 12,
+                                        tabPanel(title = "Boxplots",
+                                                 fluidRow(
+                                                 column(4,      
+                                                 wellPanel(
+                                                      style = "margin-left :10px; margin-right :10px",
+                                                      h4("Count Matrix BoxPlot"),
+                                                      
+                                                      radioButtons(
+                                                           inputId = "BoxPlotType",
+                                                           label = "BoxPlotType",
+                                                           inline = F,
+                                                           choices = c("Sample", "Gene"),
+                                                           selected = "Sample"),
+                                                      
+                                                      radioButtons(inputId = "BoxPlotBy",
+                                                                   label = "BoxPlotBy",
+                                                                   inline = F,
+                                                                   choices = c("Overall", "Factor"),
+                                                                   selected = "Factor"),
+                                                 
+                                                 uiOutput("BoxFactorSelect"),
+                                                 
+                                                 numericInput(inputId = "BoxSampleSize",
+                                                              label = "Number of GSM or Gene's to Sample",
+                                                              value = 10,
+                                                              min = 1,
+                                                              step = 10)
+                                                 
+                                                 )), # Input Well Panel
+                                                 
+                                                 column(8,
+                                                 plotOutput(outputId = "BoxPlotGMT") %>% 
+                                                 withSpinner(color = "#0dc5c1")
+                                                 )
+                                                 
+                                                 ) # TabPanel Fluid Row [input] [Plot]
+                                                 ), # tabPanel(title = "Boxplots"
                                       
-                                      tabPanel(title = "Boxplots",
-                                               wellPanel(
-                                                    fluidRow(
-                                                    style = "margin-left :10px; margin-right :10px",
-                                                    h4("Count Matrix BoxPlot"),
-                                                    
-                                                column(2,radioButtons(inputId = "BoxPlotType",
-                                                                     label = "BoxPlotType",
-                                                                     inline = F,
-                                                                     choices = c("Sample", "Gene"),
-                                                                     selected = "Sample")),
-                                                
-                                                column(2,radioButtons(inputId = "BoxPlotBy",
-                                                                     label = "BoxPlotBy",
-                                                                     inline = F,
-                                                                     choices = c("Overall", "Factor"),
-                                                                     selected = "Factor")),
-                                                
-                                                column(2,uiOutput("BoxFactorSelect")),
-                                                
-                                                column(2,numericInput(inputId = "BoxSampleSize",
-                                                                      label = "Number of GSM or Gene's to Sample",
-                                                                      value = 10,
-                                                                      min = 1,
-                                                                      step = 10)))
-                                                ), # tabPanel(title = "Boxplots"
-                                           
-                                           fluidRow(
-                                                style = "margin-left :10px; margin-right :10px",
-                                                plotOutput(outputId = "BoxPlotGMT") %>% withSpinner(color = "#0dc5c1")
-                                           )
-                                      ),
+                                 tabPanel("Histogram",
+                                          fluidRow(
+                                          column(4,     
+                                          wellPanel(
+                                          radioButtons(inputId = "HistPlotType",
+                                                       label = "BoxPlotBy",
+                                                       inline = F,
+                                                       choices = c("Sample", "Gene", "Factor"),
+                                                       selected = "Sample"),
+                                          
+                                          uiOutput("HistFactorSelect"),
+                                          numericInput(inputId = "HistSampleSize",
+                                                       label = "Number of GSM or Gene's to Sample",
+                                                       value = 10,
+                                                       min = 1,
+                                                       step = 10)
+                                          ) # Input Well Panel
+                                          ),# Input Column
+                                          
+                                          column(8,
+                                          plotOutput("HistPlotGMT") %>% 
+                                               withSpinner(color = "#0dc5c1")
+                                          )  # Plot Column
+                                          )  # tabPanel Fluid Row
+                                          ), # tabPanel("Histogram"
                                       
-                                      tabPanel("Histogram",
-                                               wellPanel(
-                                               fluidRow(
-                                                    
-                                                    column(2,radioButtons(inputId = "HistPlotType",
-                                                                         label = "BoxPlotBy",
-                                                                         inline = F,
-                                                                         choices = c("Sample", "Gene", "Factor"),
-                                                                         selected = "Sample")),
-                                                    
-                                                    column(2, uiOutput("HistFactorSelect")),
-                                                    column(2,numericInput(inputId = "HistSampleSize",
-                                                                          label = "Number of GSM or Gene's to Sample",
-                                                                          value = 10,
-                                                                          min = 1,
-                                                                          step = 10)))),
-                                               fluidRow( 
-                                                    column(10, offset = 1,
-                                                           plotOutput("HistPlotGMT") %>% withSpinner(color = "#0dc5c1")) )
-                                               
-                                               ), # tabPanel("Histogram"
-                                      
-                                      tabPanel(title = "PCA", 
-                                               fluidRow(column(6, plotOutput("PCA")%>% withSpinner(color = "#0dc5c1")),
-                                                        column(6, plotOutput("CA")%>% withSpinner(color = "#0dc5c1"))),
-                                               
-                                               fluidRow(column(6, plotOutput("Scree")%>% withSpinner(color = "#0dc5c1")),
-                                                    column(6, plotOutput("Cont")%>% withSpinner(color = "#0dc5c1")))
-                                      ),
-                                      
-                                   
+                                 tabPanel(title = "PCA",
+                                 fluidRow(column(6, plotOutput("PCA")%>% withSpinner(color = "#0dc5c1")),
+                                          column(6, plotOutput("CA")%>% withSpinner(color = "#0dc5c1"))),
+                                 fluidRow(column(6, plotOutput("Scree")%>% withSpinner(color = "#0dc5c1")),
+                                          column(6, plotOutput("Cont")%>% withSpinner(color = "#0dc5c1")))
+                                 ),
+                                 
                                  tabPanel("BioQC",
-                                                    style = "margin-left :10px; margin-right :10px",
-                                                    br(),
-                                                    fluidRow(
-                                                         wellPanel(
-                                                         actionButton(inputId = "PerformBioQCAnalysis", 
-                                                                      label = "Perform BioQC Analysis", 
-                                                                      size = "large"))),
-                                                    fluidRow(helpText(
-                                                    paste(
-                                                    "BioQC performs quality control of high-throughput expression data based on ",
-                                                    "tissue gene signatures. It can detect tissue heterogeneity in gene " ,
-                                                    "expression data. The core algorithm is a Wilcoxon-Mann-Whitney ",
-                                                    "test that is optimised for high performance."))),
-                                                    
-                                                    
-                                                    fluidRow(
-                                                         plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1"))
-                                           )
+                                 style = "margin-left :10px; margin-right :10px",
+                                 
+                                 fluidRow(
+                                 column(4,     
+                                 wellPanel(
+                                 actionButton(inputId = "PerformBioQCAnalysis", 
+                                              label = "Perform BioQC Analysis", 
+                                              size = "large"),
+                                 
+                                 helpText(
+                                 paste(
+                                      "BioQC performs quality control of high-throughput expression data based on ",
+                                      "tissue gene signatures. It can detect tissue heterogeneity in gene " ,
+                                      "expression data. The core algorithm is a Wilcoxon-Mann-Whitney ",
+                                      "test that is optimised for high performance."))
+                                 )  # Input Well Panel
+                                 ),  # Input Column
+                                 
+                                 column(8,
+                                 plotOutput(outputId = "BioQCPlot") %>% 
+                                      withSpinner(color = "#0dc5c1")
+                                 
+                                 )  # Plot Column 
+                                 )  # Page Fluid Row
+                                 )  # tabPanel("BioQC"
                                  
                                  ) # tabBox(title = "Raw Data Statistics"
-                                   ) # Column for Page
-                              
+                                 ) # Column for Page
+                                 ) # Fluid Row For the TabItem
                             
-                            ) # Fluid Row For the TabItem
-                            ), 
+                            ), # tabItem(tabName = "DataQC"
                     
                     
                     
                     tabItem(tabName = "DifferentialAnalysis",
                             
                             fluidRow(
-                                 column(8,
+                                 column(12,
                                         tabBox( title = "Expression Analysis",
                                                 width = 12,
                                                 
@@ -627,20 +650,81 @@ ui <- dashboardPage(
                                                          ),
                                                 
                                                 tabPanel(title = "Clustering",
-                                                         plotOutput("Clustering")),
+                                                         fluidRow(
+                                                         column(4,
+                                                                wellPanel(
+                                                                h4('Gene Selection'), 
+                                                                column(width=12,sliderInput("nGenes", "Number of Differentially Expressed Genes to Show", min = 1, max = 100, value = 10)),
+                                                                column(width=12,selectizeInput("TopTableFilter", "Sort genes by", c("ID","logFC","AveExpr","t","P.Value"),"logFC")),
+                                                                h4('Data Preprocessing'),
+                                                                column(width=4,selectizeInput('transpose','Transpose',choices = c('No'=FALSE,'Yes'=TRUE),selected = FALSE)),
+                                                                column(width=4,selectizeInput("transform_fun", "Transform", c(Identity=".",Sqrt='sqrt',log='log',Scale='scale',Normalize='normalize',Percentize='percentize',"Missing values"='is.na10', Correlation='cor'),selected = '.')),
+                                                                uiOutput('annoVars'),
+                                                                           
+                                                                br(),hr(),h4('Row dendrogram'),
+                                                                column(width=6,selectizeInput("distFun_row", "Distance method", c(Euclidean="euclidean",Maximum='maximum',Manhattan='manhattan',Canberra='canberra',Binary='binary',Minkowski='minkowski'),selected = 'euclidean')),
+                                                                column(width=6,selectizeInput("hclustFun_row", "Clustering linkage", c(Complete= "complete",Single= "single",Average= "average",Mcquitty= "mcquitty",Median= "median",Centroid= "centroid",Ward.D= "ward.D",Ward.D2= "ward.D2"),selected = 'complete')),
+                                                                column(width=12,sliderInput("r", "Number of Clusters", min = 1, max = 15, value = 2)),    
+
+                                                                br(),hr(),h4('Column dendrogram'),
+                                                                column(width=6,selectizeInput("distFun_col", "Distance method", c(Euclidean="euclidean",Maximum='maximum',Manhattan='manhattan',Canberra='canberra',Binary='binary',Minkowski='minkowski'),selected = 'euclidean')),
+                                                                column(width=6,selectizeInput("hclustFun_col", "Clustering linkage", c(Complete= "complete",Single= "single",Average= "average",Mcquitty= "mcquitty",Median= "median",Centroid= "centroid",Ward.D= "ward.D",Ward.D2= "ward.D2"),selected = 'complete')),
+                                                                column(width=12,sliderInput("c", "Number of Clusters", min = 1, max = 15, value = 2)),
+                                                                           
+                                                                br(),hr(),  h4('Additional Parameters'),
+                                                                           
+                                                                column(3,checkboxInput('showColor','Color', value = T)),
+                                                                column(3,checkboxInput('showMargin','Layout')),
+                                                                column(3,checkboxInput('showDendo','Dendrogram')),
+                                                                hr(),
+                                                                 conditionalPanel('input.showColor==1',
+                                                                 hr(),
+                                                                 h4('Color Manipulation'),
+                                                                 uiOutput('colUI'),
+                                                                 sliderInput("ncol", "Set Number of Colors", min = 1, max = 256, value = 256),
+                                                                 checkboxInput('colRngAuto','Auto Color Range',value = T),
+                                                                 conditionalPanel('!input.colRngAuto',uiOutput('colRng'))
+                                                                 ),
+                                                                           
+                                                                 conditionalPanel('input.showDendo==1',
+                                                                 hr(),
+                                                                 h4('Dendrogram Manipulation'),
+                                                                 selectInput('dendrogram','Dendrogram Type',choices = c("both", "row", "column", "none"),selected = 'both'),
+                                                                 selectizeInput("seriation", "Seriation", c(OLO="OLO",GW="GW",Mean="mean",None="none"),selected = 'OLO'),
+                                                                 sliderInput('branches_lwd','Dendrogram Branch Width',value = 0.6,min=0,max=5,step = 0.1)
+                                                                 ),             
+                                                                           
+                                                                 conditionalPanel('input.showMargin==1',
+                                                                 hr(),
+                                                                 h4('Widget Layout'),
+                                                                 column(4,textInput('main','Title','')),
+                                                                 column(4,textInput('xlab','X Title','')),
+                                                                 column(4,textInput('ylab','Y Title','')),
+                                                                 sliderInput('row_text_angle','Row Text Angle',value = 0,min=0,max=180),
+                                                                 sliderInput('column_text_angle','Column Text Angle',value = 45,min=0,max=180),
+                                                                 sliderInput("l", "Set Margin Width", min = 0, max = 200, value = 130),
+                                                                 sliderInput("b", "Set Margin Height", min = 0, max = 200, value = 40)
+                                                                 )
+                                                              )),
+                                                              
+                                                              column(8,
+                                                                 wellPanel(
+                                                                 tags$a(id = 'downloadData', class = paste("btn btn-default shiny-download-link",'mybutton'), href = "", target = "_blank", download = NA, icon("clone"), 'Download Heatmap as HTML'),
+                                                                 tags$head(tags$style(".mybutton{color:white;background-color:blue;} .skin-black .sidebar .mybutton{color: green;}") ),
+                                                                 plotlyOutput("heatout",height='600px')
+                                                                 
+                                                                 )
+                                                                 )
+                                                         )
+                                                                 
+                                                         
+                                                         ), #tabPanel
                                                 
                                                 tabPanel("BoxPlot", 
                                                          uiOutput("EABoxPlotOptions"),
                                                          plotOutput("EABoxPlot")),
                                                 
-                                                tabPanel("Top Table", dataTableOutput("TopTable"))),
-                                        
-
-                                        tabBox(title = "Enrichment Analysis",
-                                               width = 12,
-                                               
-                                               tabPanel("GO Enrichment")
-                                               )
+                                                tabPanel("Top Table", dataTableOutput("TopTable")))
                                         
                                         ) # Second Column of the Page
                                  

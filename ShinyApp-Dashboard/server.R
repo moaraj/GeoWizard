@@ -1,5 +1,5 @@
 server <- function(input, output, session) {
-     
+
      GeoSearchResults <- reactiveValues()
      
      observe({
@@ -235,17 +235,13 @@ server <- function(input, output, session) {
      })
      
      ########################{ Advance to GSM Metadata Page
-     
-     observeEvent(input$switchtab, {
-          newtab <- switch(input$AnalyzeSelectedDatasets,
-                           "GSMMetadata" = "GSESummary",
-                           "GSESummary" = "GSMMetadata"
-          )
-          updateTabItems(session, "TabSet", newtab)
-     })
-     
-     
-     
+
+     observeEvent(
+          input[["AnalyzeSelectedDatasets"]],
+          {
+              updateTabItems(session, "TabSet", "GSMMetadata") 
+          }
+     )
      
      ################################### GSM Metadata TabItem
      ################################### GSM Metadata TabItem
@@ -800,15 +796,12 @@ server <- function(input, output, session) {
      ExpressionAnalysis <- reactiveValues()
      
      ExpressionAnalysis$LimmaResults <- reactive({
-          input$SubmitDEA
-          
-          GSEeset <- GSEdata$GSEeset  #Expression Set
-          ArrayData <- exprs(GSEeset) #Matrix
-          GMTMatrix <- t(ArrayData)
-          DesignMatrix <- ExperimentalDesign$DesignMatrix #Matrix
-          
-          LimmaOutput(ArrayData = ArrayData, DesignMatrix = DesignMatrix)
-          })
+       GSEeset <- GSEdata$GSEeset  #Expression Set
+       ArrayData <- exprs(GSEeset) #Matrix
+       DesignMatrix <- ExperimentalDesign$DesignMatrix #Matrix
+       LimmaOutput(ArrayData = ArrayData, DesignMatrix = DesignMatrix)
+       
+       })
      
      ############ Volcano Plot
 
@@ -862,20 +855,219 @@ server <- function(input, output, session) {
      
      output$MAPlot <- renderPlot({
           logFCThresHold <- input$MALogFCThresInput
-          
+
           LimmaTable <- ExpressionAnalysis$LimmaResults()
           LimmaTable <- as.data.frame(LimmaTable)
-          
+
           LimmaTable <- LimmaTable %>% mutate(Threshold = abs(logFC) > logFCThresHold)
-          
+
           ggplot(LimmaTable, aes(x = AveExpr, y = logFC, color = factor(Threshold))) +
-               geom_point() + 
+               geom_point() +
                theme_grey()
           
           })
      
-     ############ Clustering
+     ##################################################################################### Clustering
      
+    #Import/Select Data ----
+     data.in <- reactive({
+
+         LimmaTable <- ExpressionAnalysis$LimmaResults()
+         LimmaTable <- LimmaTable %>% arrange_(input$TopTableFilter)
+
+         nGenes <- input$nGenes
+         LimmaTable <- LimmaTable[1:nGenes,1]
+         
+         FactorDF <- as.data.frame(ExperimentalDesign$FilteredFactorLevels())
+         GSEeset <- GSEdata$GSEeset()
+         FactorGMT <- GenFactorGMT(GSEeset, FactorDF)
+
+         TopGenes <- LimmaTable[1:nGenes,1]
+         TopGenes[TopGenes == ""] <- NA
+         TopGenes <- na.omit(TopGenes)
+         FactorGMT <- FactorGMT %>% filter(ID %in% TopGenes)
+
+    })
+
+     
+     
+     #Color Pallete UI ----
+     output$colUI<-renderUI({
+       
+       colSel='Vidiris'
+       if(input$transform_fun=='cor') colSel='RdBu'
+       if(input$transform_fun=='is.na10') colSel='grey.colors'
+       
+       selectizeInput(inputId ="pal", label ="Select Color Palette",
+                      choices = c('Vidiris (Sequential)'="viridis",
+                                  'Magma (Sequential)'="magma",
+                                  'Plasma (Sequential)'="plasma",
+                                  'Inferno (Sequential)'="inferno",
+                                  'Magma (Sequential)'="magma",
+                                  'Magma (Sequential)'="magma",
+                                  
+                                  'RdBu (Diverging)'="RdBu",
+                                  'RdYlBu (Diverging)'="RdYlBu",
+                                  'RdYlGn (Diverging)'="RdYlGn",
+                                  'BrBG (Diverging)'="BrBG",
+                                  'Spectral (Diverging)'="Spectral",
+                                  
+                                  'BuGn (Sequential)'='BuGn',
+                                  'PuBuGn (Sequential)'='PuBuGn',
+                                  'YlOrRd (Sequential)'='YlOrRd',
+                                  'Heat (Sequential)'='heat.colors',
+                                  'Grey (Sequential)'='grey.colors'),
+                      selected=colSel)
+       
+     })
+     
+     #Manual Color Range UI ----
+     output$colRng=renderUI({
+       if(!is.null(data.in())) {
+         rng=range(data.in(),na.rm = TRUE)
+       }else{
+         rng=range(mtcars) # TODO: this should probably be changed
+       }
+       # sliderInput("colorRng", "Set Color Range", min = round(rng[1],1), max = round(rng[2],1), step = .1, value = rng)  
+       n_data = nrow(data.in())
+       
+       min_min_range = ifelse(input$transform_fun=='cor',-1,-Inf)
+       min_max_range = ifelse(input$transform_fun=='cor',1,rng[1])
+       min_value = ifelse(input$transform_fun=='cor',-1,rng[1])
+       
+       max_min_range = ifelse(input$transform_fun=='cor',-1,rng[2])
+       max_max_range = ifelse(input$transform_fun=='cor',1,Inf)
+       max_value = ifelse(input$transform_fun=='cor',1,rng[2])
+       
+       a_good_step = 0.1 # (max_range-min_range) / n_data
+       
+       list(
+         numericInput("colorRng_min", "Set Color Range (min)", value = min_value, min = min_min_range, max = min_max_range, step = a_good_step),
+         numericInput("colorRng_max", "Set Color Range (max)", value = max_value, min = max_min_range, max = max_max_range, step = a_good_step)
+       )
+       
+     })
+     
+     
+     #Building heatmaply ----
+     interactiveHeatmap<-observeEvent(input$SubmitDEA, {
+       
+       data.in <- data.in()
+       ss_num =  sapply(data.in, is.numeric) # in order to only transform the numeric values
+       
+       if(input$transpose) data.in=t(data.in)
+       if(input$transform_fun!='.'){
+         if(input$transform_fun=='is.na10'){
+           updateCheckboxInput(session = session,inputId = 'showColor',value = T)
+           data.in[, ss_num]=is.na10(data.in[, ss_num])
+         } 
+         if(input$transform_fun=='cor'){
+           updateCheckboxInput(session = session,inputId = 'showColor',value = T)
+           updateCheckboxInput(session = session,inputId = 'colRngAuto',value = F)
+           data.in=cor(data.in[, ss_num],use = "pairwise.complete.obs")
+         }
+         if(input$transform_fun=='log') data.in[, ss_num]= apply(data.in[, ss_num],2,log)
+         if(input$transform_fun=='sqrt') data.in[, ss_num]= apply(data.in[, ss_num],2,sqrt) 
+         if(input$transform_fun=='normalize') data.in=heatmaply::normalize(data.in)
+         if(input$transform_fun=='scale') data.in[, ss_num] = scale(data.in[, ss_num])
+         if(input$transform_fun=='percentize') data.in=heatmaply::percentize(data.in)
+       } 
+       
+       
+       ColLimits=c(input$colorRng_min, input$colorRng_max)
+       
+       distfun_row = function(x) dist(x, method = input$distFun_row)
+       distfun_col =  function(x) dist(x, method = input$distFun_col)
+       
+       hclustfun_row = function(x) hclust(x, method = input$hclustFun_row)
+       hclustfun_col = function(x) hclust(x, method = input$hclustFun_col)
+       
+       p <- heatmaply(data.in,
+                      main = input$main,xlab = input$xlab,ylab = input$ylab,
+                      row_text_angle = input$row_text_angle,
+                      column_text_angle = input$column_text_angle,
+                      dendrogram = input$dendrogram,
+                      branches_lwd = input$branches_lwd,
+                      seriate = input$seriation,
+                      colors=eval(parse(text=paste0(input$pal,'(',input$ncol,')'))),
+                      distfun_row =  distfun_row,
+                      hclustfun_row = hclustfun_row,
+                      distfun_col = distfun_col,
+                      hclustfun_col = hclustfun_col,
+                      k_col = input$c, 
+                      k_row = input$r,
+                      limits = ColLimits) %>% 
+         layout(margin = list(l = input$l, b = input$b, r='0px'))
+       
+       p$elementId <- NULL
+       
+       p
+       
+     })
+     
+     #Render Plot ----
+     output$heatout <- renderPlotly({
+       shiny::req(ExpressionAnalysis$LimmaResults)
+       interactiveHeatmap()  
+       })
+     
+     #Clone Heatmap ----
+     #observeEvent({interactiveHeatmap()},{
+     # observeEvent(input$SubmitHeatmap, {
+     #   h<-interactiveHeatmap()
+     #   
+     #   l<-list(main = input$main,xlab = input$xlab,ylab = input$ylab,
+     #           row_text_angle = input$row_text_angle,
+     #           column_text_angle = input$column_text_angle,
+     #           dendrogram = input$dendrogram,
+     #           branches_lwd = input$branches_lwd,
+     #           seriate = input$seriation,
+     #           colors=paste0(input$pal,'(',input$ncol,')'),
+     #           distfun_row =  input$distFun_row,
+     #           hclustfun_row = input$hclustFun_row,
+     #           distfun_col = input$distFun_col,
+     #           hclustfun_col = input$hclustFun_col,
+     #           k_col = input$c, 
+     #           k_row = input$r,
+     #           limits = paste(c(input$colorRng_min, input$colorRng_max),collapse=',')
+     #   )
+     #   
+     #   #l=l[!l=='']
+     #   l=data.frame(Parameter=names(l),Value=do.call('rbind',l),row.names = NULL,stringsAsFactors = F)
+     #   l[which(l$Value==''),2]='NULL'
+     #   paramTbl=print(xtable::xtable(l),type = 'html',include.rownames=FALSE,print.results = F,html.table.attributes = c('border=0'))
+     #   
+     #   
+     #   h$width='100%'
+     #   h$height='800px'
+     #   s<-tags$div(style="position: relative; bottom: 5px;",
+     #               HTML(paramTbl),
+     #               tags$em('This heatmap visualization was created using',
+     #                       tags$a(href="https://github.com/yonicd/shinyHeatmaply/",target="_blank",'shinyHeatmaply'),
+     #                       Sys.time()
+     #               )
+     #   )
+     #   
+     #   output$downloadData <- downloadHandler(
+     #     filename = function() {
+     #       paste("heatmaply-", gsub(' ','_',Sys.time()), ".html", sep="")
+     #     },
+     #     content = function(file) {
+     #       libdir <- paste(tools::file_path_sans_ext(basename(file)),"_files", sep = "")
+     # 
+     #       htmltools::save_html(htmltools::browsable(htmltools::tagList(h,s)),file=file,libdir = libdir)
+     #       if (!htmlwidgets:::pandoc_available()) {
+     #         stop("Saving a widget with selfcontained = TRUE requires pandoc. For details see:\n",
+     #              "https://github.com/rstudio/rmarkdown/blob/master/PANDOC.md")
+     #       }
+     # 
+     #       htmlwidgets:::pandoc_self_contained_html(file, file)
+     # 
+     #       unlink(libdir, recursive = TRUE)
+     #     }
+     #   )
+     # })
+     # 
      
      
      ############ BoxPlot
@@ -884,6 +1076,7 @@ server <- function(input, output, session) {
      ############ TopTable     
      
      output$TopTable <- DT::renderDataTable({
+       
           LimmaTable <- ExpressionAnalysis$LimmaResults()
           LimmaTable <- as.data.frame(LimmaTable)
           

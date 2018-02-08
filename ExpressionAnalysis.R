@@ -13,7 +13,7 @@ LimmaRes <- function(ArrayData, DesignMatrix){
 #'
 #'
 #'
-LimmaTopTable <- function(fit) {
+LimmaTopTable <- function(fit, DesignMatrix) {
      DesignMatrix <- fit$design 
      
      ExpVar <- colnames(DesignMatrix)
@@ -24,7 +24,7 @@ LimmaTopTable <- function(fit) {
      
      TopTableList <- lapply(ExpVarIndex, function(Index){
           LimmaTable <- topTable(fit, coef = Index, n=1000, adjust="BH")
-          LimmaTable$ExpVar <- ExpVars[Index]
+          LimmaTable$ExpVar <- ExpVar[Index]
           LimmaTable
      })
      
@@ -39,7 +39,7 @@ LimmaTopTable <- function(fit) {
 #'
 LimmaOutput <- function(ArrayData, DesignMatrix){
      fit <- LimmaRes(ArrayData, DesignMatrix)
-     TopTable <- LimmaTopTable(fit)
+     TopTable <- LimmaTopTable(fit, DesignMatrix)
      return(TopTable)
 }
 

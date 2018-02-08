@@ -42,14 +42,18 @@ RunBioQC <- function(GMT){
 #'
 #'
 #'
-
-GenGMTggplotDF <- function(GSEeset, FactorDF){
+GenFactorGMT <- function(GSEeset, FactorDF){
      ArrayData <- exprs(GSEeset)
-     ArrayDataT <- t(ArrayData)
+     ArrayDataT <- as.data.frame(t(ArrayData))
      
      GSM <- rownames(ArrayDataT)
      GSMFactorDF <- cbind.data.frame(GSM, FactorDF)
-     ArrayAndFactorDataDF <- cbind.data.frame(GSMFactorDF, ArrayDataT)
+     FactorGMT <- cbind.data.frame(GSMFactorDF, ArrayDataT)
+     return(FactorGMT)
+}
+
+GenGMTggplotDF <- function(GSEeset, FactorDF){
+     ArrayAndFactorDataDF <- GenFactorGMT(GSEeset, FactorDF)
      GSEgmtDF <- melt(ArrayAndFactorDataDF)
      return(GSEgmtDF)
 }
@@ -192,7 +196,31 @@ PlotPCA <- function(ArrayData){
      return(PanelPlots)
 }
 
+#'
+#'
+#'
+#'
+#'
 
-
+# ClusteringAnalysis <- function(ArrayData, 
+#                                distMethod = "manhattan", 
+#                                clustMethod = c("complete", "ward.D2"), 
+#                                MultiClust = T){
+#      
+#      res.dist <- dist(df, method = distMethod) # Compute distance matrix
+#      hc1 <- hclust(res.dist, method = clustMethod[1])
+#      
+#      dend1 <- as.dendrogram (hc1) # Create two dendrograms
+#      
+#      if (MultiClust == T) {
+#           dend2 <- as.dendrogram (hc2)
+#           hc2 <- hclust(res.dist, method = method = clustMethod[2])
+#           Tangle <- tanglegram(dend1, dend2)
+#           
+#      }
+#      
+#      
+# 
+#      }
 
 

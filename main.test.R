@@ -10,7 +10,7 @@ source(file = "ExpressionAnalysis.R")
 
 if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
 con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
-message(paste('Connected Database Tables:', dbListTables(con)))
+message(paste('\nConnected Database Tables:', dbListTables(con)))
 
 MolQuery = c("Mycophenolate mofetil")
 MolQuery = c("Tofacitinib")
@@ -61,6 +61,9 @@ ArrayData <- exprs(GSEeset)
 
 ######### Function to Make GMT Ggplotable
 FactorDF <- Step_6[1:2]
+
+GSM <- colnames(ArrayData)
+ArrayFactorData <-  GenFactorGMT(GSEeset, FactorDF)
 GSEgmtDF <- GenGMTggplotDF(GSEeset = GSEeset,FactorDF = FactorDF)
 
 ######## GMT Boxplots and Histograms
@@ -85,6 +88,17 @@ PCAPlots <- PlotPCA(ArrayData)
 
 ######### Limma
 res <- LimmaOutput(GeneSymbolArrayData,DesignMatrix)
+
+x <- 10
+y <- res[1:x,1]
+y[y == ""] <- NA
+y <- na.omit(y)
+res %>% filter(ID %in% y)
+
+res %>% arrange_(x) %>% "["(.,2:7,)
+
+
+
 View(head(res))
 limma::plotMA(GSEeset)
 limma::plotMA(fit, 3)
