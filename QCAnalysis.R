@@ -38,18 +38,25 @@ RunBioQC <- function(GMT){
 #' @param GSEeset eset of GSE being processed
 #' @param FactorDF DF - each column a vectors #' experimental factor found in the title, 
 #' characterisitcs and descriptions of the GSMs in the GSE
+#' @param Annotation Eset Annotation
 #'
 #'
 #'
 #'
-GenFactorGMT <- function(GSEeset, FactorDF){
-     ArrayData <- exprs(GSEeset)
-     ArrayDataT <- as.data.frame(t(ArrayData))
-     
-     GSM <- rownames(ArrayDataT)
-     GSMFactorDF <- cbind.data.frame(GSM, FactorDF)
-     FactorGMT <- cbind.data.frame(GSMFactorDF, ArrayDataT)
-     return(FactorGMT)
+GenFactorGMT <- function(GSEeset, FactorDF, Annotation = "GeneSymbol"){
+  ArrayData <- ConvertGSEAnnotations(GSEeset,Annotation = "GeneSymbol")
+  
+  if (ncol(ArrayData) == nrow(FactorDF)) {
+    ArrayData <- t(ArrayData)
+    }
+  
+  if (nrow(ArrayData) == nrow(FactorDF)) {
+    GSM <- rownames(ArrayData)
+    GSMFactorDF <- cbind.data.frame(GSM, FactorDF)
+    FactorGMT <- cbind.data.frame(GSMFactorDF, ArrayData)
+    } else { stop("Array data and Factor DF dimensions not compatible")}
+  
+  return(FactorGMT)
 }
 
 GenGMTggplotDF <- function(GSEeset, FactorDF){

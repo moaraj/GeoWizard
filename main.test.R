@@ -89,13 +89,25 @@ PCAPlots <- PlotPCA(ArrayData)
 ######### Limma
 res <- LimmaOutput(GeneSymbolArrayData,DesignMatrix)
 
-x <- 10
-y <- res[1:x,1]
-y[y == ""] <- NA
-y <- na.omit(y)
-res %>% filter(ID %in% y)
 
-res %>% arrange_(x) %>% "["(.,2:7,)
+TopTableFilter <- "logFC"
+     LimmaTable <- res %>% arrange_(TopTableFilter)
+     nGenes <- 10
+     
+     TopGenes <- LimmaTable[1:nGenes,1]
+     TopGenes[TopGenes == ""] <- NA
+     TopGenes <- na.omit(TopGenes)
+     
+     FactorGMT <- GenFactorGMT(GSEeset, FactorDF)
+     colnames(FactorGMT) <- make.names(colnames(FactorGMT), unique=TRUE)
+     
+     ColumnsToKeep <- colnames(FactorGMT)
+     ColumnsToKeep <- grep(pattern = "GSM|ExpVar",x = ColumnsToKeep, value = T)
+     ColumnsToKeep <- c(ColumnsToKeep, TopGenes)
+     
+     FactorGMT <- FactorGMT %>% select(one_of(ColumnsToKeep))
+
+
 
 
 
