@@ -39,25 +39,29 @@ LoadGEOFiles <- function(GSE, GeoRepoPath){
 }
 
 #' @param GSEeset eset of the GSE being processed
-#' @return GSEeset with GeneSymbol Annotations
+#' @return ArrayData with GeneSymbol Annotations
 #'
 #'
-ConvertGSEAnnotations <- function(GSEeset){
-     message("Loading Expression Set Data")
-     if(class(GSEeset) == "list"){
-          GSEeset <- GSEeset[[1]]
-     }
-     
-     message("Extracting Gene Symbol feature annotations")
-     geneSymbolNames <- colsplit(
-          string = GSEeset@featureData@data$`Gene Symbol`,
-          pattern = " ",
-          names = c("GeneSymbol", "SecondarySymbol"))
-     
-     GeneSymbolEset <- exprs(GSEeset)
-     rownames(GeneSymbolEset) <- geneSymbolNames$GeneSymbol
-     
-     return(GeneSymbolEset)
+ConvertGSEAnnotations <- function(GSEeset, Annotation = "GeneSymbol"){
+  message("Loading Expression Set Data")
+  if(class(GSEeset) == "list"){
+    GSEeset <- GSEeset[[1]]
+    }
+  
+  if (Annotation == "GeneSymbol") {
+    message("Extracting Gene Symbol feature annotations")
+    geneSymbolNames <- colsplit(
+      string = GSEeset@featureData@data$`Gene Symbol`,
+      pattern = " ",
+      names = c("GeneSymbol", "SecondarySymbol"))
+    
+    GeneSymbolEset <- exprs(GSEeset)
+    rownames(GeneSymbolEset) <- geneSymbolNames$GeneSymbol
+    AnnotatedArrayData <- GeneSymbolEset
+  }
+  
+  
+  return(AnnotatedArrayData)
 }
 
 #' Get GMT File from eset

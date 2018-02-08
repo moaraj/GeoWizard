@@ -800,7 +800,7 @@ server <- function(input, output, session) {
        ArrayData <- exprs(GSEeset) #Matrix
        DesignMatrix <- ExperimentalDesign$DesignMatrix #Matrix
        LimmaOutput(ArrayData = ArrayData, DesignMatrix = DesignMatrix)
-       
+       message("Performing Limma DEA")
        })
      
      ############ Volcano Plot
@@ -823,23 +823,23 @@ server <- function(input, output, session) {
      })
 
      output$VolcanoPlot <- renderPlot({
+       shiny::req(input$SubmitFormula)
+       
+       pValueThresHold <- input$PValThresInput
+       logFCThresHold <- input$LogFCThresInput
+         
+       LimmaTable <- ExpressionAnalysis$LimmaResults()
+       LimmaTable <- as.data.frame(LimmaTable)
+       
+       LimmaTable <- LimmaTable %>%
+        mutate(Threshold = abs(logFC) > logFCThresHold) %>%
+          mutate(Threshold = as.numeric(Threshold)) %>%
+            mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
+         
+       ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) + geom_point() + theme_grey() + facet_wrap(~ExpVar)
+      
 
-          pValueThresHold <- input$PValThresInput
-          logFCThresHold <- input$LogFCThresInput
-
-          LimmaTable <- ExpressionAnalysis$LimmaResults()
-          LimmaTable <- as.data.frame(LimmaTable)
-
-
-          LimmaTable <- LimmaTable %>%
-               mutate(Threshold = abs(logFC) > logFCThresHold) %>%
-               mutate(Threshold = as.numeric(Threshold)) %>%
-               mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
-
-          ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) +
-               geom_point() + theme_grey() + facet_wrap(~ExpVar)
-
-     })
+       })
      
      
      ############ MA Plot
@@ -869,24 +869,34 @@ server <- function(input, output, session) {
      
      ##################################################################################### Clustering
      
-    #Import/Select Data ----
-     data.in <- reactive({
-
-         LimmaTable <- ExpressionAnalysis$LimmaResults()
-         LimmaTable <- LimmaTable %>% arrange_(input$TopTableFilter)
-
-         nGenes <- input$nGenes
-         LimmaTable <- LimmaTable[1:nGenes,1]
-         
-         FactorDF <- as.data.frame(ExperimentalDesign$FilteredFactorLevels())
-         GSEeset <- GSEdata$GSEeset()
-         FactorGMT <- GenFactorGMT(GSEeset, FactorDF)
-
-         TopGenes <- LimmaTable[1:nGenes,1]
-         TopGenes[TopGenes == ""] <- NA
-         TopGenes <- na.omit(TopGenes)
-         FactorGMT <- FactorGMT %>% filter(ID %in% TopGenes)
-
+    # #Import/Select Data ----
+     HeatMapData <- reactiveValues()
+    
+     HeatMapData$FactorGMT <- reactive({
+       shiny::req(input$formulaInputDesign, input$SubmitFormula)
+ 
+       LimmaTable <- ExpressionAnalysis$LimmaResults
+       LimmaTable <- LimmaTable %>% arrange_(input$TopTableFilter)
+       
+       nGenes <- input$nGenes
+       
+       TopGenes <- LimmaTable[1:nGenes,1]
+       TopGenes[TopGenes == ""] <- NA
+       TopGenes <- na.omit(TopGenes)
+       
+       FactorDF <- ExperimentalDesign$FilteredFactorLevels()
+       FactorDF <- as.data.frame(FactorDF)
+       
+       GSEeset <- GSEdata$GSEeset()
+       FactorGMT <- GenFactorGMT(GSEeset, FactorDF)
+       colnames(FactorGMT) <- make.names(colnames(FactorGMT), unique=TRUE)
+       
+       ColumnsToKeep <- colnames(FactorGMT)
+       ColumnsToKeep <- grep(pattern = "GSM|ExpVar",x = ColumnsToKeep, value = T)
+       ColumnsToKeep <- c(ColumnsToKeep, TopGenes)
+       
+       FactorGMT <- FactorGMT %>% select(one_of(ColumnsToKeep))
+       
     })
 
      
@@ -923,13 +933,13 @@ server <- function(input, output, session) {
      
      #Manual Color Range UI ----
      output$colRng=renderUI({
-       if(!is.null(data.in())) {
-         rng=range(data.in(),na.rm = TRUE)
+       if(!is.null(HeatMapData$FactorGMT())) {
+         rng=range(HeatMapData$FactorGMT(),na.rm = TRUE)
        }else{
          rng=range(mtcars) # TODO: this should probably be changed
        }
        # sliderInput("colorRng", "Set Color Range", min = round(rng[1],1), max = round(rng[2],1), step = .1, value = rng)  
-       n_data = nrow(data.in())
+       n_data = nrow(HeatMapData$FactorGMT())
        
        min_min_range = ifelse(input$transform_fun=='cor',-1,-Inf)
        min_max_range = ifelse(input$transform_fun=='cor',1,rng[1])
@@ -952,25 +962,25 @@ server <- function(input, output, session) {
      #Building heatmaply ----
      interactiveHeatmap<-observeEvent(input$SubmitDEA, {
        
-       data.in <- data.in()
-       ss_num =  sapply(data.in, is.numeric) # in order to only transform the numeric values
+       HeatMapData$FactorGMT <- HeatMapData$FactorGMT()
+       ss_num =  sapply(HeatMapData$FactorGMT, is.numeric) # in order to only transform the numeric values
        
-       if(input$transpose) data.in=t(data.in)
+       if(input$transpose) HeatMapData$FactorGMT=t(HeatMapData$FactorGMT)
        if(input$transform_fun!='.'){
          if(input$transform_fun=='is.na10'){
            updateCheckboxInput(session = session,inputId = 'showColor',value = T)
-           data.in[, ss_num]=is.na10(data.in[, ss_num])
+           HeatMapData$FactorGMT[, ss_num]=is.na10(HeatMapData$FactorGMT[, ss_num])
          } 
          if(input$transform_fun=='cor'){
            updateCheckboxInput(session = session,inputId = 'showColor',value = T)
            updateCheckboxInput(session = session,inputId = 'colRngAuto',value = F)
-           data.in=cor(data.in[, ss_num],use = "pairwise.complete.obs")
+           HeatMapData$FactorGMT=cor(HeatMapData$FactorGMT[, ss_num],use = "pairwise.complete.obs")
          }
-         if(input$transform_fun=='log') data.in[, ss_num]= apply(data.in[, ss_num],2,log)
-         if(input$transform_fun=='sqrt') data.in[, ss_num]= apply(data.in[, ss_num],2,sqrt) 
-         if(input$transform_fun=='normalize') data.in=heatmaply::normalize(data.in)
-         if(input$transform_fun=='scale') data.in[, ss_num] = scale(data.in[, ss_num])
-         if(input$transform_fun=='percentize') data.in=heatmaply::percentize(data.in)
+         if(input$transform_fun=='log') HeatMapData$FactorGMT[, ss_num]= apply(HeatMapData$FactorGMT[, ss_num],2,log)
+         if(input$transform_fun=='sqrt') HeatMapData$FactorGMT[, ss_num]= apply(HeatMapData$FactorGMT[, ss_num],2,sqrt) 
+         if(input$transform_fun=='normalize') HeatMapData$FactorGMT=heatmaply::normalize(HeatMapData$FactorGMT)
+         if(input$transform_fun=='scale') HeatMapData$FactorGMT[, ss_num] = scale(HeatMapData$FactorGMT[, ss_num])
+         if(input$transform_fun=='percentize') HeatMapData$FactorGMT=heatmaply::percentize(HeatMapData$FactorGMT)
        } 
        
        
@@ -982,7 +992,7 @@ server <- function(input, output, session) {
        hclustfun_row = function(x) hclust(x, method = input$hclustFun_row)
        hclustfun_col = function(x) hclust(x, method = input$hclustFun_col)
        
-       p <- heatmaply(data.in,
+       p <- heatmaply(HeatMapData$FactorGMT,
                       main = input$main,xlab = input$xlab,ylab = input$ylab,
                       row_text_angle = input$row_text_angle,
                       column_text_angle = input$column_text_angle,
@@ -1007,10 +1017,14 @@ server <- function(input, output, session) {
      
      #Render Plot ----
      output$heatout <- renderPlotly({
-       shiny::req(ExpressionAnalysis$LimmaResults)
-       interactiveHeatmap()  
+       if(!is.null(ExpressionAnalysis$LimmaResults)){
+         interactiveHeatmap()    
+       } else { NULL }
+       
        })
      
+     
+
      #Clone Heatmap ----
      #observeEvent({interactiveHeatmap()},{
      # observeEvent(input$SubmitHeatmap, {
