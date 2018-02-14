@@ -78,7 +78,7 @@ GMTHistPlot(GSEgmtDF, "Factor", "ExpVar3.Text", 10)
 
 ########## Convert to Gene Symbol
 source(file = "GeoFileHandling.R")
-GeneSymbolArrayData <- ConvertGSEAnnotations(GSEeset = GSEeset)
+GeneSymbolArrayData <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "RefSeq")
 
 ######### QC
 source(file = "QCAnalysis.R")
@@ -119,5 +119,17 @@ View(model.matrix(~ExpVar3.Text+ExpVar4.Text, Step_6))
 
 
 
+ConvertGSEAnnotations()
+message("Loading Expression Set Data")
+GSEeset <- GSEdata$Eset
 
+message("Extracting Gene Symbol feature annotations")
+geneSymbolNames <- colsplit(
+  string = GSEeset@featureData@data$`Gene Symbol`,
+  pattern = " ",
+  names = c("GeneSymbol", "SecondarySymbol"))
+
+GeneSymbolEset <- exprs(GSEeset)
+rownames(GeneSymbolEset) <- geneSymbolNames$GeneSymbol
+GeneSymbolEset
 

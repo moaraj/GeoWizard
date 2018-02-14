@@ -38,17 +38,13 @@ RunBioQC <- function(GMT){
 #' @param GSEeset eset of GSE being processed
 #' @param FactorDF DF - each column a vectors #' experimental factor found in the title, 
 #' characterisitcs and descriptions of the GSMs in the GSE
-#' @param Annotation Eset Annotation
 #'
 #'
 #'
 #'
-GenFactorGMT <- function(GSEeset, FactorDF, Annotation = "GeneSymbol"){
-  ArrayData <- ConvertGSEAnnotations(GSEeset,Annotation = "GeneSymbol")
+GenFactorGMT <- function(GSEeset, FactorDF){
   
-  if (ncol(ArrayData) == nrow(FactorDF)) {
-    ArrayData <- t(ArrayData)
-    }
+  if (ncol(ArrayData) == nrow(FactorDF)) { ArrayData <- t(ArrayData) }
   
   if (nrow(ArrayData) == nrow(FactorDF)) {
     GSM <- rownames(ArrayData)
@@ -59,12 +55,11 @@ GenFactorGMT <- function(GSEeset, FactorDF, Annotation = "GeneSymbol"){
   return(FactorGMT)
 }
 
-GenGMTggplotDF <- function(GSEeset, FactorDF){
+GenFactorGMTMeltDF <- function(GSEeset, FactorDF){
      ArrayAndFactorDataDF <- GenFactorGMT(GSEeset, FactorDF)
      GSEgmtDF <- melt(ArrayAndFactorDataDF)
      return(GSEgmtDF)
 }
-
 
 
 #' GMT Boxplot
