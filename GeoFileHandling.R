@@ -39,27 +39,29 @@ LoadGEOFiles <- function(GSE, GeoRepoPath){
 }
 
 #' @param GSEeset eset of the GSE being processed
-#' @return ArrayData with GeneSymbol Annotations
+#' @param Annotation string containing one of gene annotation systems
+#' @return ArrayData with Annotations
 #'
 #'
-ConvertGSEAnnotations <- function(GSEeset, Annotation = "GeneSymbol"){
+
+
+ConvertGSEAnnotations <- function(GSEeset, AnnotationType){
   message("Loading Expression Set Data")
   if(class(GSEeset) == "list"){
-    GSEeset <- GSEeset[[1]]
-    }
+    GSEeset <- GSEeset[[1]]}
   
-  if (Annotation == "GeneSymbol") {
-    message("Extracting Gene Symbol feature annotations")
-    geneSymbolNames <- colsplit(
-      string = GSEeset@featureData@data$`Gene Symbol`,
-      pattern = " ",
-      names = c("GeneSymbol", "SecondarySymbol"))
-    
-    GeneSymbolEset <- exprs(GSEeset)
-    rownames(GeneSymbolEset) <- geneSymbolNames$GeneSymbol
-    AnnotatedArrayData <- GeneSymbolEset
+  ValidAnnotations <- c("Gene Title","ENTREZ_GENE_ID","Gene Symbol","RefSeq Transcript ID")
+  if (grep(pattern = AnnotationType, x = ValidAnnotations)) {
+    warning("Annotation type not recognized by ConvertGSEAnnotations funtion(), using 'Gene Symbol'")
+    AnnotationType <- "Gene Symbol"
   }
   
+  message("Extracting Feature annotations")
+  NewAnnotations <- GSEeset@featureData@data[,AnnotationType]
+  
+  GeneSymbolEset <- exprs(GSEeset)
+  rownames(GeneSymbolEset) <- NewAnnotations
+  AnnotatedArrayData <- GeneSymbolEset
   
   return(AnnotatedArrayData)
 }
