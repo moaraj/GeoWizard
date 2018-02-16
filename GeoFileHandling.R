@@ -10,27 +10,25 @@
 
 
 LoadGEOFiles <- function(GSE, GeoRepoPath){
-     
      GeoRepoFiles <- dir(GeoRepoPath)
 
      RegularExp <- paste(GSE, ".+matrix\\.txt\\.gz$", sep = "")
-     MatrixFileIndex <- grep(pattern = RegularExp, x = GeoRepoFiles)
-     MatrixFilePath <- file.path(GeoRepoPath, GeoRepoFiles[MatrixFileIndex])
+     MatrixFile <- grep(pattern = RegularExp, x = GeoRepoFiles, value = T)
+     MatrixFilePath <- file.path(GeoRepoPath, MatrixFile)
      RDSFilePath <- paste(MatrixFilePath, ".rds", sep = "")
-
-     if(file.exists(RDSFilePath)){
+     
+     if(isTRUE(file.exists(RDSFilePath)) & length(MatrixFile) != 0 ){
           message("Loading Matrix File from RDS")
           GSEeset <- readRDS(RDSFilePath)
           
-     } else if (file.exists(MatrixFilePath)) {
+     } else if (isTRUE(file.exists(MatrixFilePath)) & length(MatrixFile) != 0 ) {
           message(paste("Matrix File for",GSE, "Found in GEORepo at", GeoRepoPath))
           GSEeset <- getGEO(filename = MatrixFilePath)
           message("Save ESET as RData for faster loading next time")
           saveRDS(object = GSEeset, file = RDSFilePath)
           
      } else {
-          message(paste("Matrix File for", GSE, "Found in GEORepo at", GeoRepoPath))
-          GSEeset <- getGEO(GEO = "GSE69967", destdir = "~/GeoWizard/GEORepo")
+          GSEeset <- getGEO(GSE, destdir = "~/GeoWizard/GEORepo")
           saveRDS(object = GSEeset, file = RDSFilePath)
           message("Save ESET as RData for faster loading next time")
      }
@@ -44,11 +42,10 @@ LoadGEOFiles <- function(GSE, GeoRepoPath){
 #'
 #'
 
-
 ConvertGSEAnnotations <- function(GSEeset, AnnotationType){
   message("Loading Expression Set Data")
-  if(class(GSEeset) == "list"){
-    GSEeset <- GSEeset[[1]]}
+  if(class(GSEeset) == "list"){ GSEeset <- GSEeset[[1]]
+  } else if(class(GSEeset) != "ExpressionSet") { stop("Error in Loading Expression Data for Annotation")}
   
   ValidAnnotations <- c("Gene Title","ENTREZ_GENE_ID","Gene Symbol","RefSeq Transcript ID")
   if (grep(pattern = AnnotationType, x = ValidAnnotations)) {

@@ -47,6 +47,7 @@ message(paste('Connected Database Tables:', dbListTables(con)))
 
 
 appCSS <- "
+
 #loading-content {
 position: absolute;
 background: #000000;
@@ -75,17 +76,13 @@ color: red;
 }
 
 
-tags$style(type='text/css', '.selectize-dropdown-content {max-height: 100; }')
-td {word-wrap: break-word}
-
-.nav-tabs {font-size: 20px}
-
 .gly-spin {
   -webkit-animation: spin 2s infinite linear;
 -moz-animation: spin 2s infinite linear;
 -o-animation: spin 2s infinite linear;
 animation: spin 2s infinite linear;
 }
+
 @-moz-keyframes spin {
 0% {
 -moz-transform: rotate(0deg);
@@ -354,7 +351,7 @@ ui <- dashboardPage(
             )
             ), # Column Dataselction
                               
-          column(3,
+          column(4,
           box(title = "Experimental Classification Results",
             solidHeader = T,
             status = "primary",
@@ -416,7 +413,7 @@ ui <- dashboardPage(
           )
           ), # Column Classifications
                               
-            column(5,
+            column(4,
             tabBox(title = "Experimental Factors",
               width = 12,
               side = "right",
@@ -461,9 +458,7 @@ ui <- dashboardPage(
               width = 12,
               collapsible = T,
             
-            dataTableOutput("DesignMat_SummaryTable")),
-              
-            box(title = "Detected Factor Identifications")
+            dataTableOutput("DesignMat_SummaryTable"))
             ), # First Page Column
                                  
             column(4,
@@ -525,21 +520,31 @@ ui <- dashboardPage(
             tabItem(
             tabName = "DataQC",
             fluidRow(
-            column(4,
+            column(4,  
             
             box(title = "GMT File",
               width = 12,
               solidHeader = T,
               status = "primary",
-                        
+            
             fluidRow(
-            column(6,
+            column(10, 
+            offset = 1,
+            tags$p(tags$strong("Download Data from SRA/GEO")),
+                        
             actionButton(
               inputId = "DownloadGEOData",
-              label = strong("Download Data from GEO"))
-              ),
-                        
-            column(6,
+              label = "Download",
+              icon = icon("download"),
+              block = T
+            ),
+            br(),
+            radioButtons(inputId = "ExpressionDataType",
+                        label = "Gene Expression Data Type",
+                        choiceNames = c("MicroArray", "NGS Sequencing", "Single Cell Sequencing"),
+                        choiceValues = c("mArray", "RNAseq", "ssRNAseq"),
+                        selected = "mArray"),
+            br(),
             selectInput(inputId = "GeneAnnotationType",
               label = "Gene Annotations",
               choices = c("Gene Title" = "Gene Title",
@@ -549,17 +554,19 @@ ui <- dashboardPage(
               selected = "Gene Title",
               multiple = F,
               selectize = T)
-            )
+            
+            )  # Column
             ), # Fluid Row
                         
             hr(),
+            h3("Gene Matrix"),
             hidden(
-            div( id = "GMTTable",
-            dataTableOutput("GMTFileTable") %>% withSpinner(color = "#0dc5c1")
-            )
-            )  #Hidden Div
-            )  #Box
-            ), #First Column for Page
+            div( id = "GMTTableDiv",
+            DT::dataTableOutput("GMTFileTable") %>% withSpinner(color = "#0dc5c1")
+            )  # GMTFileTable
+            )  # Hidden
+            )  # Box
+            ), # First Column for Page
                                  
             column(8,
             tabBox(title = "Raw Data Statistics",
@@ -653,8 +660,7 @@ ui <- dashboardPage(
             )
             ),
                                  
-            tabPanel("BioQC",
-              style = "margin-left :10px; margin-right :10px",
+            tabPanel("BioQC", style = "margin-left :10px; margin-right :10px",
                                  
             fluidRow(
             column(4,     
@@ -672,21 +678,39 @@ ui <- dashboardPage(
               "test that is optimised for high performance."))
             
             )  # Input Well Panel
-            ),  # Input Column
+            ), # Input Column
                                  
             column(8,
             plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
             )  # Plot Column 
             )  # Page Fluid Row
-            )  # tabPanel("BioQC"
+            ), # tabPanel BioQC"
+            
+            tabPanel("View/Save Raw Data",
+            wellPanel(
+            radioButtons(
+              inputId = "RawDataTableMelt", 
+              label = "Which Data Matrix to Show" , 
+              choiceNames = c("Gene Matrix","Melted Gene Matrix with Factors"),
+              choiceValues = c("GMT", "FactorGMTMelt"), 
+              inline = T
+              )
+              
+            ),
+            h4("Datatable"),
+            hr(),
+            DT::dataTableOutput("RawDataQC") %>% withSpinner(color = "#0dc5c1")
+            )  # tabPanel RawDataQC
+            
+            
             )  # tabBox(title = "Raw Data Statistics"
             )  # Column for Page
             )  # Fluid Row For the TabItem
             ), # tabItem(tabName = "DataQC"
             
             tabItem(tabName = "DifferentialAnalysis",
-              fluidRow(
-              column(12,
+            fluidRow(
+            column(12,
                     
             tabBox(title = "Expression Analysis",
               width = 12,

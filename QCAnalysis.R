@@ -35,21 +35,19 @@ RunBioQC <- function(GMT){
                trace = 'none')
 }
 
-#' @param GSEeset eset of GSE being processed
+#' @param ExpressionMatrix eset of GSE being processed
 #' @param FactorDF DF - each column a vectors #' experimental factor found in the title, 
 #' characterisitcs and descriptions of the GSMs in the GSE
 #'
 #'
 #'
-#'
-GenFactorGMT <- function(GSEeset, FactorDF){
+GenFactorGMT <- function(ExpressionMatrix, FactorDF){
+  if (ncol(ExpressionMatrix) == nrow(FactorDF)) { ExpressionMatrix <- t(ExpressionMatrix) }
   
-  if (ncol(ArrayData) == nrow(FactorDF)) { ArrayData <- t(ArrayData) }
-  
-  if (nrow(ArrayData) == nrow(FactorDF)) {
-    GSM <- rownames(ArrayData)
+  if (nrow(ExpressionMatrix) == nrow(FactorDF)) {
+    GSM <- rownames(ExpressionMatrix)
     GSMFactorDF <- cbind.data.frame(GSM, FactorDF)
-    FactorGMT <- cbind.data.frame(GSMFactorDF, ArrayData)
+    FactorGMT <- cbind.data.frame(GSMFactorDF, ExpressionMatrix)
     } else { stop("Array data and Factor DF dimensions not compatible")}
   
   return(FactorGMT)
@@ -65,53 +63,53 @@ GenFactorGMTMeltDF <- function(GSEeset, FactorDF){
 #' GMT Boxplot
 #'
 #' Generate Boxplots of GMT files on the basis on factors or samples
-#' @param GSEgmtDF - DF with columns GSM, ExpVars, variable(gene ids), value(gene number, counts, RPKM etc.)
+#' @param FactorGMTMelt - DF with columns GSM, ExpVars, variable(gene ids), value(gene number, counts, RPKM etc.)
 #' @param BoxPlotType - Plot GMT boxplots by "Sample" or "Factor"
 #' @param PlotFactor - Colnumer of Factorcolumn in GSEgmtDF to fill and group boxplot with
 
 
-GMTBoxplot <- function(GSEgmtDF, BoxPlotType = "Sample", PlotBy = "Overall", PlotFactor, SampleSize){
+GMTBoxplot <- function(FactorGMTMelt, BoxPlotType = "Sample", PlotBy = "Overall", PlotFactor, SampleSize){
      #FactorColumnName <- input$BoxFactorSelectInput
      #BoxPlotType <- input$BoxPlotType
      
      if (BoxPlotType == "Sample") { 
           
           if (PlotBy == "Overall") { 
-               GeneSample <- sample(x = GSEgmtDF$GSM, size = SampleSize)
-               GSEgmtDF <- GSEgmtDF %>% filter(GSM %in% GeneSample)
-               AesX <- GSEgmtDF$GSM
+               GeneSample <- sample(x = FactorGMTMelt$GSM, size = SampleSize)
+               FactorGMTMelt <- FactorGMTMelt %>% filter(GSM %in% GeneSample)
+               AesX <- FactorGMTMelt$GSM
                
-               AesFill <- factor(GSEgmtDF[,PlotFactor])
+               AesFill <- factor(FactorGMTMelt[,PlotFactor])
                xlabtext <- "GSMs in Dataset"
                legPos <- "top"
                
           } else if (PlotBy == "Factor") {;message("Factor")
-               AesX <- GSEgmtDF[,PlotFactor]
-               AesFill <- factor(GSEgmtDF[,PlotFactor])
+               AesX <- FactorGMTMelt[,PlotFactor]
+               AesFill <- factor(FactorGMTMelt[,PlotFactor])
                xlabtext <- "Experimental Factors"
                legPos <- "top"
           }
           
      } else if (BoxPlotType == "Gene") {
-          GeneSample <- sample(x = GSEgmtDF$variable, size = SampleSize)
-          GSEgmtDF <- GSEgmtDF %>% filter(variable %in% GeneSample)
+          GeneSample <- sample(x = FactorGMTMelt$variable, size = SampleSize)
+          FactorGMTMelt <- FactorGMTMelt %>% filter(variable %in% GeneSample)
           
           if (PlotBy == "Overall") {
-               AesX <- GSEgmtDF$variable
-               GSEgmtDF <- GSEgmtDF
+               AesX <- FactorGMTMelt$variable
+               FactorGMTMelt <- FactorGMTMelt
                AesFill <- "red"
                xlabtext <- "Assayed Genes"
                legPos <- "none"
                
           } else if (PlotBy == "Factor") {
-               AesX <- GSEgmtDF$variable
-               AesFill <- factor(GSEgmtDF[,PlotFactor])
+               AesX <- FactorGMTMelt$variable
+               AesFill <- factor(FactorGMTMelt[,PlotFactor])
                xlabtext <- "Assayed Genes"
                legPos <- "top"
           }
      }
      
-     pBox <- ggplot(data = GSEgmtDF, aes(y = GSEgmtDF$value, x = AesX, fill = AesFill)) +
+     pBox <- ggplot(data = FactorGMTMelt, aes(y = FactorGMTMelt$value, x = AesX, fill = AesFill)) +
           theme(legend.position = legPos) +  
           ylab(label = "Expression Level") +
           xlab(label = xlabtext) +
@@ -132,25 +130,26 @@ GMTBoxplot <- function(GSEgmtDF, BoxPlotType = "Sample", PlotBy = "Overall", Plo
 #'
 #'
 
-GMTHistPlot <- function(GSEgmtDF, HistPlotType = "Sample", PlotFactor, SampleSize) {
+GMTHistPlot <- function(FactorGMTMelt, HistPlotType = "Sample", PlotFactor, SampleSize) {
+  
      if (HistPlotType == "Factor") {
-          AesFill = GSEgmtDF[,PlotFactor]
+          AesFill = FactorGMTMelt[,PlotFactor]
           guideTxt <- "Experimental Factors"
           
      } else if(HistPlotType == "Gene"){
-          GeneSample <- sample(x = GSEgmtDF$variable, size = SampleSize)
-          GSEgmtDF <- GSEgmtDF %>% filter(variable %in% GeneSample)
-          AesFill = GSEgmtDF$variable
+          GeneSample <- sample(x = FactorGMTMelt$variable, size = SampleSize)
+          FactorGMTMelt <- FactorGMTMelt %>% filter(variable %in% GeneSample)
+          AesFill = FactorGMTMelt$variable
           guideTxt <- "Randomly Sampled Genes"
           
      } else if(HistPlotType == "Sample"){
-          GeneSample <- sample(x = GSEgmtDF$GSM, size = SampleSize)
-          GSEgmtDF <- GSEgmtDF %>% filter(GSM %in% GeneSample)
-          AesFill = GSEgmtDF$GSM
+          GeneSample <- sample(x = FactorGMTMelt$GSM, size = SampleSize)
+          FactorGMTMelt <- FactorGMTMelt %>% filter(GSM %in% GeneSample)
+          AesFill = FactorGMTMelt$GSM
           guideTxt <- "Randomly Sampled GSMs"
      }
      
-     pHist <- ggplot(data = GSEgmtDF, aes(x = value, fill = AesFill)) + 
+     pHist <- ggplot(data = FactorGMTMelt, aes(x = value, fill = AesFill)) + 
           geom_histogram(position="dodge") + 
           guides(fill=guide_legend(title=guideTxt)) 
      

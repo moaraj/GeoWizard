@@ -525,8 +525,8 @@ server <- function(input, output, session) {
        FactorDF <- ExperimentalDesign$FilteredFactorDF()
        UniqueFilteredFactorDF <- unique(FactorDF)
        })
-
-
+     
+     ##### Unique Factor Table
      output$ImportantFactorTable <- DT::renderDataTable({
       shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
        ExpFactorDF <- ExperimentalDesign$UniqueFilteredFactorDF()
@@ -540,7 +540,7 @@ server <- function(input, output, session) {
         formatStyle(names(ExpFactorDF), color = 'black', fontWeight = 'bold')
      })
      
-
+     ##### Full Factor Table
      output$FullFactorTable <- DT::renderDataTable({
        shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
        FactorDF <- ExperimentalDesign$FactorDF()
@@ -554,6 +554,7 @@ server <- function(input, output, session) {
      })
      
     observe({
+    ##### Excluded Factor Table
     output$ExcludedFactorTable <- DT::renderDataTable({
     shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
           
@@ -571,295 +572,264 @@ server <- function(input, output, session) {
     
     ################################### GSM Metadata TabItem 
     observeEvent( input[["GoToDesignPage"]], { updateTabItems(session, "TabSet", "DesignMatrix")})
+    
+    ################################################## Design Matrix
+
+     output$DesignMat_SummaryTable <- DT::renderDataTable({
+       shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
+       ExpFactorDF <- ExperimentalDesign$UniqueFilteredFactorDF()
+       ExpFactorDF <- data.frame(ExpFactorDF)
+       
+       DT::datatable(data = ExpFactorDF, extensions = 'ColReorder', class = 'compact',
+        options = list( dom = 't', autoWidth = TRUE, scrollX = T, scrollY = '500px',paging = FALSE,
+        columnDefs = list(list(width = '150px', targets = c(1:ncol(ExpFactorDF)))),
+        colReorder = list(realtime = FALSE))) %>%
+        formatStyle(names(ExpFactorDF), color = 'black', fontWeight = 'bold')
+       
+     })
 
 
+     ########################{ Annotate the data table
+
+     output$RearrangeLevels <- renderUI({
+       FactorDF <- ExperimentalDesign$FilteredFactorDF()
+       
+       NamesIndex <- colnames(FactorDF)
+       lapply(NamesIndex, function(ColName){
+         ColLevels <- factor(FactorDF[,ColName])
+         inputName <- paste("Levels_", ColName, sep = "")
+         selectInput(inputId = inputName, label = paste("Selected control level for", ColName), choices = levels(ColLevels))
+         })
+       })
+     
+     ExperimentalDesign$ControlFactorDF <- reactive({
+       shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
+       DesignDF <- ExperimentalDesign$FilteredFactorDF()
+       
+       NamesIndex <- colnames(DesignDF)
+       ResDF <- lapply(NamesIndex, function(ColName){
+        ResultVector <- DesignDF[,ColName]
+        inputName <- paste("Levels_", ColName, sep = "")
+          
+        InputControlLevel <- input[[inputName]]
+        OtherLevels <- levels(factor(ResultVector))
+        levels(ResultVector) <- unique(c(InputControlLevel, OtherLevels))
+        ResultVector
+      })
+     
+      names(ResDF) <- NamesIndex
+      ResDF <- data.frame(do.call(cbind, ResDF))
+      ResDF
+     })
+
+     ##################### Formula Input
+
+     observeEvent(input$SubmitFormula, {
+       ExperimentalDesign$DesignMatrix <- reactive({
+         DesignDF <- ExperimentalDesign$ControlFactorDF()
+         Designformula <- input$formulaInputDesign
+         
+         DesignExpression <- try(as.formula(Designformula))
+         if (class(DesignExpression)[1] == "try-error") { stop("Caught an error trying to make Design Matrix") 
+           } else {
+           DesignMatrix <- model.matrix(as.formula(DesignExpression), DesignDF)
+           DesignMatrix 
+           }
+         })
+       })
+
+     # output$TextAhead <- renderUI({
+     #   
+     #   shiny::req(input$formulaInputDesign, input$UsefulColumnsCheckbox, input$WhereVarData)
+     #   DesignDF <- ExperimentalDesign$ControlFactorDF()
+     #   DFname <- colnames(DesignDF)
+     #   DFlevs <- as.character(
+     #      lapply(DesignDF, function(x){
+     #      FactorLevels <- levels(x)
+     #      nLevels <- length(FactorLevels)
+     #      paste(FactorLevels[1],FactorLevels[nLevels],collapse = " ")}))
+     # 
+     #   typeaheadOptions <- list(
+     #      id="thti", 
+     #      placeholder="~ ExpVar1 + ExpVar2",
+     #      local=data.frame(name=paste("~ ", DFname),
+     #                       info= paste("levels:", DFlevs),
+     #                       valueKey = "name",
+     #                       tokens=c(1:length(DFname))
+     #    ))
+     #   
+     #   do.call(textInput.typeahead, typeaheadOptions)
+     # 
+     # })
+
+     observeEvent(input$SubmitFormula, {
+       shiny::req(input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData)
+       output$CustomExpressionTable <- DT::renderDataTable({
+         DesignMatrix <- ExperimentalDesign$DesignMatrix()
+         
+       DT::datatable(data = DesignMatrix, rownames = TRUE, class = 'compact', extensions = 'Buttons',
+        options = list( scrollY = '300px', paging = FALSE, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
+        })
+       })
+
+    ######################## 
+
+     output$ExperimentalBlocksPlot <- renderPlot({
+       shiny::req(input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData)
+       DesignDF <- ExperimentalDesign$ControlFactorDF()
+       
+       DesignExpression <- try(as.formula(input$formulaInputDesign))
+       RenderMosaicPlot <- try(vcd::mosaic(DesignExpression, DesignDF))
+       
+       if (class(RenderMosaicPlot)[1] == "try-error" | class(DesignExpression)[1] == "try-error") {
+         stop(paste("Caught an error trying to make design Mosaic Plot,\n",
+                    "trying changing formula input.\n",
+                    "maybe try", "~", colnames(DesignDF)[1]))
+         } else { RenderMosaicPlot }
+       
+       })
+
+     ######################## Expression Analysis
+
+     #### Download the Data
+     GSEdata <- reactiveValues()
+     
+     observeEvent(input$DownloadGEOData, {
+     observe({
+       shiny::req(input$GsmTableSelect, input$DownloadGEOData)
+       shinyjs::show("GMTTableDiv")
+       
+       GSE <- input$GsmTableSelect
+       message(paste("Downloading", GSE, "Data from GEO"))
+       GSEeset <- try(LoadGEOFiles(GSE, GeoRepoPath = "~/GeoWizard/GEORepo"))
+       if (class(GSEeset) != "ExpressionSet"){ stop("Error loading GSE exoression set") }
+       message("Expression Set loaded")
+       GSEdata$GSEeset <- GSEeset
+     })
+     })
+     
+     GSEdata$ExpressionMatrix <- reactive({
+       shiny::req(input$GsmTableSelect)
+       GSEeset <- GSEdata$GSEeset
+       ExpressionMatrix <- ConvertGSEAnnotations(GSEeset, AnnotationType = input$GeneAnnotationType)
+       message("Loading ExpressionMatrix")
+       ExpressionMatrix
+     })
+
+     #### Column 1 - GMT File Tab
+     output$GMTFileTable <- DT::renderDataTable({
+       ExpressionMatrix <- GSEdata$ExpressionMatrix()
+       ExpressionMatrix <- as.data.frame(ExpressionMatrix)
+       DT::datatable(data = ExpressionMatrix, rownames = TRUE, class = 'compact', extensions = 'Buttons',
+       options = list( scrollX = T, scrollY = '300px', paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
+       })
+     
+     
+     GSEdata$FactorGMT <- reactive({
+       ControlFactorDF <- ExperimentalDesign$ControlFactorDF()
+       ExpressionMatrix <- GSEdata$ExpressionMatrix()
+       message("Generating FactorGMT")
+       FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix, FactorDF = ControlFactorDF)
+       FactorGMT
+      })
+
+     GSEdata$FactorGMTMelt <- reactive({
+       shiny::req(input$GsmTableSelect)
+       
+       FactorGMT <- GSEdata$FactorGMT()
+       #FactorGMT <- FactorGMT[input$GMTFileTable_rows_all,]
+       
+       if (is.data.frame(FactorGMT)){ 
+         message("Melting FactorGMT for plotting")
+         FactorGMTMelt <- melt(FactorGMT)
+       } else { stop("Factor GMT File not loaded properly") }
+       FactorGMTMelt
+     })
+     
+     output$RawDataQC <- renderDataTable({
+       if (input$RawDataTableMelt == "GMT") { TableData <- GSEdata$ExpressionMatrix()
+       } else if(input$RawDataTableMelt == "FactorGMTMelt") { TableData <- GSEdata$FactorGMTMelt()
+       } else {stop("Data not loaded properly")}
+       
+       DT::datatable(data = as.data.frame(TableData), rownames = TRUE, class = 'compact', extensions = 'Buttons',
+        options = list( scrollX = F, scrollY = '300px', paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
+     })
+
+     ######### Box
+     output$BoxFactorSelect <- renderUI({
+       shiny::req(shiny::req(input$GsmTableSelect))
+       
+       FactorGMTMelt <- GSEdata$FactorGMTMelt()
+       FactorOptions <- grep(pattern = "ExpVar", x = colnames(FactorGMTMelt), value = T)
+       selectInput(inputId = "BoxFactorSelectInput", label = "Fill by Factor", choices = FactorOptions, selected = FactorOptions[1])
+      })
 
 
-     ################################################## Design Matrix
-     ################################################## Design Matrix
-     ################################################## Design Matrix
+     output$BoxPlotGMT <- renderPlot({
+       shiny::req(input$BoxFactorSelectInput)
+       
+       FactorGMTMelt = GSEdata$FactorGMTMelt()
+       GMTBoxplot(FactorGMTMelt = FactorGMTMelt,
+        BoxPlotType = input$BoxPlotType,
+        PlotBy = input$BoxPlotBy,
+        PlotFactor = input$BoxFactorSelectInput,
+        SampleSize = input$BoxSampleSize)
+       
+       })
 
-    #  output$DesignMat_SummaryTable <- DT::renderDataTable({
-    #       GsmDF <- ExperimentalDesign$UniqueFilteredFactorDF()
-    #       if(is.null(GsmDF))
-    #         return(NULL)
-    #       
-    #       DT::datatable(data = GsmDF,
-    #                     extensions = 'ColReorder',
-    #                     class = 'compact',
-    #                     options = list(
-    #                          dom = 't',
-    #                          autoWidth = TRUE,
-    #                          scrollX = T,
-    #                          scrollY = '500px',
-    #                          paging = FALSE,
-    #                          columnDefs = list(list(width = '150px', targets = c(1:ncol(GsmDF)))),
-    #                          colReorder = list(realtime = FALSE))) %>%
-    #            formatStyle(names(GsmDF),
-    #                        color = 'black',
-    #                        fontWeight = 'bold')
-    #  })
-    # 
-    #  
-    #  ########################{ Annotate the data table
-    #  
-    #  output$RearrangeLevels <- renderUI({
-    #    FactorDF <- ExperimentalDesign$FilteredFactorDF()
-    #    
-    #    if (is.null(FactorDF)) 
-    #      return(NULL)
-    #      
-    #    NamesIndex <- colnames(FactorDF)
-    #    sapply(NamesIndex, function(ColVect){
-    #        ColLevels <- FactorDF[ColVect]
-    #        selectInput(inputId = ColVect,
-    #                    label = paste("Selected control level for", ColVect),
-    #                    choices = unique(ColLevels))
-    #      })
-    #      
-    #    
-    #       
-    #  })
-    #  
-    #  
-    #  controlLevelsDF <- reactive({
-    #       DesignDF <- ExperimentalDesign$FilteredFactorDF()
-    #       if(is.null(DesignDF))
-    #         return(NULL)
-    #       
-    #       NamesIndex <- colnames(DesignDF)
-    #       message("Changing control factor level")
-    #       
-    #       ResDF <- lapply(NamesIndex, function(ColName){
-    #            ResultVector <- DesignDF[,ColName]
-    #            controlLevels <- input[[ColName]]
-    #            otherLevels <- levels(factor(ResultVector))
-    #            levels(ResultVector) <- unique(c(controlLevels, otherLevels))
-    #            ResultVector
-    #       })
-    #       
-    #       names(ResDF) <- NamesIndex
-    #       ResDF <- data.frame(do.call(cbind, ResDF))
-    #       ResDF
-    #  })
-    #  
-    #  #####################
-    #  
-    # 
-    #  observeEvent(input$SubmitFormula, {
-    #    DesignDF <- controlLevelsDF()
-    #    Designformula <- input$formulaInputDesign
-    #    
-    #    if(length(Designformula) == 0 & is.null(DesignDF))
-    #      return(NULL)
-    #     
-    #    DesignExpression <- as.formula(Designformula)
-    #    ExperimentalDesign$DesignMatrix <- model.matrix(as.formula(DesignExpression), DesignDF)
-    #  })
-    #  
-    #  # output$TextAhead <- renderUI({
-    #  #      localDF <- controlLevelsDF()
-    #  #      DFname <- colnames(localDF)
-    #  #      DFlevs <- as.character(
-    #  #      lapply(localDF, function(x){ 
-    #  #           FactorLevels <- levels(x)
-    #  #           nLevels <- length(FactorLevels)
-    #  #           
-    #  #           paste(FactorLevels[1],
-    #  #                 FactorLevels[nLevels], 
-    #  #                 collapse = " ")
-    #  #           }))
-    #  # 
-    #  #      textInput.typeaheadOptions <- list(
-    #  #           id="thti",
-    #  #           placeholder="~ ExpVa1 + ExpVar2",
-    #  #           local=data.frame(name=paste("~ ", DFname), 
-    #  #                            info= paste("levels:", DFlevs)),
-    #  #           valueKey = "name",
-    #  #           tokens=c(1:length(DFname))
-    #  #      )
-    #  #      
-    #  #      do.call(textInput.typeahead, textInput.typeaheadOptions)
-    #  #      
-    #  # })
-    #  
-    #  
-    #  observeEvent(input$SubmitFormula, {
-    # 
-    #    output$CustomExpressionTable <- DT::renderDataTable({
-    #      DesignMatrix <- ExperimentalDesign$DesignMatrix()
-    #      if (is.null(DesignMatrix))
-    #        return(NULL)
-    #      
-    #      
-    #     DT::datatable(data = DesignMatrix,
-    #     rownames = TRUE,
-    #     class = 'compact',
-    #     extensions = 'Buttons', 
-    #     options = list(
-    #       scrollY = '300px',
-    #       paging = FALSE,
-    #       dom = 'Bfrtip',
-    #       buttons = c('copy', 'csv', 'excel'))
-    #     )
-    #     
-    #       })
-    #    })
-    #  
-    #  
-    #  #########################
-    #  
-    #  output$ExperimentalBlocksPlot <- renderPlot({
-    #    shiny::req(input$formulaInputDesign)
-    #    DesignExpression <- as.formula(input$formulaInputDesign)
-    #    DesignDF <- controlLevelsDF()
-    #    
-    #    if (!is.null(DesignExpression) & !is.null(DesignDF)) {
-    #      message("Rendering Block Plot")
-    #      try(vcd::mosaic(DesignExpression, DesignDF))
-    #    } else { return("Click 'Use' Detected Design or Enter Valid Design Matrix Formula") }
-    #    
-    #    })
-    #  
-    #  
-    #  
-    #  ################################################## Expression Analysis
-    #  ################################################## Expression Analysis
-    #  ################################################## Expression Analysis
-    #  
-    #  
-    #  ####Download the Data
-    #  GSEdata <- reactiveValues()
-    #  
-    #  observeEvent(input$DownloadGEOData, {
-    #    GSE <- input$GsmTableSelect
-    #    if (is.null(GSE))
-    #      return(NULL)
-    #      
-    #    shinyjs::show("GMTTable")
-    #    message("Downloading Data from GEO")
-    #    GSEeset <- LoadGEOFiles(GSE, GeoRepoPath = "~/GeoWizard/GEORepo")
-    #    GSEdata$GSEeset <- GSEeset
-    #    
-    #    })
-    #  
-    #    GSEdata$FactorGMT <- reactive({
-    #      FilteredFactorDF <- ExperimentalDesign$FilteredFactorDF()
-    #      GSEeset <- GSEdata$GSEeset()
-    #     
-    #     if (!is.null(FilteredFactorDF & !is.null(GSEeset))) {
-    #       message("Generating FactorGMT")
-    #       GenFactorGMT(GSEeset, FilteredFactorDF)  
-    #     }
-    #    })
-    #       
-    #    GSEdata$FactorGMTMelt <- reactive({ 
-    #      FactorGMT <- GSEdata$FactorGMT()
-    #      if (!is.null(FactorGMT)) {
-    #        melt(FactorGMT)
-    #      } else {
-    #        message("GMT File not Loaded properly")
-    #        NULL
-    #      }
-    #      })    
-    #       
-    # 
-    #  
-    #  ######### Column 1 - GMT File Tab
-    #  
-    #  output$GMTFileTable <- renderDataTable({
-    #       DF <- exprs(GSEdata$GSEeset)
-    #       DT::datatable(data = DF,
-    #                     rownames = TRUE,
-    #                     class = 'compact',
-    #                     extensions = 'Buttons', 
-    #                     options = list(
-    #                          scrollX = T,
-    #                          scrollY = '300px',
-    #                          paging = T,
-    #                          dom = 'Bfrtip',
-    #                          buttons = c('copy', 'csv', 'excel')))
-    #       })
-    #  
-    #  ######### Box
-    #  
-    #  output$BoxFactorSelect <- renderUI({
-    #       MeltedDF <- GSEdata$FactorGMTMelt()
-    #       if (!is.null(MeltedDF)) {
-    #         FactorOptions <- grep(pattern = "ExpVar[0-9]", x = colnames(MeltedDF), value = T)
-    #         selectInput(inputId = "BoxFactorSelectInput",
-    #                     label = "Fill by Factor",
-    #                     choices = FactorOptions,
-    #                     selected = FactorOptions[1])
-    #       }
-    #     })
-    # 
-    #  output$BoxPlotGMT <- renderPlot({
-    #    GSEgmtDF = GSEdata$FactorGMTMelt()
-    #    if (!is.null(GSEgmtDF)) {
-    #      GMTBoxplot(GSEgmtDF = GSEgmtDF,
-    #                 BoxPlotType = input$BoxPlotType,
-    #                 PlotBy = input$BoxPlotBy,
-    #                 PlotFactor = input$BoxFactorSelectInput,
-    #                 SampleSize = input$BoxSampleSize)
-    #    }
-    #    })
-    #  
-    #  ######### Hist
-    #  
-    #  output$HistFactorSelect <- renderUI({
-    #       MeltedDF <- GSEdata$FactorGMT()
-    #       FactorOptions <- grep(pattern = "ExpVar[0-9]", x = colnames(MeltedDF), value = T)
-    #       selectInput(inputId = "HistFactorSelectInput",
-    #                   label = "Fill by Factor",
-    #                   choices = FactorOptions,
-    #                   selected = FactorOptions[1])
-    #  })
-    #  
-    #  output$HistPlotGMT <- renderPlot({
-    #       GMTHistPlot(GSEgmtDF = GSEdata$FactorGMT(),
-    #                   HistPlotType = input$HistPlotType,
-    #                   PlotFactor = input$HistFactorSelectInput,
-    #                   SampleSize = input$HistSampleSize)
-    #  })
-    # 
-    #  
-    #  ####################################################################### QC Analysis
-    #  
-    #  ############# BioQC Analysis
-    #  
-    #  observeEvent(input$PerformBioQCAnalysis, {
-    #  output$BioQCPlot <- renderPlot({
-    #       message("Loading Expression Set for BioQC")
-    #       GeneSymbolGSEeset <- GSEdata$GSEeset
-    #       GeneSymbolGSEeset <- ConvertGSEAnnotations(GSEeset = GeneSymbolGSEeset, AnnotationType = input$GeneAnnotationType)
-    #       RunBioQC(GeneSymbolGSEeset)
-    #       })
-    #  })
-    #  
-    #  
-    #  ################ PCA Plot
-    #  DataPCA <- reactiveValues()
-    #  
-    #  output$PCA <- renderPlot({
-    #    GSEeset <- GSEdata$GSEeset()  #Expression Set
-    #    
-    #    GSEeset <- GSEdata$GSEeset
-    #    ArrayData <- exprs(GSEeset)
-    #       
-    #    ListPlotPCA <- PlotPCA(ArrayData = ArrayData)
-    #       
-    #    DataPCA$CA <- ListPlotPCA$CA
-    #    DataPCA$Scree <- ListPlotPCA$Scree
-    #    DataPCA$Cont <- ListPlotPCA$Cont
-    #       
-    #    ListPlotPCA$PCA
-    #    })
-    #  
-    #  output$CA <- renderPlot({ DataPCA$CA })
-    #  output$Scree <- renderPlot({ DataPCA$Scree })
-    #  output$Cont <- renderPlot({ DataPCA$Cont })
-    #  
+     ######### Hist
+
+     # output$HistFactorSelect <- renderUI({
+     #   shiny::req(input$GsmTableSelect, input$DownloadGEOData)
+     #   MeltedDF <- GSEdata$FactorGMTMelt()
+     #   FactorOptions <- grep(pattern = "ExpVar[0-9]", x = colnames(MeltedDF), value = T)
+     #   selectInput(inputId = "HistFactorSelectInput",
+     #    label = "Fill by Factor",
+     #    choices = FactorOptions,
+     #    selected = FactorOptions[1])
+     # })
+     # 
+     # output$HistPlotGMT <- renderPlot({
+     #   GMTHistPlot(GSEgmtDF = GSEdata$FactorGMTMelt(),
+     #   HistPlotType = input$HistPlotType,
+     #   PlotFactor = input$HistFactorSelectInput,
+     #   SampleSize = input$HistSampleSize)
+     # })
+
+    ############# BioQC Analysis
+    ############# 
+     observeEvent(input$PerformBioQCAnalysis, {
+     output$BioQCPlot <- renderPlot({
+          message("Loading Expression Set for BioQC")
+          GeneSymbolGSEeset <- GSEdata$GSEeset()
+          GeneSymbolGSEeset <- ConvertGSEAnnotations(GSEeset = GeneSymbolGSEeset, AnnotationType = input$GeneAnnotationType)
+          RunBioQC(GeneSymbolGSEeset)
+          })
+     })
+
+
+     ################ PCA Plot
+     DataPCA <- reactiveValues()
+
+     output$PCA <- renderPlot({
+       GSEeset <- GSEdata$GSEeset()  #Expression Set
+
+       GSEeset <- GSEdata$GSEeset
+       ArrayData <- exprs(GSEeset)
+
+       ListPlotPCA <- PlotPCA(ArrayData = ArrayData)
+
+       DataPCA$CA <- ListPlotPCA$CA
+       DataPCA$Scree <- ListPlotPCA$Scree
+       DataPCA$Cont <- ListPlotPCA$Cont
+
+       ListPlotPCA$PCA
+       })
+
+     output$CA <- renderPlot({ DataPCA$CA })
+     output$Scree <- renderPlot({ DataPCA$Scree })
+     output$Cont <- renderPlot({ DataPCA$Cont })
+
     #  
     #  ###################################################################### Expression Analysis
     #  ExpressionAnalysis <- reactiveValues()
@@ -961,7 +931,7 @@ server <- function(input, output, session) {
     #    TopGenes[TopGenes == ""] <- NA
     #    TopGenes <- na.omit(TopGenes)
     #    
-    #    FactorDF <- ExperimentalDesign$FilteredFactorDF()
+    #    FactorDF <- ExperimentalDesign$ControlFactorDF()
     #    FactorDF <- as.data.frame(FactorDF)
     #    
     #    GSEeset <- GSEdata$GSEeset()
