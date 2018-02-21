@@ -1,21 +1,16 @@
 server <- function(input, output, session) {
-
+  
      GeoSearchResults <- reactiveValues()
      
      observe({
-          
-          if (input$MolSelectFilter != "TextInput") {
-               
-               shinyjs::hide("MolSelectTextDiv")
-               shinyjs::show("MolSelectLibraryDiv")
-               
-          } else {
-               
-               shinyjs::show("MolSelectTextDiv")
-               shinyjs::hide("MolSelectLibraryDiv")
-          }
-          
-     })
+       if (input$MolSelectFilter != "TextInput") {
+        shinyjs::hide("MolSelectTextDiv")
+        shinyjs::show("MolSelectLibraryDiv")
+        } else {
+        shinyjs::show("MolSelectTextDiv")
+        shinyjs::hide("MolSelectLibraryDiv")
+        }
+       })
      
      output$MolSelectFromLibrary <- renderUI({
           if (input$MolSelectFilter == "TextInput") {
@@ -46,8 +41,7 @@ server <- function(input, output, session) {
      })
      
      output$TaxonSelection <- renderUI({
-          
-          CommonSpecies <- c(
+       CommonSpecies <- c(
                "Human" = "Homo sapiens" ,
                "Chimpanzee" = "Pan troglodytes",
                "Cynomogous" = "Macaca fascicularis",
@@ -56,23 +50,12 @@ server <- function(input, output, session) {
                "Mouse" = "Mus musculus",
                "C.elegans" = "Caenorhabditis elegans",
                "Yeast" = "Saccharomyces cerevisiae")
-          
-
-          TaxonGSE <- GeoSearchResults$ResultSpecies
-          TaxonGSE <- grep(pattern = paste(TaxonGSE, collapse = "|"),
-                           CommonSpecies, 
-                           ignore.case = T, 
-                           value = T)
-          
-          selectInputOptions <- list(
-               inputId = "SpeciesInput",
-               label = "Species",
-               choices = CommonSpecies,
-               selected = TaxonGSE,
-               multiple = T,
-               selectize = T)
-               
-               do.call(selectInput, selectInputOptions)  
+       
+       TaxonGSE <- GeoSearchResults$ResultSpecies
+       TaxonGSE <- grep(pattern = paste(TaxonGSE, collapse = "|"), CommonSpecies, ignore.case = T, value = T)
+       
+       selectInputOptions <- list( inputId = "SpeciesInput", label = "Species", choices = CommonSpecies, selected = TaxonGSE, multiple = T, selectize = T)
+        do.call(selectInput, selectInputOptions)  
      })
      
      
@@ -89,6 +72,7 @@ server <- function(input, output, session) {
      })
      
      GeoSearchResults$GseSummaryTableData <- reactive({
+       input$MolSelectButton
           GseDescDF <- GeoSearchResults$ResGSETable()
           GseDescDF <- data.frame(GseDescDF, stringsAsFactors = F)
           
@@ -212,8 +196,9 @@ server <- function(input, output, session) {
      
      output$nStudiesPlotGdsType <- renderPlot({
        shiny::req(input$MolSelectInput)
-          if(!is.null(GeoSearchResults$ResGSETable)){
-               
+          if(is.null(GeoSearchResults$ResGSETable))
+            return(NULL)
+       
                input <- 'gdsType'
                titleText <- TitleCase(input)
                plotdata <- GeoSearchResults$GseSummaryTableData
@@ -240,7 +225,7 @@ server <- function(input, output, session) {
                     guides(colour = guide_legend(ncol = 1))
                p
                
-          }
+          
      })
      
      ########################{ Advance to GSM Metadata Page
@@ -318,13 +303,9 @@ server <- function(input, output, session) {
 
      SQLSearchData$FilteredResultDF <- reactive({
        shiny::req(input$GsmTableSelect)
+       
        ResultDF <- SQLSearchData$ResultDF()
        GsmMetaDatatoShow <- input$GsmTableSelect
-       
-       if(is.null(ResultDF)){
-        message("Result DF line 322 is NULL")
-       return(NULL)
-       }
        
        message("Filtering SQL Query Res for Selected GSE")
        FilteredResultDF <- ResultDF %>%
@@ -413,7 +394,7 @@ server <- function(input, output, session) {
 
           if (is.null(ClassResList)) 
             return(NULL)
-
+          
           message("Executing DescerningClassDF")
           UsefulFactorList <- DescerningClassDF(ClassResList)
           message("Adding Time Factors")
@@ -708,10 +689,25 @@ server <- function(input, output, session) {
      })
      })
      
+     output$GeneAnnotationTypeUI <- renderUI({
+       GSEeset <- GSEdata$GSEeset
+       FeatureData <- fData(GSEeset)
+       
+       selectInput(inputId = "GeneAnnotationType", label = "Gene Annotations", 
+                   choices = colnames(FeatureData),
+                   selected = colnames(FeatureData)[1],
+                   multiple = F,
+                   selectize = T)
+     })
+     
+     
      GSEdata$ExpressionMatrix <- reactive({
        shiny::req(input$GsmTableSelect)
        GSEeset <- GSEdata$GSEeset
-       ExpressionMatrix <- ConvertGSEAnnotations(GSEeset, AnnotationType = input$GeneAnnotationType)
+       FeatureData <- fData(GSEeset)
+       ExpressionMatrix <- exprs(GSEeset)
+       
+       rownames(ExpressionMatrix) <- make.names(FeatureData[,input$GeneAnnotationType]) 
        message("Loading ExpressionMatrix")
        ExpressionMatrix
      })
@@ -755,7 +751,8 @@ server <- function(input, output, session) {
         options = list( scrollX = F, scrollY = '300px', paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
      })
 
-     ######### Box
+     ######### Box Plot
+     
      output$BoxFactorSelect <- renderUI({
        shiny::req(shiny::req(input$GsmTableSelect))
        
@@ -764,19 +761,154 @@ server <- function(input, output, session) {
        selectInput(inputId = "BoxFactorSelectInput", label = "Fill by Factor", choices = FactorOptions, selected = FactorOptions[1])
       })
 
-
-     output$BoxPlotGMT <- renderPlot({
+     output$BoxPlotly <- renderPlotly({
        shiny::req(input$BoxFactorSelectInput)
        
        FactorGMTMelt = GSEdata$FactorGMTMelt()
-       GMTBoxplot(FactorGMTMelt = FactorGMTMelt,
-        BoxPlotType = input$BoxPlotType,
-        PlotBy = input$BoxPlotBy,
-        PlotFactor = input$BoxFactorSelectInput,
-        SampleSize = input$BoxSampleSize)
-       
-       })
 
+       if (input$BoxPlot_IndpVar == "Sample") { 
+         if (input$BoxPlot_PlotBy == "Overall Distribution") { 
+           GeneSample <- sample(x = FactorGMTMelt$GSM, size = input$BoxPlot_nGenes)
+           FactorGMTMelt <- FactorGMTMelt %>% filter(GSM %in% GeneSample)
+           AesX <- FactorGMTMelt$GSM
+           AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
+           xlabtext <- "GSMs in Dataset"
+           legPos <- "top"
+           
+         } else if (input$BoxPlot_PlotBy == "Factor Distribution") {;message("Factor")
+           AesX <- FactorGMTMelt[,input$BoxFactorSelectInput]
+           AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
+           xlabtext <- "Experimental Factors"
+           legPos <- "top"
+         }
+         
+       } else if (input$BoxPlot_IndpVar == "Gene") {
+         GeneSample <- sample(x = FactorGMTMelt$variable, size = input$BoxPlot_nGenes)
+         FactorGMTMelt <- FactorGMTMelt %>% filter(variable %in% GeneSample)
+         
+         if (input$BoxPlot_PlotBy == "Overall Distribution") {
+           AesX <- FactorGMTMelt$variable
+           FactorGMTMelt <- FactorGMTMelt
+           AesFill <- "red"
+           xlabtext <- "Assayed Genes"
+           legPos <- "none"
+           
+         } else if (input$BoxPlot_PlotBy == "Factor Distribution") {
+           AesX <- FactorGMTMelt$variable
+           AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
+           xlabtext <- "Assayed Genes"
+           legPos <- "top"
+         }
+       }
+       
+       p <- ggplot(data = FactorGMTMelt, aes(y = FactorGMTMelt$value, x = AesX, fill = AesFill)) +
+            theme(legend.position = legPos) +  
+            ylab(label = "Expression Level") +
+            xlab(label = xlabtext) +
+            guides(fill=guide_legend(title="Experimental Factor Groups")) +
+            theme(axis.text.x = element_text(angle = 90)) + 
+            theme(axis.text = element_text(size = 14)) +
+            theme(axis.title = element_text(size = 14)) 
+       
+       if (input$BoxPlot_Type == "Boxplot") { p <- p + geom_boxplot()
+       } else if (input$BoxPlot_Type == "Violin Plot") {p <- p + geom_violin()
+       } else if (input$BoxPlot_Type == "Line Plot") { p <- p # bean plot code
+       }
+       
+       if (input$BoxPlot_showData==1) {
+         JitterWidth <- input$BoxPlot_JitterWidth
+         if (input$BoxPlot_showDataOption == "jitter") { p <- p + geom_jitter(width = JitterWidth) 
+         } else if(input$BoxPlot_showDataOption == "quasirandom"){ p <- p + geom_quasirandom(width = JitterWidth)
+         } else if(input$BoxPlot_showDataOption == "beeswarm"){ p <- p + geom_beeswarm(width = JitterWidth)
+         } else if(input$BoxPlot_showDataOption == "tukey"){ p <- p + geom_quasirandom(width = JitterWidth, method = "tukey")
+         } else if(input$BoxPlot_showDataOption == "frowney"){ p <- p + geom_quasirandom(width = JitterWidth, method = "frowney")
+         } else if(input$BoxPlot_showDataOption == "smiley"){ p <- p + geom_quasirandom(width = JitterWidth, method = "smiley")
+         } else { NULL }
+       }
+       
+       
+       if (input$BoxPlot_PlotAxisFlip==1) { p <- p + coord_flip()}
+       if (length(input$BoxPlot_main) > 0) { p <- p + labs(title = input$BoxPlot_main)}
+       if (length(input$BoxPlot_xlab) > 0) { p <- p + labs(x = input$BoxPlot_xlab)}
+       if (length(input$BoxPlot_ylab) > 0) { p <- p + labs(y = input$BoxPlot_ylab)}
+       
+       #sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180)
+       #sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
+       
+       p <- ggplotly(p)
+       p
+     })
+     
+     output$BoxPlotUI <- renderUI({
+       if(input$BoxPlot_showPlotSize){ 
+         plotHeight <- input$BoxPlot_Height
+         plotWidth <- input$BoxPlot_Width
+       } else { 
+         plotHeight <- NULL
+         plotWidth <- NULL 
+       }
+       plotlyOutput(outputId = "BoxPlotly",height = plotHeight, width = plotWidth)
+       })
+    
+     ## *** Download EPS file ***
+     output$downloadPlotEPS <- downloadHandler(
+       filename <- function() { paste('Boxplot.eps') },
+       content <- function(file) {
+         postscript(file, horizontal = FALSE, onefile = FALSE, paper = "special", width = input$myWidth/72, height = input$myHeight/72)
+         ## ---------------
+         generateBoxPlot(dataM())
+         ## ---------------
+         dev.off()
+       },
+       contentType = 'application/postscript'
+     )
+     ## *** Download PDF file ***
+     output$downloadPlotPDF <- downloadHandler(
+       filename <- function() { paste('Boxplot.pdf') },
+       content <- function(file) {
+         pdf(file, width = input$myWidth/72, height = input$myHeight/72)
+         ## ---------------
+         generateBoxPlot(dataM())
+         ## ---------------
+         dev.off()
+       },
+       contentType = 'application/pdf' # MIME type of the image
+     )
+     ## *** Download SVG file ***
+     output$downloadPlotSVG <- downloadHandler(
+       filename <- function() { paste('Boxplot.svg') },
+       content <- function(file) {
+         svg(file, width = input$myWidth/72, height = input$myHeight/72)
+         ## ---------------
+         generateBoxPlot(dataM())
+         ## ---------------
+         dev.off()
+       },
+       contentType = 'image/svg'
+     )
+
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
      ######### Hist
 
      # output$HistFactorSelect <- renderUI({

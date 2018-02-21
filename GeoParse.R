@@ -189,56 +189,99 @@ MultiGSEQuery <- function(MolQuery) {
      MolQuery <- as.character(unlist(MolQuery))
      GeoRes <- lapply(MolQuery, FetchGseDescDF)
      GeoRes <- do.call(rbind, GeoRes)
+     
      GeoRes["keyword"] <- as.character(unlist(GeoRes["keyword"]))
+     colnames(GeoRes)[grep(pattern = "title", x = colnames(GeoRes))] <- "gse.title" # change colnames to apply SQL join functions
+     colnames(GeoRes)[grep(pattern = "Accession", x = colnames(GeoRes))] <- "series_id"
+     
      return(GeoRes)
 }
 
-#'
-#'
-#'
-#'
+#' @param GseTable is GEO serach res dataframe contining keyword series_id GPL gse.title gdsType taxon n_samples suppFile summary
 #' GseTable <- MultiGSEQuery(c("Mycophenolate mofetil", "Tofacitinib"), species = c("Homo sapiens", "Mus musculus"))
 #' GseGsmTable <- SqlQueryMain(GseTable)
+#' 
 
 library(GEOmetadb)
 
 SqlQueryMain <- function(GseTable) {
-     colnames(GseTable)[grep(pattern = "title", x = colnames(GseTable))] <-
-          "gse.title"
-     colnames(GseTable)[grep(pattern = "Accession", x = colnames(GseTable))] <-
-          "series_id"
-     con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
-     GSEList <- as.character(unlist(GseTable['series_id']))
+  
+  if (is.data.frame(GseTable)) { GSEList <- as.character(unlist(GseTable['series_id']))
+  } else if (class(gseSqlQuery) == "character") { GSEList <- gseSqlQuery }
+  
+  con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
+  
+  GsmTable <- FetchGSMMetaData(GSEList, con)
+  colnames(GsmTable)[grep(pattern = "title", x = colnames(GsmTable))] <- "gsm.title"
      
-     GsmTable <- lapply(GSEList, FetchGSMMetaData, con)
-     GsmTable <- data.frame(do.call(rbind, GsmTable))
-     colnames(GsmTable)[grep(pattern = "title", x = colnames(GsmTable))] <-
-          "gsm.title"
-     GseGsmTable <- dplyr::inner_join(GseTable, GsmTable)
-     #     dbDisconnect(con)
-     return(GseGsmTable)
+  GseGsmTable <- dplyr::inner_join(GseTable, GsmTable)
+  
+  NotFoundVec <- lapply(GSEList, EmptySQLRes, GseGsmTable)
+  NotFoundVec[sapply(NotFoundVec, is.null)] <- NULL
+  if (length(NotFoundVec) > 0) {
+    GseGsmTable <- bind_rows(GseGsmTable, NotFoundVec)  
+  }
+  
+  return(GseGsmTable)
+}
+
+#' Get GSM level data for all GSMs in a GSE
+#' 
+#' @param character vector of GEO Acession IDs ie. "GSE69967"
+#' @con SQLlite datebase connectection to MetaDB SQL database
+#'
+#' @return a dataframe with gse, gsm, title, description and characteristics
+#' 
+FetchGSMMetaData <- function(GSEList, con) {
+  
+  gseQuery <- paste("\'",GSEList, "\'", collapse = ", ", sep = "") 
+  message(sprintf("Getting GSMs metadata for %s", gseQuery))
+  SqlQuery <- paste(
+      "select series_id, gsm, title, description, characteristics_ch1 ",
+      "from gsm ", "where series_id in (" ,gseQuery, ")" ,
+      sep = ""
+    )
+  
+  res <- dbGetQuery(con, SqlQuery)
+  
+  NotFoundVec <- lapply(GSEList, EmptySQLRes, res) # if one of many GSE inputs not found
+  NotFoundVec[sapply(NotFoundVec, is.null)] <- NULL
+  if (length(NotFoundVec) > 0) {
+  res <- bind_rows(res, NotFoundVec)  
+  }
+  
+  if (length(res[, 1]) == 0) { # if all of many GSE inputs not found in metaDB
+    message("GSE was not found in SQLite Server")
+    res[1, 1] <- GSEList
+    res[1, 2:5] <- "Metadata not in SQLite Server"
+  }
+  
+  res <- as.data.frame(res)
+  return(res)
+}
+
+#' Determine if GSE Meta data was found in the MetaDB 
+#'
+#' @param res DF result from the MetaDB sqlite serach
+#' @param gse GSE Accession Number whose inclusion in search results is to be detemined
+#'
+#' @return a character vector indicating the GSE was not found in the SQL search
+
+EmptySQLRes <- function(gse, res){
+  FoundGSE <- unique(res$series_id)
+  GseInRes <- grepl(pattern = gse, x = FoundGSE)
+  GseInRes <- any(GseInRes, na.rm=TRUE)
+  
+  if(!GseInRes){
+    NotFoundVec <- res[1,1:5]
+    NotFoundVec [1, 1] <- gse
+    NotFoundVec [1, 2:5] <- "Metadata not in SQLite Server"
+    return(NotFoundVec)
+  }
+  return(NULL)
 }
 
 
-FetchGSMMetaData <- function(gse, con) {
-     message(sprintf("Getting GSMs metadata for %s", gse))
-     SqlQuery <-
-          paste(
-               "select series_id, gsm, title, description, characteristics_ch1 ",
-               "from gsm ",
-               "where series_id = \'",
-               gse,
-               "\'",
-               sep = ""
-          )
-     res <- dbGetQuery(con, SqlQuery)
-     if (length(res[, 1]) == 0) {
-          message("GSE was not found in SQLite Server")
-          res[1, 1] <- gse
-          res[1, 2:5] <- "Metadata not in SQLite Server"
-     }
-     return(res)
-}
 
 #'
 #' @param GseGsmTable in GSE GSM joined table

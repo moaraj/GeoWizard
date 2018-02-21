@@ -69,9 +69,6 @@ GenFactorGMTMeltDF <- function(GSEeset, FactorDF){
 
 
 GMTBoxplot <- function(FactorGMTMelt, BoxPlotType = "Sample", PlotBy = "Overall", PlotFactor, SampleSize){
-     #FactorColumnName <- input$BoxFactorSelectInput
-     #BoxPlotType <- input$BoxPlotType
-     
      if (BoxPlotType == "Sample") { 
           
           if (PlotBy == "Overall") { 
@@ -109,15 +106,16 @@ GMTBoxplot <- function(FactorGMTMelt, BoxPlotType = "Sample", PlotBy = "Overall"
           }
      }
      
-     pBox <- ggplot(data = FactorGMTMelt, aes(y = FactorGMTMelt$value, x = AesX, fill = AesFill)) +
-          theme(legend.position = legPos) +  
-          ylab(label = "Expression Level") +
-          xlab(label = xlabtext) +
-          guides(fill=guide_legend(title="Experimental Factor Groups")) +
-          theme(axis.text.x = element_text(angle = 90)) + 
-          theme(axis.text = element_text(size = 14)) +
-          theme(axis.title = element_text(size = 14)) +
-          geom_boxplot()
+     pBox <- 
+       ggplot(data = FactorGMTMelt, aes(y = FactorGMTMelt$value, x = AesX, fill = AesFill)) +
+       theme(legend.position = legPos) +  
+       ylab(label = "Expression Level") +
+       xlab(label = xlabtext) +
+       guides(fill=guide_legend(title="Experimental Factor Groups")) +
+       theme(axis.text.x = element_text(angle = 90)) + 
+       theme(axis.text = element_text(size = 14)) +
+       theme(axis.title = element_text(size = 14)) 
+          
      
      return(pBox)
      
