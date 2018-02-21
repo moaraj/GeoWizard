@@ -56,8 +56,9 @@ DesignMatrix <- model.matrix( ~ ExpVar3.Text + ExpVar4.Text, GraphDF )
 ######### Function to Download File
 GeoRepoPath <- "~/GeoWizard/GEORepo"
 GSE <- "GSE69967"
-GSEeset <- LoadGEOFiles(GSE = "GSE69967", GeoRepoPath = GeoRepoPath)
+GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepoPath = GeoRepoPath)
 ArrayData <- exprs(GSEeset)
+FeatureData <- fData(GSEeset)
 
 ######### Function to Make GMT Ggplotable
 FactorDF <- Step_6[1:2]

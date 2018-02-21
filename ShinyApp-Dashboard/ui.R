@@ -1,9 +1,8 @@
 GeoRepo <- "~/GeoWizard/"
 setwd(GeoRepo)
 
-## app.R ##
-library(shinydashboard)
 library(shiny)
+library(shinydashboard)
 library(shinythemes)
 library(shinyjs)
 library(shinycssloaders)
@@ -22,6 +21,9 @@ library(GEOquery)
 library(vcd)
 library(GEOmetadb)
 
+library(beanplot)
+library(vioplot)
+library(ggbeeswarm)
 library(plotly)
 library(heatmaply)
 
@@ -39,7 +41,17 @@ source(file = "GeoTrainingSets/KeyWords.r")
 source(file = "helpers.R")
 source(file = "SeriesHanding.R")
 
+library(RColorBrewer)
+library(beeswarm)
+library(vioplot)
+source("BoxPlotR.shiny/MyVioplot.R")
+library(beanplot)	 
+source("BoxPlotR.shiny/boxplot_stats_Function.R")
+source("BoxPlotR.shiny/BoxPlotR_functions.R")	
 
+
+
+## app.R ##
 if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
 con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
 message(paste('Connected Database Tables:', dbListTables(con)))
@@ -462,10 +474,11 @@ ui <- dashboardPage(
             ), # First Page Column
                                  
             column(4,
-            box(title = "Use Formula to Generate Design Matrix",
+            tabBox(title = "Design Matrix",
+                   width = 12,       
+            tabPanel(title = "Formula Input",
               solidHeader = T,
               status = "primary",
-              width = 12,
               collapsible = T,
                                             
             uiOutput(outputId = "TextAhead"),
@@ -486,11 +499,22 @@ ui <- dashboardPage(
               label = "Generate Design Matrix")
               ),
                                         
-            box(title = "Use Detected Design to make Design Matrix",
+            tabPanel(title = "Detected Design",
               solidHeader = T,
               status = "primary",
               width = 12,
               collapsible = T
+            )
+            ),  # Design Matrix Tabbox
+            
+            tabBox(title = "Contrast Matrix",
+                   width = 12,
+            tabPanel(title = "Select Contrasts",
+              solidHeader = T,
+              status = "primary",
+              width = 12,
+              collapsible = T
+              )       
             )
             ), # Second Page Column
                                         
@@ -516,99 +540,148 @@ ui <- dashboardPage(
             ) # Third Page Column
             ) #FluidRow that Structures page into 3 Columns
             ), #Design Matix TabItem 
-                    
+            
             tabItem(
             tabName = "DataQC",
             fluidRow(
-            column(4,  
-            
-            box(title = "GMT File",
-              width = 12,
-              solidHeader = T,
-              status = "primary",
-            
+            column(10,
+                   
+            tabBox(title = "Raw Data Statistics",width = 12,
+            tabPanel("Download Data",
             fluidRow(
-            column(10, 
-            offset = 1,
+            column(4,  
+            wellPanel(
+            h4("GMT File"),
+            width = 12,
+            solidHeader = T,
+            status = "primary",
+                                
             tags$p(tags$strong("Download Data from SRA/GEO")),
-                        
+            
             actionButton(
               inputId = "DownloadGEOData",
               label = "Download",
               icon = icon("download"),
               block = T
-            ),
+              ),
             br(),
-            radioButtons(inputId = "ExpressionDataType",
-                        label = "Gene Expression Data Type",
-                        choiceNames = c("MicroArray", "NGS Sequencing", "Single Cell Sequencing"),
-                        choiceValues = c("mArray", "RNAseq", "ssRNAseq"),
-                        selected = "mArray"),
-            br(),
-            selectInput(inputId = "GeneAnnotationType",
-              label = "Gene Annotations",
-              choices = c("Gene Title" = "Gene Title",
-                "Entrez Gene ID" = "ENTREZ_GENE_ID",
-                "Gene Symbol" = "Gene Symbol",
-                "RefSeq ID" = "RefSeq Transcript ID"),
-              selected = "Gene Title",
-              multiple = F,
-              selectize = T)
             
-            )  # Column
-            ), # Fluid Row
-                        
-            hr(),
-            h3("Gene Matrix"),
-            hidden(
-            div( id = "GMTTableDiv",
-            DT::dataTableOutput("GMTFileTable") %>% withSpinner(color = "#0dc5c1")
-            )  # GMTFileTable
-            )  # Hidden
-            )  # Box
-            ), # First Column for Page
-                                 
+            radioButtons(inputId = "ExpressionDataType",
+              label = "Gene Expression Data Type",
+              choiceNames = c("MicroArray", "NGS Sequencing", "Single Cell Sequencing"),
+              choiceValues = c("mArray", "RNAseq", "ssRNAseq"),
+              selected = "mArray"),
+            br(),
+            uiOutput("GeneAnnotationTypeUI"),
+            br(),
+            radioButtons(
+              inputId = "RawDataTableMelt", 
+              label = "Which Data Matrix to Show" , 
+              choiceNames = c("Gene Matrix","Melted Gene Matrix with Factors"),
+              choiceValues = c("GMT", "FactorGMTMelt"), 
+              inline = T
+              )
+            )  # Well Panel
+            ), # First Column
+                                
             column(8,
-            tabBox(title = "Raw Data Statistics",
-              width = 12,
+            
+            h4("Datatable"),
+            hr(),
+            DT::dataTableOutput("RawDataQC") %>% withSpinner(color = "#0dc5c1")
+            )  # Raw Data Column 2
+            )  # Raw Data Tabpage Fluid Row
+            ),  # tabPanelView/Save Raw Data              
+            
+                          
             tabPanel(title = "Boxplots",
             fluidRow(
             column(4,
-            
+                       
             wellPanel(
-              style = "margin-left :10px; margin-right :10px",
+            fluidRow(
+            column(12,
+                                  
+            h4('Plot Selection'), 
+            column(6, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample", "Gene"), selected = "")),
+            column(6, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution", "Factor Distribution"), selected = "Overall Distribution" )),
+            column(12, uiOutput("BoxFactorSelect")),
+            column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("Boxplot", "Violin Plot", "Line Plot"), selected = "Boxplot")),
+            column(12, sliderInput("BoxPlot_nGenes", "Number of Genes to Sample", min = 1, max = 100, value = 10)),
+                                  
+            h4('Plot Options'), 
+            column(4,checkboxInput('BoxPlot_showData','Show Data')),
+            column(4,checkboxInput('BoxPlot_showDataMean','Show Sample Means')),
+            column(4,checkboxInput('BoxPlot_AddWhiskers','Change Whisker Defintion')),
+            column(4,checkboxInput('BoxPlot_AddNotches','Add Notches')),
+            column(4,checkboxInput('VariableWidth','Variable Width Box')),
+            column(4,checkboxInput('BoxPlot_PlotAxisFlip','Axis Flip')),
+                                  
+            conditionalPanel('input.BoxPlot_showData==1', 
+            column(12, br(),hr()),
+            h4("Data Point Plotting Options"),                 
+            radioButtons(inputId = "BoxPlot_showDataOption", label = "", choices = c("jitter", "quasirandom", "beeswarm", "tukey", "frowney", "smiley"), selected = "jitter",inline = T),
+            sliderInput(inputId = "BoxPlot_JitterWidth", label = "Data Point Plot Area Width", min = 0,max = 2,step = 0.05,value = 0.1)
+            )),
+                           
+            column(12,
+            conditionalPanel('input.BoxPlot_showDataMean==1',hr(),
+            h4("Sample Mean Options"),                 
+            radioButtons(inputId = "SampleMeanConfidenceInterval", label = "Define Confidence Interval of Means", choices = list("85%"=0.85, "90%"=0.90, "95%"=0.95, "99%"=0.99), selected = "95%", inline = T)
+            )),
+                           
+            column(12,
+            conditionalPanel('input.BoxPlot_AddWhiskers==1',hr(),
+            h4("Definition of Whisker Extent"),                 
+            radioButtons(inputId = "BoxPlot_WhiskerType", label = "", choices = list("Tukey"=0, "Spear"=1, "Altman"=2), selected = 0, inline = T),                 
+            conditionalPanel('input.BoxPlot_WhiskerType==0', "Tukey - whiskers extend to data points that are less than 1.5 x IQR away from 1st/3rd quartile"),
+            conditionalPanel('input.BoxPlot_WhiskerType==1', "Spear - whiskers extend to minimum and maximum values"),
+            conditionalPanel('input.BoxPlot_WhiskerType==2', "Altman - whiskers extend to 5th and 95th percentile (use only if n>40)")
+            )),
+                           
+            column(12,hr(),h4('Additional Parameters')),
             
-            h4("Count Matrix BoxPlot"),
-            radioButtons(
-              inputId = "BoxPlotType",
-              label = "BoxPlotType",
-              inline = F,
-              choices = c("Sample", "Gene"),
-              selected = "Sample"
-              ),
-                                                      
-            radioButtons(inputId = "BoxPlotBy",
-              label = "BoxPlotBy",
-              inline = F,
-              choices = c("Overall", "Factor"),
-              selected = "Factor"
-            ),
+            column(4,checkboxInput('BoxPlot_showColor','Color')),
+            column(4,checkboxInput('BoxPlot_showMargin','Labels and Title')),
+            column(4,checkboxInput('BoxPlot_showPlotSize','Plot Size')),
+            hr(),
+                           
+            column(12,
+            conditionalPanel('input.BoxPlot_showColor==1',
+            hr(),
+            h4('Color Manipulation'),
+            sliderInput("BoxPlot_ncol", "Set Number of Colors", min = 1, max = 256, value = 256),
+            checkboxInput('BoxPlot_colRngAuto','Auto Color Range',value = T)
             
-            uiOutput("BoxFactorSelect"),
-            
-            numericInput(inputId = "BoxSampleSize",
-              label = "Number of GSM or Gene's to Sample",
-              value = 10,
-              min = 1,
-              step = 10
+            )),
+                           
+            column(12,
+            conditionalPanel('input.BoxPlot_showMargin==1',
+            hr(),
+            h5('Widget Layout'),
+            column(4,textInput('BoxPlot_main','Title','')),
+            column(4,textInput('BoxPlot_xlab','X Title','')),
+            column(4,textInput('BoxPlot_ylab','Y Title','')),
+            sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180),
+            sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
+            )),
+                           
+            column(12,
+            conditionalPanel('input.BoxPlot_showPlotSize==1',
+            hr(),
+            h4('Plot Size Options'),
+            numericInput("BoxPlot_Height", "Plot height:", value=550),
+            numericInput("BoxPlot_Width", "Plot width:", value=750)
+            ))
+                           
+            ))),
+                
+            column(6,
+            fluidRow(
+            column(12, uiOutput("BoxPlotUI") %>% withSpinner(color = "#0dc5c1")),
+            column(4, actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh')))
+            ))
             )
-            )
-            ), # Input Well Panel
-                                                 
-            column(8,
-            plotOutput(outputId = "BoxPlotGMT") %>% withSpinner(color = "#0dc5c1")
-            )
-            ) # TabPanel Fluid Row [input] [Plot]
             ), # tabPanel(title = "Boxplots"
                                       
             tabPanel("Histogram",
@@ -684,29 +757,17 @@ ui <- dashboardPage(
             plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
             )  # Plot Column 
             )  # Page Fluid Row
-            ), # tabPanel BioQC"
-            
-            tabPanel("View/Save Raw Data",
-            wellPanel(
-            radioButtons(
-              inputId = "RawDataTableMelt", 
-              label = "Which Data Matrix to Show" , 
-              choiceNames = c("Gene Matrix","Melted Gene Matrix with Factors"),
-              choiceValues = c("GMT", "FactorGMTMelt"), 
-              inline = T
-              )
-              
-            ),
-            h4("Datatable"),
-            hr(),
-            DT::dataTableOutput("RawDataQC") %>% withSpinner(color = "#0dc5c1")
-            )  # tabPanel RawDataQC
+            )  # tabPanel BioQC"
             
             
-            )  # tabBox(title = "Raw Data Statistics"
-            )  # Column for Page
-            )  # Fluid Row For the TabItem
-            ), # tabItem(tabName = "DataQC"
+            )  # tabBox(title = "Raw Data Statistics",width = 12
+            )  # FluidRow
+            )  # Column(10
+            ),  #tabItem( tabName = "DataQC"
+      
+
+          
+          
             
             tabItem(tabName = "DifferentialAnalysis",
             fluidRow(
