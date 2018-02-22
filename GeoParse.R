@@ -304,7 +304,6 @@ SeparateCharacteristics <- function(GseGsmTable, CharInputs) {
                )
           )
      } else {
-          message("Hello")
           ExpVarColsDF['CatVarText'] <-
                apply(X = ExpVarColsDF,
                      MARGIN = 1,
@@ -324,16 +323,17 @@ SeparateCharacteristics <- function(GseGsmTable, CharInputs) {
           max(str_count(string = ExpVarColsDF[GseFirstOccurance, 'CatVarText'] , pattern = ";")) + 1
      ExpColNames <- paste("ExpVar", 1:nColsRequired, sep = "")
      
+     suppressWarnings(
      GseGsmDF <-
           cbind.data.frame(
-               GseGsmDF %>% select(-one_of(CharInputs)),
+               GseGsmDF %>% dplyr::select(-one_of(CharInputs)),
                ExpVarColsDF %>%
-                    tidyr::separate(
-                         CatVarText,
-                         into = ExpColNames,
-                         sep = ",|;",
-                         fill = "right"
-                    )
+               tidyr::separate(
+                  CatVarText,
+                  into = ExpColNames,
+                  sep = ",|;",
+                  fill = "right")
+          )
           )
      return(GseGsmDF)
 }
@@ -382,7 +382,7 @@ GseGsmCharExpand <- function(GseGsmTable, CharInputs) {
      }
      
      BuildRegEx <- paste(CharInputs, collapse = "|")
-     GseGsmTableMeta <- GseGsmDF %>% select(-one_of(CharInputs))
+     GseGsmTableMeta <- GseGsmDF %>% dplyr::select(-one_of(CharInputs))
      CharsDF <- SeparateCharacteristics(GseGsmDF, CharInputs)
      nExpVars <- sum(str_count(string = colnames(CharsDF), pattern = BuildRegEx))
      MultiLevelChars <- DescerningFactors(CharsDF)
@@ -414,14 +414,12 @@ GseGsmCharExpand <- function(GseGsmTable, CharInputs) {
 #' "GSE69967"  "GSE45551"  "GSE45514" "GSE104509"
 
 DescerningFactors <- function(FactorDf) {
-     FactorDf <- FactorDf %>% select(starts_with("ExpVar"))
+     FactorDf <- FactorDf %>% dplyr::select(starts_with("ExpVar"))
      multiLevelFactors <-
           sapply(FactorDf, function(x) {
                nlevels(factor(x))
           })
      multiLevelFactors <- multiLevelFactors > 1
-     message(sprintf("Number of Useful Factors is %d", multiLevelFactors))
-     
      if (length(multiLevelFactors) == 0) {
           stop("No Factors with more than one level found using GSM select columns")
      } else {
@@ -450,9 +448,9 @@ DescerningClassDF <- function(ClassListDF) {
           res <- ClassListDF[1]
      } else {
           ListExtractNames <- ClassDF %>%
-               filter(isUsefulClassDF == "UsefulDF") %>%
-               select(ExpVar) %>%
-               unlist
+              dplyr::filter(isUsefulClassDF == "UsefulDF") %>%
+              dplyr::select(ExpVar) %>%
+              unlist
           
           ListExtractIndex <-
                grep(pattern = paste(ListExtractNames, collapse = "|"),
@@ -466,7 +464,7 @@ DescerningClassDF <- function(ClassListDF) {
 DescerningClassifications <-
      function(ListElementName, ClassListDF) {
           ClassDF <- ClassListDF[[ListElementName]]
-          ClassDF <- ClassDF %>% select(matches("ContClass|PertClass"))
+          ClassDF <- ClassDF %>% dplyr::select(matches("ContClass|PertClass"))
           multiClassCol <-
                sapply(ClassDF, function(x) {
                     nlevels(factor(x))

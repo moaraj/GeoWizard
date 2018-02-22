@@ -844,10 +844,10 @@ server <- function(input, output, session) {
          plotHeight <- input$BoxPlot_Height
          plotWidth <- input$BoxPlot_Width
        } else { 
-         plotHeight <- NULL
-         plotWidth <- NULL 
+         plotHeight <- 600
+         plotWidth <- 800
        }
-       plotlyOutput(outputId = "BoxPlotly",height = plotHeight, width = plotWidth)
+       plotlyOutput(outputId = "BoxPlotly",height = plotHeight, width = plotWidth) %>% withSpinner(color = "#0dc5c1")
        })
     
      ## *** Download EPS file ***
@@ -941,13 +941,28 @@ server <- function(input, output, session) {
 
 
      ################ PCA Plot
-     DataPCA <- reactiveValues()
-
-     output$PCA <- renderPlot({
-       GSEeset <- GSEdata$GSEeset()  #Expression Set
-
+     DataPCA <- reactive({
        GSEeset <- GSEdata$GSEeset
        ArrayData <- exprs(GSEeset)
+       pca_output <- prcomp(na.omit(the_data), center = T, scale. = T)
+       
+     })
+     
+     output$PCA_xcomp <- renderUI({
+       
+       
+       # drop down selection
+       selectInput(inputId = "the_pcs_to_plot_x", 
+                   label = "X axis:",
+                   choices= colnames(pca_output), 
+                   selected = 'PC1')
+     })
+
+     output$PCA <- renderPlot({
+       GSEeset <- GSEdata$GSEeset
+       
+
+
 
        ListPlotPCA <- PlotPCA(ArrayData = ArrayData)
 

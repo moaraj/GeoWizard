@@ -8,9 +8,9 @@ library(shinyjs)
 library(shinycssloaders)
 
 library(ggplot2)
-library(vcd)
 library(gplots)
 library(ggridges)
+library(vcd)
 library(RColorBrewer)
 library(DT)
 
@@ -44,11 +44,6 @@ source(file = "SeriesHanding.R")
 library(RColorBrewer)
 library(beeswarm)
 library(vioplot)
-source("BoxPlotR.shiny/MyVioplot.R")
-library(beanplot)	 
-source("BoxPlotR.shiny/boxplot_stats_Function.R")
-source("BoxPlotR.shiny/BoxPlotR_functions.R")	
-
 
 
 ## app.R ##
@@ -712,14 +707,13 @@ ui <- dashboardPage(
             ), # tabPanel("Histogram"
                                       
             tabPanel(title = "PCA",
-            fluidRow(
+           
             column(6, 
             plotOutput("PCA")%>% withSpinner(color = "#0dc5c1")
             ),
             
             column(6,
             plotOutput("CA")%>% withSpinner(color = "#0dc5c1")
-            )
             ),
             
             fluidRow(

@@ -104,12 +104,10 @@ ExtractExpVarList <- function(GsmList) {
 
 ClassSummary <- function(GsmDesignDF) {
      message("executing ClassSummary")
-     characteristics_ch1 <-
-          GsmDesignDF %>% select(characteristics_ch1)
-     GsmDesignDF <- GsmDesignDF %>% select(-characteristics_ch1)
+     characteristics_ch1 <- GsmDesignDF %>% dplyr::select(characteristics_ch1)
+     GsmDesignDF <- GsmDesignDF %>% dplyr::select(-characteristics_ch1)
      OverallSummary <- unique(GsmDesignDF$OverallSummary)
-     GsmDesignDF <-
-          AssignTimeSeriesInformation(GsmDesignDF, OverallSummary)
+     GsmDesignDF <- AssignTimeSeriesInformation(GsmDesignDF, OverallSummary)
      GsmDesignDF <- bind_cols(GsmDesignDF, characteristics_ch1)
      return(GsmDesignDF)
 }
@@ -141,9 +139,9 @@ NumtoText <- function(strvec) {
 #'
 
 DesignLabs <- function(FullClassDF) {
-     GsmTextDF <- FullClassDF %>% select(matches("Text"))
-     GsmContDF <- FullClassDF %>% select(matches("Cont"))
-     GsmPertDF <- FullClassDF %>% select(matches("Pert"))
+     GsmTextDF <- FullClassDF %>% dplyr::select(matches("Text"))
+     GsmContDF <- FullClassDF %>% dplyr::select(matches("Cont"))
+     GsmPertDF <- FullClassDF %>% dplyr::select(matches("Pert"))
      
      UsefulCols <- 
           c(DescerningFactors(GsmContDF),
@@ -151,7 +149,7 @@ DesignLabs <- function(FullClassDF) {
      
      if (length(UsefulCols) != 0) {
           GsmContDF <- FullClassDF %>% 
-               select(matches(paste(UsefulCols, collapse = "|")))
+            dplyr::select(matches(paste(UsefulCols, collapse = "|")))
           
           DesignLabsDF <-
                sapply(UsefulCols, function(FactorCol) {
@@ -168,7 +166,7 @@ DesignLabs <- function(FullClassDF) {
                }))
           
           GsmTextDF <-
-               GsmTextDF %>% select(matches(paste(UsefulTxtCols, collapse = "|")))
+               GsmTextDF %>% dplyr::select(matches(paste(UsefulTxtCols, collapse = "|")))
           GsmTextDF <- cbind.data.frame(GsmTextDF, DesignLabsDF)
           #GsmTextDF <- GsmTextDF[, order(names(GsmTextDF))]
           
