@@ -26,7 +26,7 @@ selectedGse <- gseList[selectedGse]
 # Filter Selected GSE
 Step_1 <- GseGsmTable %>% filter(series_id %in% selectedGse) 
 # Classify the Summary and Return the FIltered GSE GSM DF
-Step_2 <- ClassSummary(Step_1)
+Step_2 <- ClassSummary(GsmDesignDF = Step_1)
 
 # Expands Character Column 
 CharInputs <- c("characteristics_ch1", "gsm.title","description")
@@ -58,13 +58,15 @@ GeoRepoPath <- "~/GeoWizard/GEORepo"
 GSE <- "GSE69967"
 GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepoPath = GeoRepoPath)
 ArrayData <- exprs(GSEeset)
-FeatureData <- fData(GSEeset)
-
-######### Function to Make GMT Ggplotable
 FactorDF <- Step_6[1:2]
 
+FeatureData <- fData(GSEeset)
+######### Function to Make GMT Ggplotable
 GSM <- colnames(ArrayData)
-ArrayFactorData <-  GenFactorGMT(GSEeset, FactorDF)
+FactorGMT <-  GenFactorGMT(exprs(GSEeset), FactorDF)
+FactorGMTMelt <- melt(FactorGMT)
+
+
 GSEgmtDF <- GenGMTggplotDF(GSEeset = GSEeset,FactorDF = FactorDF)
 
 ######## GMT Boxplots and Histograms
