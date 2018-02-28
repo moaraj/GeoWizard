@@ -126,7 +126,7 @@ server <- function(input, output, session) {
     #' @input input$GseSummaryData_rows_selected
     #' @return GseDescDFSelected
     GeoSearchResults$SelectedRowsGSETable <- reactive({
-        shiy::req(input$GseSummaryData_rows_all)
+        shiny::req(input$GseSummaryData_rows_all)
         message("Filtering GSE table by row selection")
         GseDescDF <- GeoSearchResults$GseSummaryTableData()
         GseDescDFSelected <- GseDescDF[input$GseSummaryData_rows_selected, ]
@@ -250,28 +250,35 @@ server <- function(input, output, session) {
         SelectedGSENames <- GseDescDF[,"series_id"] # Get the GSE names of the selected GSE's in the data table
         
         message("Initializing input for filtering GSE/GSM data to show")
-        CheckBoxOptions <- list(inputId = "KeepForExpVarAsign", label = "Keep Datasets for Further Analysis", choices = SelectedGSENames, selected = SelectedGSENames)
+        CheckBoxOptions <- list(inputId = "KeepForExpVarAsign", 
+            label = "Datasets", 
+            choices = SelectedGSENames, 
+            selected = SelectedGSENames, 
+            inline = T)
         do.call(checkboxGroupInput, CheckBoxOptions)
     })
     
     output$GseTabletoAnalyze_UI <- renderUI({
         shiny::req(input$KeepForExpVarAsign)
         GSEChoices <- input$KeepForExpVarAsign
-        radioButtons(inputId = "GsmTableSelect", label = "Analyze Selected Dataset", choices = GSEChoices)
+        radioButtons(inputId = "GsmTableSelect", label = "Select Dataset", choices = GSEChoices, inline = T)
     })
+    
+    GeoSearchResults$FilteredTable <- reactive({
+        GseDescDF <- GeoSearchResults$SelectedRowsGSETable()
+        SelectedGSE <- input$GsmTableSelect
+        FilteredTable <- GseDescDF %>% dplyr::filter(series_id %in% SelectedGSE)
+        FilteredTable
+    })
+    
     
     output$GplTabletoAnalyze_UI <- renderUI({
         shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect)
-        GseDescDF <- GeoSearchResults$SelectedRowsGSETable()
-        SelectedGSE <- input$GsmTableSelect
-        
-        FilterdTable <- GseDescDF %>% dplyr::filter(series_id %in% SelectedGSE)
-        SQLSearchData$FilteredTable <- FilteredTable
-        
-        GPLChoices <- FilterdTable %>% dplyr::select(GPL) %>% unique %>% as.character
+        FilteredTable <- GeoSearchResults$FilteredTable()
+        GPLChoices <- FilteredTable %>% dplyr::select(GPL) %>% unique %>% as.character
         GPLChoices <- unlist(stringr::str_split(string = GPLChoices,pattern = ";"))
         GPLChoices <- paste("GPL", GPLChoices, sep = "")
-        selectInput(inputId = "GplTableSelect", label = "Select GPL", choices = GPLChoices) 
+        radioButtons(inputId = "GplTableSelect", label = "Select GPL", choices = GPLChoices) 
     })
     
     # output$GseSelectedInfo_UI <- renderUI({
@@ -292,18 +299,35 @@ server <- function(input, output, session) {
         FilteredResultDF
     })
      
-  ####################################{ Table Showing Metadata Tables Containing ExpVars}
+    ####################################{ Table Showing Metadata Tables Containing ExpVars}
 
-     ##################{ Render GSM Meta data
-     output$GseGsmTable <- DT::renderDataTable({
-         shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect)
-         message("Retreiving Datatable Data")
-         SqlQueryResDF <- SQLSearchData$FilteredResultDF()
-         SqlQueryResDF <- SqlQueryResDF %>% select(-one_of(c("series_id","taxon","keyword")))
-         message("Making SQL Summary Table")
-         DT::datatable(data = SqlQueryResDF , rownames = FALSE, class = 'row-border', 
-                     options = list(scrollY = '400px', om = 't', paging = FALSE, autoWidth = TRUE)) %>%
-          formatStyle(names(SqlQueryResDF), color = 'black', backgroundColor = 'white', fontWeight = 'bold')
+    
+    output$infobox_selectedGSE <- renderUI({
+        shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect)
+        FilteredTable <- GeoSearchResults$FilteredTable()
+        
+        SpeciesInfo <- FilteredTable %>% select(taxon) %>% as.character
+        SamplesInfo <- FilteredTable %>% select(n_samples) %>% as.character
+        GdsInfo <- FilteredTable <- FilteredTable %>% select(gdsType) %>% as.character
+        
+        fluidRow(
+        column(4, h4(strong("n samples:")), h5(SamplesInfo)),
+        column(4, h4(strong("species:")), h5(SpeciesInfo)),
+        column(4, h4(strong("gdsType:")), h5(GdsInfo))
+        )
+    })
+    
+
+    ##################{ Render GSM Meta data
+    output$GseGsmTable <- DT::renderDataTable({
+        shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect)
+        message("Retreiving Datatable Data")
+        SqlQueryResDF <- SQLSearchData$FilteredResultDF()
+        SqlQueryResDF <- SqlQueryResDF %>% select(-one_of(c("series_id","taxon","keyword","gpl","gsm")))
+        message("Making SQL Summary Table")
+        DT::datatable(data = SqlQueryResDF , rownames = FALSE, class = 'row-border', 
+            options = list(scrollY = '400px', om = 't', paging = FALSE, autoWidth = TRUE)) %>%
+            formatStyle(names(SqlQueryResDF), color = 'black', backgroundColor = 'white', fontWeight = 'bold')
      })
 
      #################{ Classify ExpVars
