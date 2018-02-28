@@ -1,20 +1,20 @@
 #' Load Large Matrix Files
 #'
 #' @param GSE GEO accession number - str length [1]
-#' @param GeoRepoPath File path to localGeoRepo - str length[1]
-#' @param RdsCache Save Geo Matrix files as RDS inside GeoRepoPath for faster loading - boolean lenght[1]
+#' @param GeoRepo File path to localGeoRepo - str length[1]
+#' @param RdsCache Save Geo Matrix files as RDS inside GeoRepo for faster loading - boolean lenght[1]
 #' 
-#'  @example GeoRepoPath <- "~/GeoWizard/GEORepo"
+#'  @example GeoRepo <- "~/GeoWizard/GEORepo"
 #'  GSE <- "GSE69967"
-#'  LoadGEOFiles(GSE, GeoRepoPath)
+#'  LoadGEOFiles(GSE, GeoRepo)
 
 
-LoadGEOFiles <- function(GSE, GeoRepoPath){
-     GeoRepoFiles <- dir(GeoRepoPath)
+LoadGEOFiles <- function(GSE, GeoRepo){
+     GeoRepoFiles <- dir(GeoRepo)
 
      RegularExp <- paste(GSE, ".+matrix\\.txt\\.gz$", sep = "")
      MatrixFile <- grep(pattern = RegularExp, x = GeoRepoFiles, value = T)
-     MatrixFilePath <- file.path(GeoRepoPath, MatrixFile)
+     MatrixFilePath <- file.path(GeoRepo, MatrixFile)
      RDSFilePath <- paste(MatrixFilePath, ".rds", sep = "")
      
      if(isTRUE(file.exists(RDSFilePath)) & length(MatrixFile) != 0 ){
@@ -22,10 +22,16 @@ LoadGEOFiles <- function(GSE, GeoRepoPath){
           GSEeset <- readRDS(RDSFilePath)
           
      } else if (isTRUE(file.exists(MatrixFilePath)) & length(MatrixFile) != 0 ) {
-          message(paste("Matrix File for",GSE, "Found in GEORepo at", GeoRepoPath))
+          message(paste("Matrix File for",GSE, "Found in GEORepo at", GeoRepo))
           GSEeset <- getGEO(filename = MatrixFilePath)
           message("Save ESET as RData for faster loading next time")
-          saveRDS(object = GSEeset, file = RDSFilePath)
+          saveRDS(object = GSEeset, file = RDSFilePath) 
+     
+     } else if ( length(MatrixFilePath) > 1) {
+       
+       GSElist <- lapply(MatrixFilePath, function(GseFile){
+         GSEeset <- getGEO(filename = MatrixFilePath)})
+       names(GSElist) <- MatrixFile
           
      } else {
           GSEeset <- getGEO(GSE, destdir = "~/GeoWizard/GEORepo")

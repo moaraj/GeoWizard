@@ -1,21 +1,13 @@
-library(reshape2)
-library(plyr)
-library(tidyverse)
+MolLibPath <- file.path(GeoWizard, "MoleculeLibraries")
 
-approvedFDA <- read.csv(file = "MoleculeLibraries/DrugsFDA FDA Approved Drug Products.csv", sep = ";", stringsAsFactors = F)
-approvedFDA <- approvedFDA %>% select(Active.Ingredients) %>% unlist
+LoadFDA <- function(MolLibPath){
+  approvedFDA <- read.csv(file = file.path(MolLibPath,"DrugsFDA.csv"), sep = ";", stringsAsFactors = F)
+  approvedFDA <- approvedFDA %>% select(Active.Ingredients) %>% unlist
+  approvedFDA
+}
 
-#approvedFDA <- approvedFDA %>% select(Drug.Name, Active.Ingredients, Company)
-#approvedFDA$Company <- gsub(pattern = "[[:punct:]]", replacement = " ", x = approvedFDA$Company)
-#approvedFDA <- data.frame(sapply(approvedFDA, tolower), stringsAsFactors = F)
-#approvedFDA <- dlply(approvedFDA, .(Company))
-#approvedFDA <- lapply(approvedFDA, function(x) x[["Active.Ingredients"]])
-#approvedFDA <- sapply(approvedFDA, tolower)
-#names(approvedFDA) <- gsub("(^|[[:space:]])([[:alpha:]])", "\\1\\U\\2", names(approvedFDA), perl=TRUE)
+approvedFDA <- LoadFDA(MolLibPath)
 
-
-
-     
 MoleculeLibrary <- c(
      "Mycophenolate mofetil",
      "Cyclosporin A",

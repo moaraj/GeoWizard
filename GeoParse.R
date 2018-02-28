@@ -1,6 +1,6 @@
 GeoWizard <- "~/GeoWizard/"
 GeoRepo <- "~/GeoWizard/GeoRepo"
-setwd(GeoWizard)
+
 #'
 #' @param keyword is the Key word used to query GEO eutils esearch
 #' @param retmax is used to determine the max number of GSE returns returned, default 1000
@@ -18,10 +18,11 @@ GDSeSearch <- function(keyword,
      keyword <- gsub(pattern = " ",
                      replacement = "+",
                      x = keyword)
-     suppfiles <- "cel[suppFile]"
+     #suppfiles <- "cel[suppFile]"
      datatype <- "GSE"
      search_terms <- paste(keyword,
-                           datatype, suppfiles,
+                           datatype, 
+                           #suppfiles,
                            sep = "+AND+")
      
      geneQuery <-
@@ -200,29 +201,30 @@ MultiGSEQuery <- function(MolQuery) {
 #' @param GseTable is GEO serach res dataframe contining keyword series_id GPL gse.title gdsType taxon n_samples suppFile summary
 #' GseTable <- MultiGSEQuery(c("Mycophenolate mofetil", "Tofacitinib"), species = c("Homo sapiens", "Mus musculus"))
 #' GseGsmTable <- SqlQueryMain(GseTable)
-#' 
+#' QueryInput <- c("GSE97460","GSE69967","GSE80688","GSE45551","GSE45514","GSE60482","GSE104509","GSE99293","GSE78825")
+#' res <- SqlQueryMain(QueryInput)
 
 library(GEOmetadb)
+library(dplyr)
 
-SqlQueryMain <- function(GseTable) {
-  
-  if (is.data.frame(GseTable)) { GSEList <- as.character(unlist(GseTable['series_id']))
-  } else if (class(gseSqlQuery) == "character") { GSEList <- gseSqlQuery }
-  
+SqlGSEInput <- function(QueryInput){
+  if (is.data.frame(QueryInput)) { GSEList <- as.character(unlist(QueryInput['series_id']))
+  } else if (class(QueryInput) == "character") { GSEList <- QueryInput }
+  return(GSEList)
+}
+
+
+SqlQueryMain <- function(QueryInput) {
+  GSEinput <- SqlGSEInput(QueryInput)
   con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
-  
-  GsmTable <- FetchGSMMetaData(GSEList, con)
+  GsmTable <- FetchGSMMetaData(GSEinput, con)
   colnames(GsmTable)[grep(pattern = "title", x = colnames(GsmTable))] <- "gsm.title"
-     
-  GseGsmTable <- dplyr::inner_join(GseTable, GsmTable)
   
-  NotFoundVec <- lapply(GSEList, EmptySQLRes, GseGsmTable)
-  NotFoundVec[sapply(NotFoundVec, is.null)] <- NULL
-  if (length(NotFoundVec) > 0) {
-    GseGsmTable <- bind_rows(GseGsmTable, NotFoundVec)  
-  }
-  
-  return(GseGsmTable)
+  GsmTable <- GsmTable %>% 
+    mutate(series_id = strsplit(as.character(series_id), ",")) %>% 
+    tidyr::unnest(series_id) %>% select(one_of(c("series_id","gpl","gsm","gsm.title","description","characteristics_ch1")))
+
+  return(GsmTable)
 }
 
 #' Get GSM level data for all GSMs in a GSE
@@ -232,33 +234,82 @@ SqlQueryMain <- function(GseTable) {
 #'
 #' @return a dataframe with gse, gsm, title, description and characteristics
 #' 
-FetchGSMMetaData <- function(GSEList, con) {
+#' @note
+#' Test:
+#'  QueryGSE <- c("GSE69967", "GSE57800",  "GSE76951", "GSE49426", "GSE11440", "Moaraj", "Chocolate")
+#'  QueryGSE <- c("GSE69967", "GSE57800",  "GSE76951", "GSE49426", "GSE11440", "Moaraj")
+#'  QueryGSE <- c("GSE69967", "GSE57800",  "GSE76951", "GSE49426", "GSE11440")
+#'  QueryGSE <- c("GSE69967")
+#'  QueryGSE <- c("Moaraj")
+#'  QueryGSE <- c("Moaraj", "Chocolate") 
+#'  test <- FetchGSMMetaData(QueryGSE, con)
+
+FetchGSMMetaData <- function(QueryGSE, con) {
+  res <- data.frame(matrix(ncol = 6, nrow = 0))
+  colnames(res) <- c("series_id", "gpl", "gsm", "title", "description", "characteristics_ch1")
+
+  SqlQuery <- SqlQueryGen(QueryGSE)
+  res <- bind_rows(res,try(dbGetQuery(con, SqlQuery)))
   
-  gseQuery <- paste("\'",GSEList, "\'", collapse = ", ", sep = "") 
-  message(sprintf("Getting GSMs metadata for %s", gseQuery))
-  SqlQuery <- paste(
-      "select series_id, gsm, title, description, characteristics_ch1 ",
-      "from gsm ", "where series_id in (" ,gseQuery, ")" ,
-      sep = ""
-    )
+  GseFound <- unlist(lapply(QueryGSE, EmptySQLRes, res))
+  GseNotFound <- !GseFound
+  names(GseNotFound) <- QueryGSE
   
-  res <- dbGetQuery(con, SqlQuery)
+  if (any(GseNotFound)){
+    RetryGSE <- names(GseNotFound[GseNotFound])
+    SqlQueryRetry <- SqlRetryQueryGen(RetryGSE)
+    resRetry <- try(dbGetQuery(con, SqlQueryRetry))
+    res <- bind_rows(res, resRetry)
+    
+    RetryGseFound <- unlist(lapply(QueryGSE, EmptySQLRes, res))
+    RetryGseNotFound <- !RetryGseFound
+    names(RetryGseNotFound) <- QueryGSE
+    
+    if (any(RetryGseNotFound)){
+    EmptyGSE <- names(RetryGseNotFound[RetryGseNotFound])
+    resEmpty <- lapply(EmptyGSE, FillEmptySQLres, res)
+    resEmpty <- bind_rows(resEmpty)
+    res <- bind_rows(res, resEmpty) 
+    }
+    
+  } 
   
-  NotFoundVec <- lapply(GSEList, EmptySQLRes, res) # if one of many GSE inputs not found
-  NotFoundVec[sapply(NotFoundVec, is.null)] <- NULL
-  if (length(NotFoundVec) > 0) {
-  res <- bind_rows(res, NotFoundVec)  
-  }
+  if(class(res) == "try-error") {
+    res[,1] <- QueryGSE
+    res[1:nrow(res),2:6] <- "Metadata not in SQLite Server"
   
-  if (length(res[, 1]) == 0) { # if all of many GSE inputs not found in metaDB
-    message("GSE was not found in SQLite Server")
-    res[1, 1] <- GSEList
-    res[1, 2:5] <- "Metadata not in SQLite Server"
-  }
-  
-  res <- as.data.frame(res)
   return(res)
 }
+  
+
+  return(res)
+}  
+  
+#' SqlQuery
+#'
+#'
+#'  
+SqlQueryGen <- function(QueryGSE){
+  gseQuery <- paste("\'",QueryGSE, "\'", collapse = ", ", sep = "") 
+  message(sprintf("Getting GSMs metadata for %s", gseQuery))
+  SqlQuery <- paste(
+      "select series_id, gpl, gsm, title, description, characteristics_ch1 ",
+      "from gsm ", "where series_id in (" , gseQuery, ")" , sep = "")
+  return(SqlQuery)
+}
+    
+  
+#' SqlQuery Retry
+#'
+#'
+#'  
+SqlRetryQueryGen <- function(NotFoundGse){
+  RetryQuery <- paste("series_id like", "\'",NotFoundGse, "%\'", collapse = " OR  ", sep = "")
+  SqlQueryRetry <- paste(
+      "select series_id, gpl, gsm, title, description, characteristics_ch1 ",
+      "from gsm ", "where (" , RetryQuery, ")" , sep = "")
+  return(SqlQueryRetry)
+}  
 
 #' Determine if GSE Meta data was found in the MetaDB 
 #'
@@ -271,17 +322,16 @@ EmptySQLRes <- function(gse, res){
   FoundGSE <- unique(res$series_id)
   GseInRes <- grepl(pattern = gse, x = FoundGSE)
   GseInRes <- any(GseInRes, na.rm=TRUE)
-  
-  if(!GseInRes){
-    NotFoundVec <- res[1,1:5]
-    NotFoundVec [1, 1] <- gse
-    NotFoundVec [1, 2:5] <- "Metadata not in SQLite Server"
-    return(NotFoundVec)
-  }
-  return(NULL)
+  return(GseInRes)
 }
 
-
+FillEmptySQLres <- function(gse, res){
+    NotFoundVec <- res[1,1:6]
+    NotFoundVec [1, 1] <- gse
+    NotFoundVec [1, 2:6] <- "Metadata not in SQLite Server"
+    res <- bind_rows(NotFoundVec)
+    return(res)
+}
 
 #'
 #' @param GseGsmTable in GSE GSM joined table
@@ -320,7 +370,7 @@ SeparateCharacteristics <- function(GseGsmTable, CharInputs) {
           
      }
      nColsRequired <-
-          max(str_count(string = ExpVarColsDF[GseFirstOccurance, 'CatVarText'] , pattern = ";")) + 1
+          max(stringr::str_count(string = ExpVarColsDF[GseFirstOccurance, 'CatVarText'] , pattern = ";")) + 1
      ExpColNames <- paste("ExpVar", 1:nColsRequired, sep = "")
      
      suppressWarnings(
@@ -371,12 +421,12 @@ GseGsmCharExpand <- function(GseGsmTable, CharInputs) {
           paste(CharInputs, collapse = " and ")
      ))
      
-     if (is.null(CharInputs)) {
+     if (length(CharInputs) == 0) {
           stop(
                paste(
                     "You must pick atleast one of option",
                     "'gsm.title', 'description' or 'characteristics",
-                    "to use has experimetanl Blocks in downstream analysis"
+                    "to use them for inferring experimental blocks in downstream analysis"
                )
           )
      }

@@ -1,12 +1,7 @@
-GeoRepoPath <- "~/GeoWizard/"
-setwd(GeoRepoPath)
+GeoWizard <- "~/GeoWizard"
+setwd(GeoWizard)
+source("ShinyApp-Dashboard/global.R")
 
-source(file = "GeoParse.R")
-source(file = "GSMAnnotation.R")
-source(file = "GeoFileHandling.R")
-source(file = "SeriesHanding.R")
-source(file = "QCAnalysis.R")
-source(file = "ExpressionAnalysis.R")
 
 if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
 con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
@@ -14,13 +9,19 @@ message(paste('\nConnected Database Tables:', dbListTables(con)))
 
 MolQuery = c("Mycophenolate mofetil")
 MolQuery = c("Tofacitinib")
+#MolQuery = "GSE57800"
+
 
 GseTable <- MultiGSEQuery(MolQuery)
-GseGsmTable <- SqlQueryMain(GseTable)
+GsmTable <- SqlQueryMain(GseTable)
+GseGsmTable <- GseTable %>% dplyr::select(-one_of("GPL")) %>% 
+  dplyr::inner_join(GsmTable, "series_id")
+  
+
 
 # Select Single GSE from GSE-GSM Table
 gseList <- unique(GseGsmTable[,'series_id'])
-selectedGse <- 2
+selectedGse <- 1
 selectedGse <- gseList[selectedGse]
 
 # Filter Selected GSE
@@ -30,8 +31,7 @@ Step_2 <- ClassSummary(GsmDesignDF = Step_1)
 
 # Expands Character Column 
 CharInputs <- c("characteristics_ch1", "gsm.title","description")
-CharInputs <- "characteristics_ch1"
-Step_3 <- GseGsmCharExpand(GseGsmTable = Step_2, CharInputs = CharInputs)
+Step_3 <- GseGsmCharExpand(GseGsmTable = Step_2, CharInputs)
 
 Step_3_colnames <- grep(pattern = "ExpVar[[:digit:]]", x = colnames(Step_3), value = T)
 Step_3B <- data.frame(Step_3[,Step_3_colnames])
@@ -51,12 +51,12 @@ Step_6 <- DesignLabs(data.frame(Step_5))
 
 GSM <- Step_1$gsm
 GraphDF <- cbind(GSM, Step_6)
-DesignMatrix <- model.matrix( ~ ExpVar3.Text + ExpVar4.Text, GraphDF )
+DesignMatrix <- model.matrix( ~ ExpVar4.Text, GraphDF )
 
 ######### Function to Download File
 GeoRepoPath <- "~/GeoWizard/GEORepo"
-GSE <- "GSE69967"
-GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepoPath = GeoRepoPath)
+GSE <- selectedGse
+GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepo)
 ArrayData <- exprs(GSEeset)
 FactorDF <- Step_6[1:2]
 
@@ -65,7 +65,6 @@ FeatureData <- fData(GSEeset)
 GSM <- colnames(ArrayData)
 FactorGMT <-  GenFactorGMT(exprs(GSEeset), FactorDF)
 FactorGMTMelt <- melt(FactorGMT)
-
 
 GSEgmtDF <- GenGMTggplotDF(GSEeset = GSEeset,FactorDF = FactorDF)
 

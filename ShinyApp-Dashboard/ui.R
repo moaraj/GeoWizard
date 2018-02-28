@@ -1,50 +1,6 @@
-GeoRepo <- "~/GeoWizard/"
-setwd(GeoRepo)
-
-library(shiny)
-library(shinydashboard)
-library(shinythemes)
-library(shinyjs)
-library(shinycssloaders)
-
-library(ggplot2)
-library(gplots)
-library(ggridges)
-library(vcd)
-library(RColorBrewer)
-library(DT)
-
-library(limma)
-library(Biobase)
-library(BioQC) #install.packages("https://bioarchive.galaxyproject.org/BioQC_1.4.0.tar.gz", repos = NULL)
-library(GEOquery)
-library(vcd)
-library(GEOmetadb)
-
-library(beanplot)
-library(vioplot)
-library(ggbeeswarm)
-library(plotly)
-library(heatmaply)
-
-library(FactoMineR)
-library(factoextra)
-
-source(file = "GeoParse.R")
-source(file = "GSMAnnotation.R")
-source(file = "GeoFileHandling.R")
-source(file = "QCAnalysis.R")
-source(file = "ExpressionAnalysis.R")
-
-source(file = "MoleculeLibraries/MoleculeLibraries.R")
-source(file = "GeoTrainingSets/KeyWords.r")
-source(file = "helpers.R")
-source(file = "SeriesHanding.R")
-
-library(RColorBrewer)
-library(beeswarm)
-library(vioplot)
-
+GeoWizard <- "~/GeoWizard"
+GeoRepo <- "~/GeoWizard/GeoRepo"
+setwd(GeoWizard)
 
 ## app.R ##
 if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
@@ -140,146 +96,117 @@ ui <- dashboardPage(
           menuItem( "Design Matrix", icon = icon("th"), tabName = "DesignMatrix"),
           menuItem("Download and QC", tabName = "DataQC", icon = icon("download")),
           menuItem("Expression Analysis", tabName = "DifferentialAnalysis", icon = icon("bar-chart")),
-          menuItem("Molecule To Target Search", tabName = "ReverseSerach", icon = icon("database"))
+          menuItem("Export and Save", tabName = "ReverseSerach", icon = icon("database"))
           )
      ),
      
-     ## Body content
-     dashboardBody(
-          inlineCSS(appCSS),
-          useShinyjs(),
-          tabItems(
+    ## Body content
+    dashboardBody(
+        inlineCSS(appCSS),
+        useShinyjs(),
+        tabItems(
           
-          tabItem(
-          tabName = "GSESummary",
+        tabItem(
+        tabName = "GSESummary",
                              
-          fluidRow(
-          box(width = 4,
+        fluidRow(
+        box(width = 4,
             status = 'warning',
             title = "Inputs for GEO Query",
             solidHeader = TRUE,
+        
+        fluidRow(
+        column(6,uiOutput('MolSelectFromLibrary')),
+        
+        column(6,
+        selectInput(
+        inputId = "MolSelectFilter",
+        label = "Molecule Libraries",
+        choices = c("David's TA Molecules" = "DAVID", "Text Input" = "TextInput",  "FDA approved Drugs" = "FDA", "SPARK" = "SPARK Library"),
+        selected = "DAVID")), #selectInput
+        
+        column(6),
+        # actionButton(inputId = "StructureSerach",
+        #     label = HTML("Retrieve Datasets for<br />Related Chemotypes<br />"),
+        #     class = "btn-warning",
+        #     width = '100%')),
+        
+        column(6,
+        actionButton(
+        inputId = "MolSelectButton",
+        label = HTML("Retrieve Datasets<br />for Selected Molecules<br />"),
+        class = "btn-warning",width = '100%'))
+        )    # Box Fluid Row    
+        ),    # Box - Inputs for GEO Query
+          
+        # Inputs for Geo Query Box
+        box(
+            title = "Filter Search Results",
+            solidHeader = TRUE, 
+            status = "warning",
+            width = 8,
+          
+        fluidRow(
+        column(3,
+        sliderInput(inputId = "SampleSizeSlider", 
+            label = "Min Sample Size", 
+            value = 1, 
+            min = 1, 
+            max = 300 
+        )
+        ),
                                                
-          column(6,
-          div(id = 'MolSelectLibraryDiv',
-          uiOutput('MolSelectFromLibrary')
-          ),
-                                               
-          div(
-          id = 'MolSelectTextDiv',
-          textAreaInput(inputId = "MolSelectTextBox",
-            height = "150px",
-            label = "Comma Separated Text input",
-            value = c("Mycophenolate mofetil,\nTofacitinib")
-          )
-          ),
-          
-          actionButton(inputId = "StructureSerach",
-            label = HTML("Retrieve Datasets for<br />Related Chemotypes<br />"),
-            class = "btn-warning",
-            width = '100%')
-          ),
-                                               
-          column(6,
-          selectInput(
-          inputId = "MolSelectFilter",
-          label = "Molecule Libraries",
-          choices = c( "Text Input" = "TextInput", 
-                       "FDA approved Drugs" = "FDA", 
-                       "David's TA Molecules" = "DAVID",
-                       "SPARK" = "SPARK Library"),
-          selected = "DAVID"
-          ), #radioButtons
-                                               
-          actionButton(
-            inputId = "MolSelectButton",
-            label = HTML("Retrieve Datasets<br />for Selected Molecules<br />"),
-            class = "btn-warning",width = '100%'
-          ) # actionButton
-          )
-          ),
-          
-          # Inputs for Geo Query Box
-          box(
-          title = "Filter Search Results",
-          solidHeader = TRUE, 
-          status = "warning",
-          width = 8,
-          
-          fluidRow(
-          column(3,
-          sliderInput(inputId = "SampleSizeSlider", 
-                      label = "Min Sample Size", 
-                      value = 1, 
-                      min = 1, 
-                      max = 300 )
-          ),
-                                               
-          column(3,
-          checkboxGroupInput(
-          inputId = "ExpTypes",
-          label = "Perturbation Types  to Query",
-          choices = c("Small Molecule",
-                      "Biologics",
-                      "Genetic Perutbations"),
-          selected = c("Small Molecule",
-                       "Biologics",
-                       "Genetic Perutbations")
-          )
-          ),
-          
-          column(3,
-          uiOutput("TaxonSelection")
-          ),
-                                               
-          column(3,
-          radioButtons( inputId = "FullSummaryCheck",
-            label = "Show full Summary", 
-            choices = c("Full Text", "Truncated"), 
-            selected = "Truncated",  
-            inline = F)
-          )
-          ), # Fluid Row - Box
-          br()
-          ) # Filter Seacrh Results Box
-          
-          ), #First Fluid Row, Summary, Filter and Infor Box
-          
-          fluidRow(
-          tabBox(
-          side = "right",
-          title = "Geo Search Result Plots",
-          id = "PlotTabSet", 
-          height = "500px",
-          width = 4,
-          
-          tabPanel("taxon",
-          status = "primary", 
-          plotOutput("nStudiesPlotTaxon") %>% withSpinner(color = "#0dc5c1")),
+        column(3,
+        checkboxGroupInput(
+        inputId = "ExpTypes",
+        label = "Perturbation Types  to Query",
+        choices =  c("Small Molecule Perturbations", "Biological Marcro Molecuels","Genetic Perturbations"),
+        selected = c("Small Molecule Perturbations", "Biological Marcro Molecuels","Genetic Perturbations")
+        )
+        ),
+        
+        column(3, uiOutput("TaxonSelection")),
+        column(3, radioButtons( inputId = "FullSummaryCheck", label = "Show full Summary", choices = c("Full Text", "Truncated"), selected = "Truncated", inline = F))
+        ), # Fluid Row - Box
+        br()) # Filter Seacrh Results Box
+        ), #First Fluid Row, Summary, Filter and Infor Box
+        
+        fluidRow(
+        tabBox(
+        side = "right",
+        title = "Geo Search Result Plots",
+        id = "PlotTabSet", 
+        height = "500px",
+        width = 4,
+        
+        tabPanel("taxon",
+        status = "primary", 
+        plotOutput("nStudiesPlotTaxon") %>% withSpinner(color = "#0dc5c1")),
                                        
-          tabPanel("gdsType",
-          plotOutput("nStudiesPlotGdsType") %>% withSpinner(color = "#0dc5c1"))
-          ), #Plot Type Tabbox
+        tabPanel("gdsType",
+        plotOutput("nStudiesPlotGdsType") %>% withSpinner(color = "#0dc5c1"))
+        ), #Plot Type Tabbox
 
-          box(status = "primary", 
-          solidHeader = TRUE,
-          title = "Table of Datasets Matching Keywords",
-          width = 8,
-          height = '500px',
+        box(status = "primary", 
+        solidHeader = TRUE,
+        title = "Table of Datasets Matching Keywords",
+        width = 8,
+        height = '500px',
           
-          fluidRow(
-          style = "margin-left :10px; margin-right :10px",
-          DT::dataTableOutput("GseSummaryData")
-          )
-          ) # Datatable Box
-          ), # Fluid Row Table and Plot
+        fluidRow(
+        style = "margin-left :10px; margin-right :10px",
+        DT::dataTableOutput("GseSummaryData")
+        )
+        ) # Datatable Box
+        ), # Fluid Row Table and Plot
                              
-          fluidRow(
-          infoBoxOutput('nTotalStudiesIndicator'),
-          infoBoxOutput("nStudiesSelectedIndicator"),
-          column(1,
+        fluidRow(
+        infoBoxOutput('nTotalStudiesIndicator'),
+        infoBoxOutput("nStudiesSelectedIndicator"),
+        column(1,
           
-          fluidRow(
-          actionButton(
+        fluidRow(
+        actionButton(
             inputId = "AnalyzeSelectedDatasets",
             label = "Analyze Selected Datasets  ",
             icon = icon("arrow-right"),
@@ -322,16 +249,15 @@ ui <- dashboardPage(
           collapsible = T,
           
           fluidRow(
-          column(6, 
-          uiOutput('GsmTabletoKeep') %>% withSpinner(color = "#0dc5c1")
-          ),
-          
-          column(6, 
-          uiOutput('GsmTabletoShow') %>% withSpinner(color = "#0dc5c1"))
+          column(6, uiOutput('GseTabletoKeep_UI') %>% withSpinner(color = "#0dc5c1")),
+          column(6, uiOutput('GseTabletoAnalyze_UI') %>% withSpinner(color = "#0dc5c1")),
+          column(12, hr()),
+          column(12,uiOutput("GseSelectedInfo_UI")),
+          column(12, hr()),
+          column(12, uiOutput("GplTabletoAnalyze_UI") %>% withSpinner(color = "#0dc5c1"))
           )
           ),
-                                  
-                                         
+          
           box(title = "Metadata columns with Experimental Variables",
             solidHeader = T,
             status = "primary",
@@ -394,14 +320,16 @@ ui <- dashboardPage(
             status = "primary",
             width = 12,
             collapsible = T,
-            
+          
+          fluidRow(
+          style="margin-left :10px; margin-right :10px",
           conditionalPanel(
           condition="$('html').hasClass('shiny-busy')",
-          HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>')
+          HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>'),
+          br()),
+          uiOutput(outputId = "FilterGSMbyFactor")
           ),  
                                             
-          uiOutput(outputId = "FilterGSMbyFactor"),
-            
           fluidRow(
             style="margin-left :10px; margin-right :10px",
             
@@ -465,7 +393,7 @@ ui <- dashboardPage(
               width = 12,
               collapsible = T,
             
-            dataTableOutput("DesignMat_SummaryTable"))
+            dataTableOutput("DesignMat_SummaryTable")%>% withSpinner(color = "#0dc5c1"))
             ), # First Page Column
                                  
             column(4,
@@ -520,7 +448,7 @@ ui <- dashboardPage(
               width = 12,
               collapsible = T,
                                          
-            DT::dataTableOutput(outputId = 'CustomExpressionTable')
+            DT::dataTableOutput(outputId = 'CustomExpressionTable') %>% withSpinner(color = "#0dc5c1")
             ),
                                      
             box(title = "Experimental Blocks",

@@ -1,4 +1,4 @@
-Keywordfile <- source(file = "GeoTrainingSets/KeyWords.r")
+Keywordfile <- source(file = file.path(GeoWizard, "GeoTrainingSets/keywords.R"))
 
 #' The Following three functions
 #' classify the GSMs in each GSEwhether of not
@@ -106,7 +106,7 @@ ClassSummary <- function(GsmDesignDF) {
      message("executing ClassSummary")
      characteristics_ch1 <- GsmDesignDF %>% dplyr::select(characteristics_ch1)
      GsmDesignDF <- GsmDesignDF %>% dplyr::select(-characteristics_ch1)
-     OverallSummary <- unique(GsmDesignDF$OverallSummary)
+     OverallSummary <- unique(GsmDesignDF$summary)
      GsmDesignDF <- AssignTimeSeriesInformation(GsmDesignDF, OverallSummary)
      GsmDesignDF <- bind_cols(GsmDesignDF, characteristics_ch1)
      return(GsmDesignDF)
