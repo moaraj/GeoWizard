@@ -1,4 +1,4 @@
-MolLibPath <- file.path(GeoWizard, "MoleculeLibraries")
+MolLibPath <- file.path(GeoWizard, "Ontologies")
 
 LoadFDA <- function(MolLibPath){
   approvedFDA <- read.csv(file = file.path(MolLibPath,"DrugsFDA.csv"), sep = ";", stringsAsFactors = F)

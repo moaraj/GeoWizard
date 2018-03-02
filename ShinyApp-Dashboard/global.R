@@ -45,7 +45,7 @@ source(file = file.path(GeoWizard, "GeoFileHandling.R"))
 source(file = file.path(GeoWizard, "QCAnalysis.R"))
 source(file = file.path(GeoWizard, "ExpressionAnalysis.R"))
 
-source(file = file.path(GeoWizard, "MoleculeLibraries/MoleculeLibraries.R"))
+source(file = file.path(GeoWizard, "Ontologies/MoleculeLibraries.R"))
 source(file = file.path(GeoWizard, "GeoTrainingSets/keywords.R"))
 source(file = file.path(GeoWizard, "helpers.R"))
 source(file = file.path(GeoWizard, "SeriesHanding.R"))

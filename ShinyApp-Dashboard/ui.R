@@ -7,10 +7,7 @@ if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
 con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
 message(paste('Connected Database Tables:', dbListTables(con)))
 
-
-
 appCSS <- "
-
 loading-content {
 position: absolute;
 background: #000000;
@@ -92,6 +89,61 @@ transform: rotate(0deg);
 -webkit-transform: rotate(359deg);
 transform: rotate(359deg);
 }
+}
+
+
+
+.spinner {
+  margin: 100px auto;
+  width: 50px;
+  height: 40px;
+  text-align: center;
+  font-size: 10px;
+}
+
+.spinner > div {
+  background-color: #333;
+  height: 100%;
+  width: 6px;
+  display: inline-block;
+  
+  -webkit-animation: sk-stretchdelay 1.2s infinite ease-in-out;
+  animation: sk-stretchdelay 1.2s infinite ease-in-out;
+}
+
+.spinner .rect2 {
+  -webkit-animation-delay: -1.1s;
+  animation-delay: -1.1s;
+}
+
+.spinner .rect3 {
+  -webkit-animation-delay: -1.0s;
+  animation-delay: -1.0s;
+}
+
+.spinner .rect4 {
+  -webkit-animation-delay: -0.9s;
+  animation-delay: -0.9s;
+}
+
+.spinner .rect5 {
+  -webkit-animation-delay: -0.8s;
+  animation-delay: -0.8s;
+}
+
+@-webkit-keyframes sk-stretchdelay {
+  0%, 40%, 100% { -webkit-transform: scaleY(0.4) }  
+  20% { -webkit-transform: scaleY(1.0) }
+}
+
+@keyframes sk-stretchdelay {
+  0%, 40%, 100% { 
+    transform: scaleY(0.4);
+    -webkit-transform: scaleY(0.4);
+  }  20% { 
+    transform: scaleY(1.0);
+    -webkit-transform: scaleY(1.0);
+  }
 }
 
 "
@@ -248,10 +300,39 @@ ui <- dashboardPage(
         ), # tabItem - GSESummary 
               
         tabItem(tabName = "GSMMetadata",
-                 
         fluidRow(
-        column(8,
         
+        column(12,
+        div( id = "GSMMetadataWarning",
+        box(title = "",
+        height = "200px",
+        solidHeader = T,
+        width = 12,
+        background = "red",
+        fluidRow(
+        column(12, offset = 2, 
+        h1(icon("exclamation-triangle"),"Please select a dataset from the table on the previous page "))
+        )
+        )
+        )
+        ), # Warning Bar when so inputs on GSEtable are selected 
+        
+        column(12,
+        div( id = "GSMMetadataLoading",
+        conditionalPanel(
+        condition="$('html').hasClass('shiny-busy')",
+        box(title = "GSE Loading", solidHeader = T, width = 12, background = "yellow",
+        fluidRow(
+        column(8, offset = 2, h1(icon("exclamation-triangle"), "Please wait while we retrieve data from GEO"))
+        ),
+        HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>'
+        )
+        )
+        )
+        ), # GSE Search data Loading Message
+           
+        
+        column(8,
         fluidRow(
         column(12,
         box(title = "Dataset Selection",
@@ -303,7 +384,7 @@ ui <- dashboardPage(
         ), # Column Dataselction
                     
         column(6,
-        box(title = "Experimental Classification Results",
+        box(title = "Select variables to use",
         solidHeader = T,
         status = "primary",
         width = 12,
@@ -319,12 +400,25 @@ ui <- dashboardPage(
         
         fluidRow(
         style="margin-left :10px; margin-right :10px",
-        uiOutput("PickFactorColumns"),
-        br(),hr(),
-        uiOutput("FactorRenameAndClass_UI")
+        uiOutput("PickFactorColumns")
         )
         )
         ),
+        
+        box(title = "Classification Results",
+        solidHeader = T,
+        status = "primary",
+        width = 12,
+        collapsible = T,
+        
+        conditionalPanel(
+        condition="$('html').hasClass('shiny-busy')",
+        HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>')
+        ),
+        uiOutput("FactorRenameAndClass_UI")
+        ),
+        
+        
         
         box(title = "Filter Factor Levels",
         solidHeader = T,
@@ -386,17 +480,16 @@ ui <- dashboardPage(
         )
         ),
                          
-        box(title = "",
-          solidHeader = T,
-          status = 'danger',
-          colour = 'red',
-          width = 12,
-        
+        box(title = "Make Design and Contrast Matrix",
+        solidHeader = T,
+        status = 'danger',
+        background = 'red',
+        width = 12,
         actionButton("GoToDesignPage", "Use factors for analysis", width = "100%")
-        )
-        ) # Last third of the Page
-        
-        ) # Page Fluid Row containing the Column Layoutdata:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADG0lEQVR42u2XW0hTYRzA99jt0XOOmHi+s4f6vrPoJaigiOhG2bCSJHJQL711oXuZ1JQuRhZlaUpGF7M2B5q2tLW5i6YQQRcMIixQAqUIJKFcq4fT9x+dcXa2s52zNZ/6w5+x/7bz/b7/fSaTSvLMeB7HW1ZxReJq1kzWsAJZywp4HYMs6xmeFOfxZCNnxlZOEEtYRDazPC5lBMtWRhDLOES2cQhvzxfExQihGaZMBA6XshBXR5cUejbQQWGWZgQBN88WIBwOS4G+gU62aP6ywsLCmYYAwO3ZAoAAhM8fcjMCWWEIAuL9LwBkCK8/1J2P8MqCgkWzdAHwC5Zv6ep/L51o8kvlVe1SyVFH9BXegz0c+a0bQIbw+AJPwLNpITYdc5RbD7dOwKFauvP0Q6nv9ahuABmi2+P1gnc1IejD7akOVqvD91Y3gAzh7vH0Mry4geMWzk64ufLhHz99jdOh4XHJ5X0j7ahuj4MIvhrRDSBDPOrxBKGPxA4vs7vm0Id9Vj4YZOrnrxjAxOSPqG3sy7c4AFtVh/R9KpIAUHOxLq0qXO/co3YvCBystIEXQCobnsbZHw8OG64URsBnlbH36gEIvPgQtdfcDsbZTzUHDQPQFn5eCTCWDADc3t3/LqrPh0ZjtsSq6DQOwONaJUAkGYBaIARq94OWVrQZBxDES0qA8VQhkG9f7xzU6AvGPcAgckV3DuytdUcrAtyvLkPQk80BwwAcj68aqgLIAxBIRPV3M6kCumPUp+0DSgC4udwLlHmQrA/orILrqjbstCkBoNTUCQehUNsDL0cympgswk05mwX6ypDc0BhITpv1YMtkummYbAYY64TkpuZInkuW7Ie5X9HYm9E+oKsKEL6lCUA3391SjoUm4R1tACTuyzkAT1q0t2JEDkwDwD3tpZTHh3IfAvF+iq2YHJmGHHiQIgfw8VwD0GHkTPHXjFTmGoDmWVuqMiymrdJO41RNG8YZDonnYIOhiXMB5jilv0zruI7jxWs0XA30s0ZordDdoMFAjUOZUb0L2U5X8VZwOf2dA24Oh3MC2WX6L3/lDxSyAwzwmsreAAAAAElFTkSuQmCC
+        )  # Box - GoToDesignPageBox
+        )  # Column - Last third of the Page
+        )  # Page Fluid Row containing the Column Layoutdata:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADG0lEQVR42u2XW0hTYRzA99jt0XOOmHi+s4f6vrPoJaigiOhG2bCSJHJQL711oXuZ1JQuRhZlaUpGF7M2B5q2tLW5i6YQQRcMIixQAqUIJKFcq4fT9x+dcXa2s52zNZ/6w5+x/7bz/b7/fSaTSvLMeB7HW1ZxReJq1kzWsAJZywp4HYMs6xmeFOfxZCNnxlZOEEtYRDazPC5lBMtWRhDLOES2cQhvzxfExQihGaZMBA6XshBXR5cUejbQQWGWZgQBN88WIBwOS4G+gU62aP6ywsLCmYYAwO3ZAoAAhM8fcjMCWWEIAuL9LwBkCK8/1J2P8MqCgkWzdAHwC5Zv6ep/L51o8kvlVe1SyVFH9BXegz0c+a0bQIbw+AJPwLNpITYdc5RbD7dOwKFauvP0Q6nv9ahuABmi2+P1gnc1IejD7akOVqvD91Y3gAzh7vH0Mry4geMWzk64ufLhHz99jdOh4XHJ5X0j7ahuj4MIvhrRDSBDPOrxBKGPxA4vs7vm0Id9Vj4YZOrnrxjAxOSPqG3sy7c4AFtVh/R9KpIAUHOxLq0qXO/co3YvCBystIEXQCobnsbZHw8OG64URsBnlbH36gEIvPgQtdfcDsbZTzUHDQPQFn5eCTCWDADc3t3/LqrPh0ZjtsSq6DQOwONaJUAkGYBaIARq94OWVrQZBxDES0qA8VQhkG9f7xzU6AvGPcAgckV3DuytdUcrAtyvLkPQk80BwwAcj68aqgLIAxBIRPV3M6kCumPUp+0DSgC4udwLlHmQrA/orILrqjbstCkBoNTUCQehUNsDL0cympgswk05mwX6ypDc0BhITpv1YMtkummYbAYY64TkpuZInkuW7Ie5X9HYm9E+oKsKEL6lCUA3391SjoUm4R1tACTuyzkAT1q0t2JEDkwDwD3tpZTHh3IfAvF+iq2YHJmGHHiQIgfw8VwD0GHkTPHXjFTmGoDmWVuqMiymrdJO41RNG8YZDonnYIOhiXMB5jilv0zruI7jxWs0XA30s0ZordDdoMFAjUOZUb0L2U5X8VZwOf2dA24Oh3MC2WX6L3/lDxSyAwzwmsreAAAAAElFTkSuQmCC
+        )  # GSmMetaDataPage div
         ), # TabItem - GSMMetadata
               
         tabItem(tabName = "DesignMatrix",

@@ -218,6 +218,26 @@ server <- function(input, output, session) {
     })
      
     ########################{ Advance to GSM Metadata Page
+    observe({    
+        SelectedRows <- input$GseSummaryData_rows_selected 
+        if (length(SelectedRows) > 0 ) {
+        shinyjs::enable("AnalyzeSelectedDatasets")
+        shinyjs::hide("GSMMetadataWarning")
+        shinyjs::show("GSMMetadataLoading")
+        
+        } else {
+        shinyjs::disable("AnalyzeSelectedDatasets")
+        shinyjs::disable("ExpressAnalyse")
+        shinyjs::show("GSMMetadataWarning")
+        shinyjs::hide("GSMMetadataLoading")
+        }
+        
+        if (isTruthy(input$GseGsmTable_rows_all)) {
+        shinyjs::hide("GSMMetadataLoading")    
+        }
+        })
+    
+    
     observeEvent( input[["AnalyzeSelectedDatasets"]], { updateTabItems(session, "TabSet", "GSMMetadata")})
      
     
@@ -338,7 +358,10 @@ server <- function(input, output, session) {
      ExperimentalDesign <- reactiveValues()
      
      ExperimentalDesign$ExpClassFactorDF <- reactive({
-         shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect, input$WhereVarData)
+         shiny::req(
+             #input$KeepForExpVarAsign, 
+             #input$GsmTableSelect, 
+             input$WhereVarData)
          message("Processing SQL Table Output")
          ExpFactorDF <- SQLSearchData$FilteredResultDF()
          message("Classify the Summary and Return the Filtered GSE GSM DF")
@@ -351,6 +374,7 @@ server <- function(input, output, session) {
      
      #######################{ Data frame of all factors with more than one level }
      ExperimentalDesign$ExpFactorDF <- reactive({
+         input$AnalyzeSelectedDatasets
          ExpandedDF <- ExperimentalDesign$ExpClassFactorDF()
          UseFulExpVarsColNames <- grep(pattern = "ExpVar[[:digit:]]",x = colnames(ExpandedDF),value = T)
          UseFulExpVarsDF <- data.frame(ExpandedDF[, UseFulExpVarsColNames])
@@ -381,7 +405,7 @@ server <- function(input, output, session) {
          c(UsefulFactorList, TimeFactorList, TitrationFactorList)
      })
      
-      output$PickFactorColumns <- renderUI({
+     output$PickFactorColumns <- renderUI({
         shiny::req(input$WhereVarData)
         ExpFactorDF <- ExperimentalDesign$ExpFactorDF()
         RecVars <- ExperimentalDesign$DefaultClassRV()
@@ -470,12 +494,13 @@ server <- function(input, output, session) {
        
        
        ExperimentalDesign$FilteredFactorDF <- reactive({
+         # dependencies of FactorDF  shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
          RowsToKeep <- ExperimentalDesign$RowsToKeep()
-         FactorDF <- ExperimentalDesign$FactorDF()# dependencies of FactorDF  shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
+         FactorDF <- ExperimentalDesign$FactorDF()
          FilteredFactorDF <- FactorDF[RowsToKeep,]
          
          FilteredFactorDF <- as.data.frame(FilteredFactorDF)
-         if (length(ncol(FilteredFactorDF)) < 2) {colnames(FilteredFactorDF) <- "ExpVar1"}
+         if (ncol(FilteredFactorDF) < 2) {colnames(FilteredFactorDF) <- "ExpVar1"}
          FilteredFactorDF
        })
      
