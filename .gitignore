@@ -9,6 +9,8 @@
 
 # Session Data files
 .RData
+.rds
+.gz.rds
 
 # Example code in package build process
 *-Ex.R
