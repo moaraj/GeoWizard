@@ -9,7 +9,7 @@ message(paste('\nConnected Database Tables:', dbListTables(con)))
 
 MolQuery = c("Mycophenolate mofetil")
 MolQuery = c("Tofacitinib")
-#MolQuery = "GSE57800"
+
 
 
 GseTable <- MultiGSEQuery(MolQuery)
@@ -21,7 +21,7 @@ GseGsmTable <- GseTable %>% dplyr::select(-one_of("GPL")) %>%
 
 # Select Single GSE from GSE-GSM Table
 gseList <- unique(GseGsmTable[,'series_id'])
-selectedGse <- 1
+selectedGse <- 2
 selectedGse <- gseList[selectedGse]
 
 # Filter Selected GSE
@@ -32,6 +32,7 @@ Step_2 <- ClassSummary(GsmDesignDF = Step_1)
 # Expands Character Column 
 CharInputs <- c("characteristics_ch1", "gsm.title","description")
 Step_3 <- GseGsmCharExpand(GseGsmTable = Step_2, CharInputs)
+# Function to Reccomend which of the three to use
 
 Step_3_colnames <- grep(pattern = "ExpVar[[:digit:]]", x = colnames(Step_3), value = T)
 Step_3B <- data.frame(Step_3[,Step_3_colnames])

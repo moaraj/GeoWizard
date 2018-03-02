@@ -220,7 +220,10 @@ server <- function(input, output, session) {
     ########################{ Advance to GSM Metadata Page
     observeEvent( input[["AnalyzeSelectedDatasets"]], { updateTabItems(session, "TabSet", "GSMMetadata")})
      
+    
     ################################### GSM Metadata TabItem ###################################
+    ################################### GSM Metadata TabItem ###################################
+    
     SQLSearchData <- reactiveValues()
      
     ########################{ SQL Search
@@ -229,7 +232,7 @@ server <- function(input, output, session) {
     #' 
     #'
     #'
-    SQLSearchData$GseGsmTable <- reactive({
+    SQLSearchData$GseGsmTable <- eventReactive(input$AnalyzeSelectedDatasets, {
         message("Generating ResultDF for SQL Search")
         shiny::req(input$GseSummaryData_rows_selected)
         input$AnalyzeSelectedDatasets
@@ -254,14 +257,14 @@ server <- function(input, output, session) {
             label = "Datasets", 
             choices = SelectedGSENames, 
             selected = SelectedGSENames, 
-            inline = T)
+            inline = F)
         do.call(checkboxGroupInput, CheckBoxOptions)
     })
     
     output$GseTabletoAnalyze_UI <- renderUI({
         shiny::req(input$KeepForExpVarAsign)
         GSEChoices <- input$KeepForExpVarAsign
-        radioButtons(inputId = "GsmTableSelect", label = "Select Dataset", choices = GSEChoices, inline = T)
+        selectInput(inputId = "GsmTableSelect", label = "Select Dataset", choices = GSEChoices)
     })
     
     GeoSearchResults$FilteredTable <- reactive({
@@ -278,7 +281,7 @@ server <- function(input, output, session) {
         GPLChoices <- FilteredTable %>% dplyr::select(GPL) %>% unique %>% as.character
         GPLChoices <- unlist(stringr::str_split(string = GPLChoices,pattern = ";"))
         GPLChoices <- paste("GPL", GPLChoices, sep = "")
-        radioButtons(inputId = "GplTableSelect", label = "Select GPL", choices = GPLChoices) 
+        selectInput(inputId = "GplTableSelect", label = "Select GPL", choices = GPLChoices) 
     })
     
     # output$GseSelectedInfo_UI <- renderUI({
@@ -326,10 +329,11 @@ server <- function(input, output, session) {
         SqlQueryResDF <- SqlQueryResDF %>% select(-one_of(c("series_id","taxon","keyword","gpl","gsm")))
         message("Making SQL Summary Table")
         DT::datatable(data = SqlQueryResDF , rownames = FALSE, class = 'row-border', 
-            options = list(scrollY = '400px', om = 't', paging = FALSE, autoWidth = TRUE)) %>%
+            options = list(scrollY = '400px', dom = 't', paging = FALSE, autoWidth = TRUE,scrollX = T)) %>%
             formatStyle(names(SqlQueryResDF), color = 'black', backgroundColor = 'white', fontWeight = 'bold')
      })
 
+    
      #################{ Classify ExpVars
      ExperimentalDesign <- reactiveValues()
      
@@ -382,15 +386,20 @@ server <- function(input, output, session) {
         ExpFactorDF <- ExperimentalDesign$ExpFactorDF()
         RecVars <- ExperimentalDesign$DefaultClassRV()
         
-        checkboxOptions <- list(
+        checkboxOptions <- checkboxGroupInput(
                 inputId = "UsefulColumnsCheckbox",
                 label = "Factors that describe detected experimental design cohorts",
                 choices = colnames(ExpFactorDF),
                 selected = names(RecVars),
                 inline = T)
-        do.call(checkboxGroupInput, checkboxOptions)
+
+        fluidRow(column(12,checkboxOptions))
         })
      
+      output$FactorRenameAndClass <- renderUI({
+    
+          
+      })
      
       ########################{ View Current Factor Col Selection
      
@@ -1247,15 +1256,21 @@ server <- function(input, output, session) {
     #  # 
     #  # 
     #  
-    #  ########################{ Disconnect from SQLite Server on Exit
-    #  
-    #  session$onSessionEnded(function() {
-    #       message("Disconnecting from GEOmetadb.sqlite")
-    #       con <- dbConnect(SQLite(),'GEOmetadb.sqlite')
-    #       dbDisconnect(con)
-    #  })
-    #  
-    #  
+    
+    ################################### GSM Metadata TabItem ###################################
+    ################################### GSM Metadata TabItem ###################################
+     
+     
+     
+     ########################{ Disconnect from SQLite Server on Exit
+
+     session$onSessionEnded(function() {
+          message("Disconnecting from GEOmetadb.sqlite")
+          con <- dbConnect(SQLite(),'GEOmetadb.sqlite')
+          dbDisconnect(con)
+     })
+
+
      
 
      

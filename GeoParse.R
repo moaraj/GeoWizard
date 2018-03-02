@@ -545,45 +545,28 @@ require(SnowballC)
 require(parallel)
 
 stemString <- function(str) {
-     str <- tolower(str)
-     str <-
-          gsub(pattern = "[[:punct:]]\\s",
-               replacement = " ",
-               x = str)
-     #     str <- gsub("([a-z])([1-9]+)", "\\1 \\2", str)
-     #     str <- gsub("([1-9]+)([a-z])", "\\1 \\2", str)
-     str <- gsub(pattern = "ment\\s",
-                 replacement = " ",
-                 x = str)
-     str <- gsub(pattern = "er$",
-                 replacement = "",
-                 x = str)
-     str <- sapply(str, gsub, pattern = "\t", replacement = "")
+    str <- tolower(str)
+    str <- gsub(pattern = "[[:punct:]]\\s", replacement = " ", x = str)
+    #     str <- gsub("([a-z])([1-9]+)", "\\1 \\2", str)
+    #     str <- gsub("([1-9]+)([a-z])", "\\1 \\2", str)
+    str <- gsub(pattern = "ment\\s", replacement = " ", x = str)
+    str <- gsub(pattern = "er$", replacement = "", x = str)
+    str <- sapply(str, gsub, pattern = "\t", replacement = "")
+    
+    nColsRequired <- sapply(str, strsplit, split = '\\s')
+    nColsRequired <- max(unlist(sapply(nColsRequired, length)))
+    
+    textColNames <- paste("snippet", 1:nColsRequired, sep = "")
+    strDF <- data.frame(str, stringsAsFactors = F)
+    colnames(strDF) <- "StartString"
+    strDF <- strDF %>% tidyr::separate(StartString, into = textColNames, sep = " ", fill = "right")
+    strDF[is.na(strDF)] <- ""
+    
+    strDF <- data.frame(
+        stringsAsFactors = F,
+        apply(strDF, MARGIN = c(1, 2), 
+              function(s) { wordStem(s, language = "english") }))
      
-     nColsRequired <- sapply(str, strsplit, split = '\\s')
-     nColsRequired <- max(unlist(sapply(nColsRequired, length)))
-     
-     textColNames <- paste("snippet", 1:nColsRequired, sep = "")
-     strDF <- data.frame(str, stringsAsFactors = F)
-     colnames(strDF) <- "StartString"
-     strDF <-
-          strDF %>% tidyr::separate(StartString,
-                                    into = textColNames,
-                                    sep = " ",
-                                    fill = "right")
-     strDF[is.na(strDF)] <- ""
-     
-     strDF <- data.frame(stringsAsFactors = F,
-                         apply(strDF, MARGIN = c(1, 2), function(s) {
-                              wordStem(s, language = "english")
-                         }))
-     
-     str <-
-          as.character(apply(
-               X = strDF,
-               MARGIN = 1,
-               paste,
-               collapse = " "
-          ))
+     str <- as.character(apply( X = strDF, MARGIN = 1, paste, collapse = " " ))
      return(str)
 }

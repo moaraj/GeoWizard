@@ -23,6 +23,11 @@ text-align: center;
 color: #FFFFFF;
 }
 
+body {
+  font-family: 'Roboto', sans-serif;
+}
+
+
 large .selectize-input { line-height: 40px; }
 large .selectize-dropdown { line-height: 30px; }
 
@@ -104,7 +109,8 @@ ui <- dashboardPage(
         menuItem( "Design Matrix", icon = icon("th"), tabName = "DesignMatrix"),
         menuItem("Download and QC", tabName = "DataQC", icon = icon("download")),
         menuItem("Expression Analysis", tabName = "DifferentialAnalysis", icon = icon("bar-chart")),
-        menuItem("Export and Save", tabName = "ReverseSerach", icon = icon("database"))
+        menuItem("Export and Save", tabName = "ReverseSerach", icon = icon("database")),
+        menuItem("Contact and Citations", tabName = "Contact", icon = icon("phone"))
         )
      ),
      
@@ -242,15 +248,12 @@ ui <- dashboardPage(
         ), # tabItem - GSESummary 
               
         tabItem(tabName = "GSMMetadata",
-        fluidRow(
-        valueBoxOutput("Keyword"),
-        valueBoxOutput("Taxon"),
-        valueBoxOutput("nSamples")
-        ),
                  
         fluidRow(
-        column(4,
-               
+        column(8,
+        
+        fluidRow(
+        column(12,
         box(title = "Dataset Selection",
         solidHeader = T,
         status = "primary",
@@ -259,14 +262,16 @@ ui <- dashboardPage(
         height = "50%",
         
         fluidRow(
-        column(4, uiOutput('GseTabletoKeep_UI') %>% withSpinner(color = "#0dc5c1")),
-        column(4, uiOutput('GseTabletoAnalyze_UI') %>% withSpinner(color = "#0dc5c1")),
-        column(4, uiOutput("GplTabletoAnalyze_UI")),
-        column(12, hr()),
-        column(12,uiOutput("infobox_selectedGSE"))
+        column(2, uiOutput('GseTabletoKeep_UI') %>% withSpinner(color = "#0dc5c1")),
+        column(2, uiOutput('GseTabletoAnalyze_UI') %>% withSpinner(color = "#0dc5c1")),
+        column(2, uiOutput("GplTabletoAnalyze_UI")),
+        #column(3, hr()),
+        column(6,uiOutput("infobox_selectedGSE"))
         )
-        ),
+        )
+        ), # Top Row
         
+        column(6,
         box(title = "Metadata columns with Experimental Variables",
         solidHeader = T,
         status = "primary",
@@ -285,7 +290,7 @@ ui <- dashboardPage(
         inputId = "WhereVarData",
         label = "Select columns useful experimental\nfactor levels can be found",
         choices =  c("gsm.title","description","characteristics_ch1"),
-        selected = "characteristics_ch1",
+        selected = c("characteristics_ch1","gsm.title"),
         inline = T
         ),
                           
@@ -297,7 +302,7 @@ ui <- dashboardPage(
         )
         ), # Column Dataselction
                     
-        column(4,
+        column(6,
         box(title = "Experimental Classification Results",
         solidHeader = T,
         status = "primary",
@@ -314,7 +319,9 @@ ui <- dashboardPage(
         
         fluidRow(
         style="margin-left :10px; margin-right :10px",
-        uiOutput("PickFactorColumns")
+        uiOutput("PickFactorColumns"),
+        br(),hr(),
+        uiOutput("FactorRenameAndClass_UI")
         )
         )
         ),
@@ -354,14 +361,16 @@ ui <- dashboardPage(
         )
         )
         )
-        ), # Column Classifications
-                    
+        ) # Column Classifications
+        ) # Frist Two Thids of Page Fluid flow
+        
+        ), # First Two thirds of the page
+        
         column(4,
         tabBox(title = "Experimental Factors",
         width = 12,
         side = "right",
-        selected = "Unique Factor Levels",
-        height = "800",
+        selected = "All Factor Levels",
         
         tabPanel("Ignored Factor Levels", 
         helpText(paste(
@@ -374,10 +383,6 @@ ui <- dashboardPage(
                                 
         tabPanel("All Factor Levels", 
         DT::dataTableOutput("FullFactorTable") %>% withSpinner(color = "#0dc5c1")
-        ),
-                              
-        tabPanel("Unique Factor Levels",
-        DT::dataTableOutput("ImportantFactorTable") %>% withSpinner(color = "#0dc5c1")
         )
         ),
                          
@@ -389,8 +394,9 @@ ui <- dashboardPage(
         
         actionButton("GoToDesignPage", "Use factors for analysis", width = "100%")
         )
-        )
-        ) # Page Fluid Row containing the Column Layout
+        ) # Last third of the Page
+        
+        ) # Page Fluid Row containing the Column Layoutdata:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADG0lEQVR42u2XW0hTYRzA99jt0XOOmHi+s4f6vrPoJaigiOhG2bCSJHJQL711oXuZ1JQuRhZlaUpGF7M2B5q2tLW5i6YQQRcMIixQAqUIJKFcq4fT9x+dcXa2s52zNZ/6w5+x/7bz/b7/fSaTSvLMeB7HW1ZxReJq1kzWsAJZywp4HYMs6xmeFOfxZCNnxlZOEEtYRDazPC5lBMtWRhDLOES2cQhvzxfExQihGaZMBA6XshBXR5cUejbQQWGWZgQBN88WIBwOS4G+gU62aP6ywsLCmYYAwO3ZAoAAhM8fcjMCWWEIAuL9LwBkCK8/1J2P8MqCgkWzdAHwC5Zv6ep/L51o8kvlVe1SyVFH9BXegz0c+a0bQIbw+AJPwLNpITYdc5RbD7dOwKFauvP0Q6nv9ahuABmi2+P1gnc1IejD7akOVqvD91Y3gAzh7vH0Mry4geMWzk64ufLhHz99jdOh4XHJ5X0j7ahuj4MIvhrRDSBDPOrxBKGPxA4vs7vm0Id9Vj4YZOrnrxjAxOSPqG3sy7c4AFtVh/R9KpIAUHOxLq0qXO/co3YvCBystIEXQCobnsbZHw8OG64URsBnlbH36gEIvPgQtdfcDsbZTzUHDQPQFn5eCTCWDADc3t3/LqrPh0ZjtsSq6DQOwONaJUAkGYBaIARq94OWVrQZBxDES0qA8VQhkG9f7xzU6AvGPcAgckV3DuytdUcrAtyvLkPQk80BwwAcj68aqgLIAxBIRPV3M6kCumPUp+0DSgC4udwLlHmQrA/orILrqjbstCkBoNTUCQehUNsDL0cympgswk05mwX6ypDc0BhITpv1YMtkummYbAYY64TkpuZInkuW7Ie5X9HYm9E+oKsKEL6lCUA3391SjoUm4R1tACTuyzkAT1q0t2JEDkwDwD3tpZTHh3IfAvF+iq2YHJmGHHiQIgfw8VwD0GHkTPHXjFTmGoDmWVuqMiymrdJO41RNG8YZDonnYIOhiXMB5jilv0zruI7jxWs0XA30s0ZordDdoMFAjUOZUb0L2U5X8VZwOf2dA24Oh3MC2WX6L3/lDxSyAwzwmsreAAAAAElFTkSuQmCC
         ), # TabItem - GSMMetadata
               
         tabItem(tabName = "DesignMatrix",
@@ -488,7 +494,7 @@ ui <- dashboardPage(
         solidHeader = T,
         status = "primary",
                       
-        tags$p(tags$strong("Download Data from SRA/GEO")),
+        tags$p(tags$strong("Download Data from GEO")),
         
         actionButton(
           inputId = "DownloadGEOData",
@@ -823,10 +829,67 @@ ui <- dashboardPage(
         uiOutput("EABoxPlotOptions"),
         plotOutput("EABoxPlot")
         )
-        )
+        
+        ) # Expression Analysis
         ) # Second Column of the Page
-        ) #Fluid Row that Makes up the page
-        ) #Differential Analysis Tabitem
-        ) #tabItems
-        ) #DashboardBody
-        ) #Dashboard Page
+        ) # Fluid Row that Makes up the page
+        ),# Differential Analysis Tabitem
+        
+        tabItem(
+        tabName = "Contact",
+        fluidRow(
+        
+        column(4,
+        box(title = "Contact Information",
+            status = "warning",
+            solidHeader = T,
+            width = 12,
+            
+        fluidRow(
+        column(12, h3("Moaraj Hasan")),
+        column(12, img(src='moaraj.jpg', align = "left", width = "75%")),
+        column(12, "Questions, concerns, coffee? Feel free to get in touch."),
+        column(12, p('Developer and Maintainer: Moaraj Hasan')),
+        column(12, p('GitRepo: https://github.com/moaraj/GeoWizard'))
+        )
+        )
+        ), # First Column of Page
+        
+        column(4,
+        box(title = "Citations",
+            status = "warning",
+            solidHeader = T,
+            width = 12,
+        fluidRow(
+        column(12, h3("Citations")),
+        column(12, h4("Filter GSM Meta Page")),
+        column(12, h4("Design Matrix")),
+        column(12, h4("Download and QC")),
+        column(12, h4("Expression Analysis")),
+        column(12, h4("Export and Save"))
+        )
+        )
+        ),# Second Column of Page
+        
+        column(4,
+        box(title = "Acknowledgements",
+            status = "warning",
+            solidHeader = T,
+            width = 12,
+        fluidRow(
+        column(12, h3("Roche BEDA Team")),
+        column(12, h3("David")),
+        column(12, h3("Martin")),
+        column(12, h3("Nikos")),
+        column(12, h3("Tony"))
+        )
+        )
+        ) # Third Column of Page
+        
+        ) # Page Fluid Row
+        ) # Contact Tab Item
+        
+        
+        ) # tabItems
+        ) # DashboardBody
+        ) # Dashboard Page
