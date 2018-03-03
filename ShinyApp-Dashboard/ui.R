@@ -5,7 +5,6 @@ setwd(GeoWizard)
 ## app.R ##
 if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
 con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
-message(paste('Connected Database Tables:', dbListTables(con)))
 
 appCSS <- "
 loading-content {
@@ -360,11 +359,6 @@ ui <- dashboardPage(
         div(
         class = "overflowbox",
         
-        conditionalPanel(
-        condition="$('html').hasClass('shiny-busy')",
-        HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>')
-        ),  
-                           
         checkboxGroupInput(
         inputId = "WhereVarData",
         label = "Select columns useful experimental\nfactor levels can be found",
@@ -391,14 +385,10 @@ ui <- dashboardPage(
         div(
         class = "overflowbox",
         
-        conditionalPanel(
-        condition="$('html').hasClass('shiny-busy')",
-        HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>')
-        ),  
-        
         fluidRow(
         style="margin-left :10px; margin-right :10px",
         uiOutput("PickFactorColumns")
+        
         )
         )
         ),
@@ -408,15 +398,8 @@ ui <- dashboardPage(
         status = "primary",
         width = 12,
         collapsible = T,
-        
-        conditionalPanel(
-        condition="$('html').hasClass('shiny-busy')",
-        HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>')
-        ),
         uiOutput("FactorRenameAndClass_UI")
         ),
-        
-        
         
         box(title = "Filter Factor Levels",
         solidHeader = T,
@@ -429,10 +412,6 @@ ui <- dashboardPage(
         
         fluidRow(
         style="margin-left :5px; margin-right :5px",
-        conditionalPanel(
-        condition="$('html').hasClass('shiny-busy')",
-        HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>'),
-        br()),
         uiOutput(outputId = "FilterGSMbyFactor")
         ),  
                               
@@ -486,7 +465,7 @@ ui <- dashboardPage(
         actionButton("GoToDesignPage", "Use factors for analysis", width = "100%")
         )  # Box - GoToDesignPageBox
         )  # Column - Last third of the Page
-        )  # Page Fluid Row containing the Column Layoutdata:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADG0lEQVR42u2XW0hTYRzA99jt0XOOmHi+s4f6vrPoJaigiOhG2bCSJHJQL711oXuZ1JQuRhZlaUpGF7M2B5q2tLW5i6YQQRcMIixQAqUIJKFcq4fT9x+dcXa2s52zNZ/6w5+x/7bz/b7/fSaTSvLMeB7HW1ZxReJq1kzWsAJZywp4HYMs6xmeFOfxZCNnxlZOEEtYRDazPC5lBMtWRhDLOES2cQhvzxfExQihGaZMBA6XshBXR5cUejbQQWGWZgQBN88WIBwOS4G+gU62aP6ywsLCmYYAwO3ZAoAAhM8fcjMCWWEIAuL9LwBkCK8/1J2P8MqCgkWzdAHwC5Zv6ep/L51o8kvlVe1SyVFH9BXegz0c+a0bQIbw+AJPwLNpITYdc5RbD7dOwKFauvP0Q6nv9ahuABmi2+P1gnc1IejD7akOVqvD91Y3gAzh7vH0Mry4geMWzk64ufLhHz99jdOh4XHJ5X0j7ahuj4MIvhrRDSBDPOrxBKGPxA4vs7vm0Id9Vj4YZOrnrxjAxOSPqG3sy7c4AFtVh/R9KpIAUHOxLq0qXO/co3YvCBystIEXQCobnsbZHw8OG64URsBnlbH36gEIvPgQtdfcDsbZTzUHDQPQFn5eCTCWDADc3t3/LqrPh0ZjtsSq6DQOwONaJUAkGYBaIARq94OWVrQZBxDES0qA8VQhkG9f7xzU6AvGPcAgckV3DuytdUcrAtyvLkPQk80BwwAcj68aqgLIAxBIRPV3M6kCumPUp+0DSgC4udwLlHmQrA/orILrqjbstCkBoNTUCQehUNsDL0cympgswk05mwX6ypDc0BhITpv1YMtkummYbAYY64TkpuZInkuW7Ie5X9HYm9E+oKsKEL6lCUA3391SjoUm4R1tACTuyzkAT1q0t2JEDkwDwD3tpZTHh3IfAvF+iq2YHJmGHHiQIgfw8VwD0GHkTPHXjFTmGoDmWVuqMiymrdJO41RNG8YZDonnYIOhiXMB5jilv0zruI7jxWs0XA30s0ZordDdoMFAjUOZUb0L2U5X8VZwOf2dA24Oh3MC2WX6L3/lDxSyAwzwmsreAAAAAElFTkSuQmCC
+        )  # Page Fluid Row containing the Column Layoutdat
         )  # GSmMetaDataPage div
         ), # TabItem - GSMMetadata
               
@@ -494,81 +473,63 @@ ui <- dashboardPage(
         fluidRow(
         column(4,
         box(title = "Summary of Factors",
-          solidHeader = T,
-          status = "primary",
-          width = 12,
-          collapsible = T,
+            solidHeader = T,
+            status = "primary",
+            width = 12,
+            collapsible = T,
         
         dataTableOutput("DesignMat_SummaryTable")%>% withSpinner(color = "#0dc5c1"))
         ), # First Page Column
                        
         column(4,
-        tabBox(title = "Design Matrix",
-               width = 12,       
+        tabBox(title = "Experimental Design", 
+        width = 12,
         tabPanel(title = "Formula Input",
-          solidHeader = T,
-          status = "primary",
-          collapsible = T,
-                              
+                 solidHeader = T,
+                 status = "primary",
+                 collapsible = T,
         uiOutput(outputId = "TextAhead"),
-                              
+        fluidRow(
+        column(12,
+        
         textInput(
-          inputId = "formulaInputDesign",
-          label = "Model Matrix Formula Input",
-          placeholder = "~ Expvar1 + Expvar2"
-          ),
-                              
-        h4(paste("The detected baseline or control level",
-          "for each factor can be changed below")),
-                              
+        inputId = "formulaInputDesign",
+        label = "Model Matrix Formula Input",
+        placeholder = "~ Expvar1 + Expvar2"
+        ),
+        
+        hr(),
+        p(paste("The detected baseline or control level",
+                "for each factor can be changed below")),
         uiOutput("RearrangeLevels"),
-                              
-        actionButton(inputId = "SubmitFormula",
-          class = "btn-primary",
-          label = "Generate Design Matrix")
-          ),
+        hr(),
+        
+        column(6, actionButton(inputId = "SubmitContrasts", class = "btn-primary", label = "Generate Contrast Matrix")),
+        column(6, actionButton(inputId = "SubmitFormula", class = "btn-primary", label = "Generate Design Matrix"))
+        )
+        )
+        ),
                           
         tabPanel(title = "Detected Design",
-          solidHeader = T,
-          status = "primary",
-          width = 12,
-          collapsible = T
+        solidHeader = T,
+        status = "primary",
+        width = 12,
+        collapsible = T
         )
-        ),  # Design Matrix Tabbox
-        
-        tabBox(title = "Contrast Matrix",
-               width = 12,
-        tabPanel(title = "Select Contrasts",
-          solidHeader = T,
-          status = "primary",
-          width = 12,
-          collapsible = T
-          )       
-        )
+        )  # Design Matrix Tabbox
         ), # Second Page Column
                           
         column(4,
-        box(title = "Design Matrix",
-          solidHeader = T,
-          status = "primary",
-          width = 12,
-          collapsible = T,
-                           
-        DT::dataTableOutput(outputId = 'CustomExpressionTable') %>% withSpinner(color = "#0dc5c1")
-        ),
-                         
-        box(title = "Experimental Blocks",
-          solidHeader = T,
-          status = "primary",
-          width = 12,
-          collapsible = T,
-                           
-        plotOutput("ExperimentalBlocksPlot") %>% withSpinner(color = "#0dc5c1")
-        
+        tabBox(
+        width = 12,
+        tabPanel( title = "Blocks", plotOutput("ExperimentalBlocksPlot") %>% withSpinner(color = "#0dc5c1")),
+        tabPanel( title = "Design Matrix", DT::dataTableOutput(outputId = 'CustomExpressionTable') %>% withSpinner(color = "#0dc5c1")),
+        tabPanel( title = "Contrast Matrix")
         )
-        ) # Third Page Column
-        ) #FluidRow that Structures page into 3 Columns
-        ), #Design Matix TabItem 
+        )  # Third Page Column
+        
+        )  # FluidRow that Structures page into 3 Columns
+        ), # Design Matix TabItem 
         
         tabItem(
         tabName = "DataQC",

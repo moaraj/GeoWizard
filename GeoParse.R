@@ -46,8 +46,7 @@ GDSeSearch <- function(keyword,
 #' eSearchResultUrl <- eSearch_UID("Tofacitinib")
 #' WebEnvExtract(eSearchResultUrl)
 
-library(xml2)
-#library(RCurl)
+#library(xml2)
 
 WebEnvExtract <- function(eSearchResultUrl) {
      PageXML <- eSearchResultUrl
@@ -124,7 +123,7 @@ FetchGSEwithKeyword <- function(eSummaryUrl, keyword) {
 #' eSummaryXMLParse(PageXML)
 #' eSummaryXMLParse(GSEeSummary("Mycophenolate mofetil"))
 
-library(xml2)
+#library(xml2)
 eSummaryXMLParse <- function(PageXML) {
      PageXML <- read_xml(PageXML)
      GseDataCol <- c(
@@ -204,8 +203,8 @@ MultiGSEQuery <- function(MolQuery) {
 #' QueryInput <- c("GSE97460","GSE69967","GSE80688","GSE45551","GSE45514","GSE60482","GSE104509","GSE99293","GSE78825")
 #' res <- SqlQueryMain(QueryInput)
 
-library(GEOmetadb)
-library(dplyr)
+#library(GEOmetadb)
+#library(dplyr)
 
 SqlGSEInput <- function(QueryInput){
   if (is.data.frame(QueryInput)) { GSEList <- as.character(unlist(QueryInput['series_id']))
@@ -340,52 +339,32 @@ FillEmptySQLres <- function(gse, res){
 
 
 SeparateCharacteristics <- function(GseGsmTable, CharInputs) {
-     GseGsmDF <- data.frame(GseGsmTable, stringsAsFactors = F)
-     GSEinSet <- unique(GseGsmDF['series_id'])
-     GseFirstOccurance <- match(GSEinSet, GseGsmDF[, "series_id"])
-     ExpVarColsDF <-
-          data.frame(GseGsmDF[, CharInputs], stringsAsFactors = F)
-     
-     if (length(ExpVarColsDF) == 0) {
-          stop(
-               sprintf(
-                    "The no multi level factors are found in %s, picks other columns",
-                    CharInputs
-               )
-          )
-     } else {
-          ExpVarColsDF['CatVarText'] <-
-               apply(X = ExpVarColsDF,
-                     MARGIN = 1,
-                     paste,
-                     collapse = ";")
-          ExpVarColsDF['CatVarText'] <-
-               apply(X = ExpVarColsDF['CatVarText'], MARGIN = 1, function(text) {
-                    gsub(
-                         pattern = ",",
-                         replacement = ";",
-                         x = text
-                    )
-               })
-          
-     }
-     nColsRequired <-
-          max(stringr::str_count(string = ExpVarColsDF[GseFirstOccurance, 'CatVarText'] , pattern = ";")) + 1
-     ExpColNames <- paste("ExpVar", 1:nColsRequired, sep = "")
-     
-     suppressWarnings(
-     GseGsmDF <-
-          cbind.data.frame(
-               GseGsmDF %>% dplyr::select(-one_of(CharInputs)),
-               ExpVarColsDF %>%
-               tidyr::separate(
-                  CatVarText,
-                  into = ExpColNames,
-                  sep = ",|;",
-                  fill = "right")
-          )
-          )
-     return(GseGsmDF)
+    if (length(CharInputs) < 1) { stop("SeparateCharacteristics - Invalid CharInputs, must specify atleast one column")
+    } else if (length(GseGsmTable)<1){stop("SeparateCharacteristics - GseGsmTable not loaded properly")}
+    
+    
+    message("Separating factor data into multiple columns")
+    GseGsmDF <- data.frame(GseGsmTable, stringsAsFactors = F)
+    GSEinSet <- unique(GseGsmDF['series_id'])
+    GseFirstOccurance <- match(GSEinSet, GseGsmDF[, "series_id"])
+    ExpVarColsDF <- data.frame(GseGsmDF[,CharInputs], stringsAsFactors = F)
+        
+    if (length(ExpVarColsDF) == 0) {
+    stop(sprintf("The no multi level factors are found, picks other columns"))
+    } else {
+    ExpVarColsDF['CatVarText'] <-  apply(X = ExpVarColsDF, MARGIN = 1, paste, collapse = ";")
+    }
+    nColsRequired <- max(stringr::str_count(string = ExpVarColsDF[GseFirstOccurance, 'CatVarText'] , pattern = ";")) + 1
+    ExpColNames <- paste("ExpVar", 1:nColsRequired, sep = "")
+    
+    message("Generating expanded factor datafrom for full GseGsmTable")
+    suppressWarnings(
+    GseGsmDF <- cbind.data.frame(
+        GseGsmDF %>% dplyr::select(-one_of(CharInputs)),
+        ExpVarColsDF %>% tidyr::separate( CatVarText, into = ExpColNames, sep = ";", fill = "right")
+        )
+    )
+    return(GseGsmDF)
 }
 
 
@@ -414,12 +393,8 @@ GsmLabelMain <- function(MolQuery) {
 #' @return Returns the GSE GSM table with the split characteristics columns which multiple factor levels
 #'
 GseGsmCharExpand <- function(GseGsmTable, CharInputs) {
-     GseGsmDF <- GseGsmTable
      message("Expanding Columns with Factor Conataining Text")
-     message(sprintf(
-          "Columns containing Factors are %s",
-          paste(CharInputs, collapse = " and ")
-     ))
+     message(sprintf("Columns containing Factors are %s", paste(CharInputs, collapse = " and ")))
      
      if (length(CharInputs) == 0) {
           stop(
@@ -432,8 +407,8 @@ GseGsmCharExpand <- function(GseGsmTable, CharInputs) {
      }
      
      BuildRegEx <- paste(CharInputs, collapse = "|")
-     GseGsmTableMeta <- GseGsmDF %>% dplyr::select(-one_of(CharInputs))
-     CharsDF <- SeparateCharacteristics(GseGsmDF, CharInputs)
+     GseGsmTableMeta <- GseGsmTable %>% dplyr::select(-one_of(CharInputs))
+     CharsDF <- SeparateCharacteristics(GseGsmTable, CharInputs)
      nExpVars <- sum(str_count(string = colnames(CharsDF), pattern = BuildRegEx))
      MultiLevelChars <- DescerningFactors(CharsDF)
      

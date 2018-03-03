@@ -35,7 +35,6 @@ server <- function(input, output) {
             LevelOutputID <- paste(Factor,"LevelOutput", sep = "_")
             
             fluidRow(
-            hr(),    
             column(12, h4(paste(Factor, "classification"))),
             column(12, verbatimTextOutput(outputId = LevelOutputID )),
             column(4, selectInput(inputId = expblockInputID,label = "Factor Type", choices = expblocks, selected = "none")),
@@ -56,7 +55,7 @@ server <- function(input, output) {
             FactorLevels <- unique(FactorDF[,1])
             nFactorLevels <- length(unique(FactorDF[,1]))
             DisplayText <- paste("factor level", 1:nFactorLevels,"text:",FactorLevels, "\n" )
-            if (length(DisplayText) > 4 ) { DisplayText <- DisplayText[1:5]
+            if (length(DisplayText) > 2 ) { DisplayText <- DisplayText[1:2]
             }
             output[[LevelOutputID]] <- renderText({DisplayText})
         })

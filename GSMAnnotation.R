@@ -135,8 +135,6 @@ NumtoText <- function(strvec) {
      return(strvec)
 }
 
-
-
 #' Extract Useful Classificaitons
 #' 
 #' Takes in list of Experimental Factors and returns a dataframe of only those classificaiton 
@@ -144,7 +142,6 @@ NumtoText <- function(strvec) {
 #'
 #'
 #'
-
 DesignLabs <- function(FullClassDF) {
      GsmTextDF <- FullClassDF %>% dplyr::select(matches("Text"))
      GsmContDF <- FullClassDF %>% dplyr::select(matches("Cont"))
@@ -275,18 +272,15 @@ AssignBlockCatagories <- function(GsmDesignDf, PertInformation) {
 #' Determine if Time Series Experiment
 #'
 #'
-AssignTimeSeriesInformation <-
-     function(GsmDesignDF, OverallSummary) {
-          message("Determining if study has a time series")
-          ClassTimeSeries <-
-               MatchExpKeys(OverallSummary, ExpKeywords$is_time_study)
-          if (ClassTimeSeries == FALSE) {
-               message("This gene series does not contain a time series experiment")
-          } else {
-               message("This Gene Series contains a time series experiment")
-          }
-          GsmDesignDF["TimeSeries"] <- ClassTimeSeries
-          return(GsmDesignDF)
+AssignTimeSeriesInformation <-  
+    function(GsmDesignDF, OverallSummary) {
+        message("Determining if study has a time series")
+        ClassTimeSeries <- MatchExpKeys(OverallSummary, ExpKeywords$is_time_study)
+        if (ClassTimeSeries == FALSE) { message("This gene series does not contain a time series experiment")
+        } else { message("This Gene Series contains a time series experiment")
+        }
+        GsmDesignDF <- GsmDesignDF %>% mutate(TimeSeries = ClassTimeSeries)
+        return(GsmDesignDF)
      }
 
 
@@ -405,26 +399,17 @@ ContMultiTreat <-
 
 ExpGroupAsign <- function(ExpDesignDescription, GSE) {
      ExpKeywords <- readRDS("ExpKeywords.rds")
-     OverallDesign <-
-          paste(ExpDesignDescription[["OverallDesign"]], collapse = "")
-     OverallSummary <-
-          paste(ExpDesignDescription[["OverallSummary"]], collapse = "")
+     OverallDesign <- paste(ExpDesignDescription[["OverallDesign"]], collapse = "")
+     OverallSummary <- paste(ExpDesignDescription[["OverallSummary"]], collapse = "")
      GsmDesignDf <- ExpDesignDescription[["GsmDesign"]]
      geo_accession <- ExpDesignDescription$GSE
      
-     UsefulDesignFactorCols <-
-          ExpDesignDescription[["UsefulDesignFactorCols"]]
-     message(sprintf(
-          "There are %d useful factors found in this study",
-          length(UsefulDesignFactorCols)
-     ))
-     GsmDesignDf <-
-          AssignTimeSeriesInformation(GsmDesignDf, OverallSummary, OverallDesign)
+     UsefulDesignFactorCols <- ExpDesignDescription[["UsefulDesignFactorCols"]]
+     message(sprintf("There are %d useful factors found in this study", length(UsefulDesignFactorCols)))
      
-     ControlInformation <-
-          AssignContainsControls(GsmDesignDf, UsefulDesignFactorCols)
-     PertInformation <-
-          AssignContainsPerturbations(GsmDesignDf, UsefulDesignFactorCols)
+     GsmDesignDf <- AssignTimeSeriesInformation(GsmDesignDf, OverallSummary, OverallDesign)
+     ControlInformation <- AssignContainsControls(GsmDesignDf, UsefulDesignFactorCols)
+     PertInformation <- AssignContainsPerturbations(GsmDesignDf, UsefulDesignFactorCols)
      
      GsmDesignDf <- AssignBlockCatagories(GsmDesignDf)
      

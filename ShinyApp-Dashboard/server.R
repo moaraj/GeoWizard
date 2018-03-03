@@ -1,5 +1,4 @@
 server <- function(input, output, session) {
-    
     GeoSearchResults <- reactiveValues()
   
     #'
@@ -224,24 +223,19 @@ server <- function(input, output, session) {
         shinyjs::enable("AnalyzeSelectedDatasets")
         shinyjs::hide("GSMMetadataWarning")
         shinyjs::show("GSMMetadataLoading")
-        
         } else {
         shinyjs::disable("AnalyzeSelectedDatasets")
         shinyjs::disable("ExpressAnalyse")
         shinyjs::show("GSMMetadataWarning")
         shinyjs::hide("GSMMetadataLoading")
         }
-        
-        if (isTruthy(input$GseGsmTable_rows_all)) {
-        shinyjs::hide("GSMMetadataLoading")    
-        }
+        shinyjs::hide("GSMMetadataLoading") 
         })
     
     
     observeEvent( input[["AnalyzeSelectedDatasets"]], { updateTabItems(session, "TabSet", "GSMMetadata")})
      
     
-    ################################### GSM Metadata TabItem ###################################
     ################################### GSM Metadata TabItem ###################################
     
     SQLSearchData <- reactiveValues()
@@ -253,13 +247,13 @@ server <- function(input, output, session) {
     #'
     #'
     SQLSearchData$GseGsmTable <- eventReactive(input$AnalyzeSelectedDatasets, {
-        message("Generating ResultDF for SQL Search")
         shiny::req(input$GseSummaryData_rows_selected)
-        input$AnalyzeSelectedDatasets
-        
+        message("Generating ResultDF for SQL Search")
         GseTable <- GeoSearchResults$SelectedRowsGSETable()
         message("SQL Query of Selected Datasets")
+        shinyjs::show("GSMMetadataLoading")
         GsmTable <- SqlQueryMain(GseTable)
+        shinyjs::hide("GSMMetadataLoading")
         GsmTable <- data.frame(GsmTable, stringsAsFactors = F)
         GseGsmTable <- GseTable %>% dplyr::select(-one_of("GPL")) %>% dplyr::inner_join(GsmTable, "series_id")
         GseGsmTable
@@ -267,11 +261,14 @@ server <- function(input, output, session) {
      
      
     ########################{ GSE Selection and Filter
+    SQLSearchData$SelectedGSENames <- reactive({
+        GseTable <- GeoSearchResults$SelectedRowsGSETable()
+        SelectedGSENames <- GseTable[,"series_id"] # Get the GSE names of the selected GSE's in the data table
+    })
+    
     output$GseTabletoKeep_UI <- renderUI({
-        message("Dataframe for Data filtering")
-        GseDescDF <- GeoSearchResults$SelectedRowsGSETable()
-        SelectedGSENames <- GseDescDF[,"series_id"] # Get the GSE names of the selected GSE's in the data table
-        
+        #shiny::req(input$GseSummaryData_rows_selected)
+        SelectedGSENames <- SQLSearchData$SelectedGSENames()
         message("Initializing input for filtering GSE/GSM data to show")
         CheckBoxOptions <- list(inputId = "KeepForExpVarAsign", 
             label = "Datasets", 
@@ -282,48 +279,46 @@ server <- function(input, output, session) {
     })
     
     output$GseTabletoAnalyze_UI <- renderUI({
-        shiny::req(input$KeepForExpVarAsign)
+        #shiny::req(input$KeepForExpVarAsign)
         GSEChoices <- input$KeepForExpVarAsign
         selectInput(inputId = "GsmTableSelect", label = "Select Dataset", choices = GSEChoices)
     })
     
-    GeoSearchResults$FilteredTable <- reactive({
-        GseDescDF <- GeoSearchResults$SelectedRowsGSETable()
+    #' @input KeepForExpVarAsign - GSE datasets to keep selection
+    #' @input input$GsmTableSelect - GSE dataset to analyze input
+    #' @input GeoSearchResults$SelectedRowsGSETable - GSE Search result table
+    #' 
+    #' @output Render input for user to select GPL in GSE to analyze
+    SQLSearchData$SelectedGSETable <- reactive({
+        GseTable <- GeoSearchResults$SelectedRowsGSETable()
         SelectedGSE <- input$GsmTableSelect
-        FilteredTable <- GseDescDF %>% dplyr::filter(series_id %in% SelectedGSE)
-        FilteredTable
+        GPLChoices <-  GseTable %>% dplyr::filter(series_id %in% SelectedGSE)
     })
     
-    
     output$GplTabletoAnalyze_UI <- renderUI({
-        shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect)
-        FilteredTable <- GeoSearchResults$FilteredTable()
-        GPLChoices <- FilteredTable %>% dplyr::select(GPL) %>% unique %>% as.character
+        #shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect)
+        SelectedGSETable <- SQLSearchData$SelectedGSETable()
+        GPLChoices <- SelectedGSETable %>% dplyr::select(GPL) %>% unique %>% as.character
         GPLChoices <- unlist(stringr::str_split(string = GPLChoices,pattern = ";"))
         GPLChoices <- paste("GPL", GPLChoices, sep = "")
         selectInput(inputId = "GplTableSelect", label = "Select GPL", choices = GPLChoices) 
     })
-    
-    # output$GseSelectedInfo_UI <- renderUI({
-    #     shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect)
-    # })
-    
     
     #' @input input$GsmTableSelect - User selects which GSE they would like to work with
     #' @input input$GplTableSelect - User select which GPL within the Selected GSE they would like to work with
     #' @req input$GsmTableSelect - Clickling the button "Analyze selected datasets" triggers SQL query
     #' @output SQLSearchData$FilteredResultDF Dataframe containing GSE and GSM metadata tables filtered with user selected GSE and GPL
     SQLSearchData$FilteredResultDF <- reactive({
-        shiny::req(input$GsmTableSelect)
+        #shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect, input$GplTableSelect)
         ResultDF <- SQLSearchData$GseGsmTable()
-        GsmMetaDatatoShow <- input$GsmTableSelect
-        GplMetaDatatoShow <- input$GplTableSelect
+        GsmtoShow <- input$GsmTableSelect
+        GpltoShow <- input$GplTableSelect
         
         message("Filtering SQL Query Res for Selected GSE")
         FilteredResultDF <- ResultDF %>%
             dplyr::select(series_id, gsm, gpl, keyword, taxon, gsm.title, description, characteristics_ch1) %>%
-            dplyr::filter(series_id %in% GsmMetaDatatoShow) %>% 
-            dplyr::filter(gpl %in% GplMetaDatatoShow)
+            dplyr::filter(series_id %in% GsmtoShow) %>% 
+            dplyr::filter(gpl %in% GpltoShow)
         FilteredResultDF
     })
      
@@ -331,8 +326,8 @@ server <- function(input, output, session) {
 
     
     output$infobox_selectedGSE <- renderUI({
-        shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect)
-        FilteredTable <- GeoSearchResults$FilteredTable()
+        shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect, input$GplTableSelect)
+        FilteredTable <-SQLSearchData$SelectedGSETable()
         
         SpeciesInfo <- FilteredTable %>% select(taxon) %>% as.character
         SamplesInfo <- FilteredTable %>% select(n_samples) %>% as.character
@@ -354,8 +349,9 @@ server <- function(input, output, session) {
     #' @req input$GsmTableSelect wait until GSE to analyze is picked before rendering the assoviated GSE GSM table
     #' @output Render Datatable that shows Description, Title and Characteristics of the GSM withing a given GSE
     output$GseGsmTable <- DT::renderDataTable({
-        shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect)
-        message("Retreiving Datatable Data")
+        message("Rendering GseGSMTable")
+        shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect, input$GplTableSelect)
+        
         SqlQueryResDF <- SQLSearchData$FilteredResultDF()
         SqlQueryResDF <- SqlQueryResDF %>% select(-one_of(c("series_id","taxon","keyword","gpl","gsm")))
         message("Making SQL Summary Table")
@@ -364,57 +360,41 @@ server <- function(input, output, session) {
             formatStyle(names(SqlQueryResDF), color = 'black', backgroundColor = 'white', fontWeight = 'bold')
      })
 
+    #################{ Classify ExpVars
+    ExperimentalDesign <- reactiveValues()
+     
+    ExperimentalDesign$ExpFactorDF <- reactive({
+        message("Processing SQL Table Output")
+        ExpFactorDF <- SQLSearchData$FilteredResultDF()
+        message("Classify the Summary and Return the Filtered GSE GSM DF")
+        ExpFactorClassSummary <- ClassSummary(ExpFactorDF) #error is that ExpFactorDF not loaded when this first starts
+        message("Expands Characteristics Column")
+        CharInputs <- input$WhereVarData
+        ExpandedDF <- GseGsmCharExpand(ExpFactorClassSummary, CharInputs)
+        
+        UseFulExpVarsColNames <- grep(pattern = "ExpVar[[:digit:]]",x = colnames(ExpandedDF),value = T)
+        UseFulExpVarsDF <- data.frame(ExpandedDF[, UseFulExpVarsColNames])
+        colnames(UseFulExpVarsDF) <- UseFulExpVarsColNames
+        UseFulExpVarsDF
+     })
+
+    ########################{ Useful Factor Classification
     
-     #################{ Classify ExpVars
-     ExperimentalDesign <- reactiveValues()
-     
-     ExperimentalDesign$ExpClassFactorDF <- reactive({
-         message("Processing SQL Table Output")
-         ExpFactorDF <- SQLSearchData$FilteredResultDF()
-         message("Classify the Summary and Return the Filtered GSE GSM DF")
-         ExpFactorClassSummary <- ClassSummary(ExpFactorDF) #error is that ExpFactorDF not loaded when this first starts
-         message("Expands Characteristics Column")
-         FactorColumnNames <- input$WhereVarData
-         ExpFactorClassSummary <- GseGsmCharExpand(ExpFactorClassSummary, FactorColumnNames)
-         ExpFactorClassSummary
-     })
-     
-     #######################{ Data frame of all factors with more than one level }
-     ExperimentalDesign$ExpFactorDF <- reactive({
-         input$AnalyzeSelectedDatasets
-         ExpandedDF <- ExperimentalDesign$ExpClassFactorDF()
-         UseFulExpVarsColNames <- grep(pattern = "ExpVar[[:digit:]]",x = colnames(ExpandedDF),value = T)
-         UseFulExpVarsDF <- data.frame(ExpandedDF[, UseFulExpVarsColNames])
-         colnames(UseFulExpVarsDF) <- UseFulExpVarsColNames
-         UseFulExpVarsDF
-     })
-     
-     
-      ########################{ Useful Factor Classification
-     
-     ExperimentalDesign$ClassGSMTextRV <- reactive({
-         message("Fetching ClassDFList")
-         ExpFactorDF <- ExperimentalDesign$ExpFactorDF()
-         ClassGsmText(ExpFactorDF)
-     })
-     
-     ExperimentalDesign$DefaultClassRV <- reactive({
-         message("Importing ClassListDF")
-         ClassResList <- ExperimentalDesign$ClassGSMTextRV()
-         message("Executing DescerningClassDF")
-         UsefulFactorList <- DescerningClassDF(ClassResList)
-         message("Adding Time Factors")
-         TimeFactorList <- AddSeriesDFs(ClassDFList = ClassResList, "time")
-         message("Adding Titration Series")
-         TitrationFactorList <- AddSeriesDFs(ClassDFList = ClassResList, "titration")
-         message("Output Default ExpVarSelection")
-         c(UsefulFactorList, TimeFactorList, TitrationFactorList)
-     })
-     
     output$PickFactorColumns <- renderUI({
-        shiny::req(input$WhereVarData, input$GsmTableSelect, input$GplTableSelect)
+    shiny::req(input$GseGsmTable_rows_all, input$KeepForExpVarAsign, input$GsmTableSelect, input$GplTableSelect)
+        input$GsmTableSelect
         ExpFactorDF <- ExperimentalDesign$ExpFactorDF()
-        RecVars <- ExperimentalDesign$DefaultClassRV()
+        message("Importing ClassListDF")
+        ClassResList <- ClassGsmText(ExpFactorDF)
+        message("Executing DescerningClassDF")
+        UsefulFactorList <- DescerningClassDF(ClassResList)
+        message("Adding Time Factors")
+        TimeFactorList <- AddSeriesDFs(ClassDFList = ClassResList, "time")
+        message("Adding Titration Series")
+        TitrationFactorList <- AddSeriesDFs(ClassDFList = ClassResList, "titration")
+        message("Output Default ExpVarSelection")
+        
+        RecVars <- c(UsefulFactorList, TimeFactorList, TitrationFactorList)
         message("Rendering checkbox input for selecting which Factors to use")
         checkboxOptions <- checkboxGroupInput(
             inputId = "UsefulColumnsCheckbox",
@@ -425,54 +405,43 @@ server <- function(input, output, session) {
         fluidRow(column(12,checkboxOptions))
         })
     
-    output$FactorRenameAndClass <- renderUI({
-    })
-     
     ########################{ View Current Factor Col Selection
+    #'
+    #'
+    #'
+    #'
     
-    #'
-    #'
-    #'
-    #'
-    ExperimentalDesign$FactorDF <- reactive({
-        #shiny::req(input$WhereVarData, input$GsmTableSelect, input$GplTableSelect, input$UsefulColumnsCheckbox)
-        message("filtering DataTable with Default ExpVarSelection")
-        ExpFactorDF <- ExperimentalDesign$ExpFactorDF()
-        ExpFactorDF <- ExpFactorDF %>% select(one_of(input$UsefulColumnsCheckbox)) # Select Only the Exp Vars that are selected in the UsefulColumnsCheckbox
-      })
-      
-     
-      ########################{ Render Inputs to Filter Factors
-      output$FilterGSMbyFactor <- renderUI({
-          shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
-          message("Rendering Selectize Inputs for filtering factor levels")
-          FactorDF <- ExperimentalDesign$FactorDF()
-          NamesIndex <- colnames(FactorDF)
-          FactorLevelInput <- lapply(NamesIndex, function(ColName){ 
-              ColLevels <- FactorDF[, ColName]
-              selectInput(
-                  inputId = paste("Gsm_", ColName, sep = ""),
-                  label = paste("Filter levels in", ColName),
-                  choices = unique(ColLevels),
-                  selected = unique(ColLevels),
-                  multiple = T,
-                  selectize = T
-                  )
-              })
-      })
-      
-     
+    
+    ########################{ Render Inputs to Filter Factors
+    output$FilterGSMbyFactor <- renderUI({
+        shiny::req(input$UsefulColumnsCheckbox, input$GseGsmTable_rows_all)
+        message("Rendering Selectize Inputs for filtering factor levels")
+        FactorDF <- ExperimentalDesign$ExpFactorDF()
+        FactorDF <- FactorDF %>% select(one_of(input$UsefulColumnsCheckbox))
+        
+        NamesIndex <- colnames(FactorDF)
+        FactorLevelInput <- lapply(NamesIndex, function(ColName) {
+            ColLevels <- FactorDF[, ColName]
+            selectInput(
+                inputId = paste("Gsm_", ColName, sep = ""),
+                label = paste("Filter levels in", ColName),
+                choices = unique(ColLevels),
+                selected = unique(ColLevels),
+                multiple = T,
+                selectize = T
+            )
+        })
+    })
+    
     ########################{ Take Levels from inputs and determine rows of DF
-    
-    #' 
-    #'
     #' @input
     #' @req
     #' @output
-    ExperimentalDesign$RowsToKeep <- reactive({
+    ExperimentalDesign$FilteredFactorDF <- reactive({
         #shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
-        message("Runngin RowsToKeep for Factor Level Filtering")
-        FactorDF <- ExperimentalDesign$FactorDF()
+        message("Running RowsToKeep for Factor Level Filtering")
+        FactorDF <- ExperimentalDesign$ExpFactorDF()
+        FactorDF <- FactorDF %>% select(one_of(input$UsefulColumnsCheckbox))
         if (!is.data.frame(FactorDF)){ FactorDF <- as.data.frame(FactorDF) }
         
         NamesIndex <- colnames(FactorDF)
@@ -482,71 +451,67 @@ server <- function(input, output, session) {
             matches <- grep(paste(FilterLevels,collapse="|"), FactorDF[,ColName], value=F)
         })
         
-       names(RowsToKeep) <- NamesIndex
-       if (length(NamesIndex) > 1) {
-           nms <- combn( names(RowsToKeep) , 2 , FUN = paste0 , collapse = "" , simplify = FALSE ) # get the combinations of names of list elements
-           ll <- combn( RowsToKeep , 2 , simplify = FALSE ) # Make the combinations of list elements
-           out <- lapply( ll , function(x) intersect( x[[1]] , x[[2]] ) ) # Intersect the list elements")
-           setNames( out , nms ) # Output with names
-           SmallestSet <- unlist(lapply(out, length)) # Find the length of all row name vectors
-           RowsToKeep <- out[which.min(SmallestSet)] # Find the location of the smaller element
-           RowsToKeep <- unlist(RowsToKeep)
-           
+        names(RowsToKeep) <- NamesIndex
+        if (length(NamesIndex) > 1) {
+            nms <- combn( names(RowsToKeep) , 2 , FUN = paste0 , collapse = "" , simplify = FALSE ) # get the combinations of names of list elements
+            ll <- combn( RowsToKeep , 2 , simplify = FALSE ) # Make the combinations of list elements
+            out <- lapply( ll , function(x) intersect( x[[1]] , x[[2]] ) ) # Intersect the list elements")
+            setNames( out , nms ) # Output with names
+            SmallestSet <- unlist(lapply(out, length)) # Find the length of all row name vectors
+            RowsToKeep <- out[which.min(SmallestSet)] # Find the location of the smaller element
+            RowsToKeep <- unlist(RowsToKeep)
         } else if (length(NamesIndex) == 1){
-         InputName<- paste("Gsm_", NamesIndex, sep = "")
-         FilterLevels <- input[[InputName]]
-         RowsToKeep <- grep(paste(FilterLevels,collapse="|"), FactorDF[,1], value=F)
-         
-       } else { stop("Error in FactorDF, restart app or select different factor columns") }
-       RowsToKeep
-    })
-    
-    ExperimentalDesign$FilteredFactorDF <- reactive({
-        RowsToKeep <- ExperimentalDesign$RowsToKeep()
-        FactorDF <- ExperimentalDesign$FactorDF()
+            InputName<- paste("Gsm_", NamesIndex, sep = "")
+            FilterLevels <- input[[InputName]]
+            RowsToKeep <- grep(paste(FilterLevels,collapse="|"), FactorDF[,1], value=F)
+        
+        } else { 
+            stop("Error in FactorDF, restart app or select different factor columns") }
+        
+        ExperimentalDesign$RowsToKeep <- RowsToKeep
         FilteredFactorDF <- FactorDF[RowsToKeep,]
-         
+        
         FilteredFactorDF <- as.data.frame(FilteredFactorDF)
         if (ncol(FilteredFactorDF) < 2) {
             colnames(FilteredFactorDF) <- "ExpVar1"}
-        FilteredFactorDF
-    })
+       FilteredFactorDF
+       })
      
-      #######################{ Output Table with Factor Selection
+    #######################{ Output Table with Factor Selection
       
-      ##### Unique Factor Table
-    output$ImportantFactorTable <- DT::renderDataTable({
-        shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
-        ExpFactorDF <- ExperimentalDesign$FilteredFactorDF()
-        
-        DT::datatable(data = ExpFactorDF, extensions = 'ColReorder', class = 'compact',
-            options = list( dom = 't', autoWidth = TRUE, scrollX = T, scrollY = '500px',paging = FALSE,
-            columnDefs = list(list(width = '150px', targets = c(1:ncol(ExpFactorDF)))),
-            colReorder = list(realtime = FALSE))) %>%
-            formatStyle(names(ExpFactorDF), color = 'black', fontWeight = 'bold')
-      })
+    ##### Unique Factor Table
+    # output$ImportantFactorTable <- DT::renderDataTable({
+    #     #shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
+    #     ExpFactorDF <- ExperimentalDesign$FilteredFactorDF()
+    #     
+    #     DT::datatable(data = ExpFactorDF, extensions = 'ColReorder', class = 'compact',
+    #         options = list( dom = 't', autoWidth = TRUE, scrollX = T, scrollY = '500px',paging = FALSE,
+    #         columnDefs = list(list(width = '150px', targets = c(1:ncol(ExpFactorDF)))),
+    #         colReorder = list(realtime = FALSE))) %>%
+    #         formatStyle(names(ExpFactorDF), color = 'black', fontWeight = 'bold')
+    #   })
       
-      ##### Full Factor Table
+    ##### Full Factor Table
     output$FullFactorTable <- DT::renderDataTable({
-        shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
-        FactorDF <- ExperimentalDesign$FactorDF()
-        FactorDF <- as.data.frame(FactorDF)
+        message("Rendering Factor Data Table")
+        input$WhereVarData
+        input$UsefulColumnsCheckbox
+        FactorDF <- ExperimentalDesign$FilteredFactorDF()
         
         DT::datatable(data = FactorDF, extensions = 'ColReorder',class = 'compact',
             options = list(dom = 't', autoWidth = TRUE, scrollX = T, scrollY = '500px', paging = FALSE,
                 columnDefs = list(list(width = '150px', targets = c(1:ncol(FactorDF)))),
                 colReorder = list(realtime = FALSE))) %>%
             formatStyle(names(FactorDF),color = 'black',fontWeight = 'bold')
-      })
-      
-    observe({
-        ##### Excluded Factor Table
+        })
+    ##### Excluded Factor Table
         output$ExcludedFactorTable <- DT::renderDataTable({
-        shiny::req(input$WhereVarData)
+        message("Rendering Excluded Factor Data Table")
         input$WhereVarData
-           
-        ExcludedFactorDF <- ExperimentalDesign$ExpFactorDF()
-        ExcludedFactorDF <- ExcludedFactorDF %>% select(-one_of(input$UsefulColumnsCheckbox))
+        input$UsefulColumnsCheckbox
+        
+        FactorDF <- ExperimentalDesign$FilteredFactorDF()
+        ExcludedFactorDF <- FactorDF %>% select(-one_of(input$UsefulColumnsCheckbox))
         ExcludedFactorDF <- as.data.frame(ExcludedFactorDF)
      
         DT::datatable(data = ExcludedFactorDF, extensions = 'ColReorder',class = 'compact',
@@ -555,60 +520,61 @@ server <- function(input, output, session) {
             colReorder = list(realtime = FALSE))) %>%
             formatStyle(names(ExcludedFactorDF),color = 'black',fontWeight = 'bold')
         })
-     }) 
      
-     ################################### GSM Metadata TabItem 
+     
      observeEvent( input[["GoToDesignPage"]], { updateTabItems(session, "TabSet", "DesignMatrix")})
+    ################################### GSM Metadata TabItem ##############################################
      
-     
-     ################################################## Design Matrix
-     
-      output$DesignMat_SummaryTable <- DT::renderDataTable({
+    ################################### Design Matrix #####################################################
+    output$DesignMat_SummaryTable <- DT::renderDataTable({
         shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
         ExpFactorDF <- ExperimentalDesign$FilteredFactorDF()
         ExpFactorDF <- data.frame(ExpFactorDF)
         
         DT::datatable(data = ExpFactorDF, extensions = 'ColReorder', class = 'compact',
-         options = list( dom = 't', autoWidth = TRUE, scrollX = T, scrollY = '500px',paging = FALSE,
-         columnDefs = list(list(width = '150px', targets = c(1:ncol(ExpFactorDF)))),
-         colReorder = list(realtime = FALSE))) %>%
-         formatStyle(names(ExpFactorDF), color = 'black', fontWeight = 'bold')
-        
+            options = list( dom = 't', autoWidth = TRUE, scrollX = T, scrollY = '500px',paging = FALSE,
+            columnDefs = list(list(width = '150px', targets = c(1:ncol(ExpFactorDF)))),
+            colReorder = list(realtime = FALSE))) %>%
+            formatStyle(names(ExpFactorDF), color = 'black', fontWeight = 'bold')
       })
      
      
       ########################{ Annotate the data table
      
-      output$RearrangeLevels <- renderUI({
-        FactorDF <- ExperimentalDesign$FilteredFactorDF()
-        
-        NamesIndex <- colnames(FactorDF)
-        lapply(NamesIndex, function(ColName){
-          ColLevels <- factor(FactorDF[,ColName])
-          inputName <- paste("Levels_", ColName, sep = "")
-          selectInput(inputId = inputName, label = paste("Selected control level for", ColName), choices = levels(ColLevels))
-          })
-        })
+     output$RearrangeLevels <- renderUI({
+         FactorDF <- ExperimentalDesign$FilteredFactorDF()
+         NamesIndex <- colnames(FactorDF)
+         lapply(NamesIndex, function(ColName) {
+             ColLevels <- factor(FactorDF[, ColName])
+             inputName <- paste("Levels_", ColName, sep = "")
+             selectInput(
+                 inputId = inputName,
+                 label = paste("Selected control level for", ColName),
+                 choices = c("none",levels(ColLevels))
+             )
+         })
+     })
       
-      ExperimentalDesign$ControlFactorDF <- reactive({
-        shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
-        DesignDF <- ExperimentalDesign$FilteredFactorDF()
-        
-        NamesIndex <- colnames(DesignDF)
-        ResDF <- lapply(NamesIndex, function(ColName){
-         ResultVector <- DesignDF[,ColName]
-         inputName <- paste("Levels_", ColName, sep = "")
-           
-         InputControlLevel <- input[[inputName]]
-         OtherLevels <- levels(factor(ResultVector))
-         levels(ResultVector) <- unique(c(InputControlLevel, OtherLevels))
-         ResultVector
-       })
-      
-       names(ResDF) <- NamesIndex
-       ResDF <- data.frame(do.call(cbind, ResDF))
-       ResDF
-      })
+     ExperimentalDesign$ControlFactorDF <- reactive({
+         shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
+         DesignDF <- ExperimentalDesign$FilteredFactorDF()
+         
+         NamesIndex <- colnames(DesignDF)
+         ResDF <- lapply(NamesIndex, function(ColName) {
+             ResultVector <- DesignDF[, ColName]
+             inputName <- paste("Levels_", ColName, sep = "")
+             
+             InputControlLevel <- input[[inputName]]
+             OtherLevels <- levels(factor(ResultVector))
+             levels(ResultVector) <-
+                 unique(c(InputControlLevel, OtherLevels))
+             ResultVector
+         })
+         
+         names(ResDF) <- NamesIndex
+         ResDF <- data.frame(do.call(cbind, ResDF))
+         ResDF
+     })
      
       ##################### Formula Input
      
@@ -1291,9 +1257,7 @@ server <- function(input, output, session) {
     #  # 
     #  
     
-    ################################### GSM Metadata TabItem ###################################
-    ################################### GSM Metadata TabItem ###################################
-     
+    
      
      
      ########################{ Disconnect from SQLite Server on Exit
