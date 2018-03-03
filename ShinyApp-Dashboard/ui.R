@@ -322,9 +322,7 @@ ui <- dashboardPage(
         conditionalPanel(
         condition="$('html').hasClass('shiny-busy')",
         box(title = "GSE Loading", solidHeader = T, width = 12, background = "yellow",
-        fluidRow(
-        column(8, offset = 2, h1(icon("exclamation-triangle"), "Please wait while we retrieve data from GEO"))
-        ),
+        fluidRow(column(8, offset = 2, h1(icon("exclamation-triangle"), "Please wait while data is retrieved data from GEO"))),
         HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>'
         )
         )
