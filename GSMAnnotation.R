@@ -103,13 +103,20 @@ ExtractExpVarList <- function(GsmList) {
 
 
 ClassSummary <- function(GsmDesignDF) {
-     message("executing ClassSummary")
-     characteristics_ch1 <- GsmDesignDF %>% dplyr::select(characteristics_ch1)
-     GsmDesignDF <- GsmDesignDF %>% dplyr::select(-characteristics_ch1)
-     OverallSummary <- unique(GsmDesignDF$summary)
-     GsmDesignDF <- AssignTimeSeriesInformation(GsmDesignDF, OverallSummary)
-     GsmDesignDF <- bind_cols(GsmDesignDF, characteristics_ch1)
-     return(GsmDesignDF)
+    message("Executing ClassSummary")
+    if (class(GsmDesignDF) != 'data.frame') {
+    stop("ClassSummary - GsmDesignDF must be dataframe")
+    } else if(sum(grep(pattern = "characteristics_ch1", x = colnames(GsmDesignDF))) < 1){
+    stop("ClassSummary - GsmDesignDF incorrectly loaded")    
+    }
+    
+    characteristics_ch1 <- GsmDesignDF %>% dplyr::select(characteristics_ch1)
+    GsmDesignDF <- GsmDesignDF %>% dplyr::select(-characteristics_ch1)
+    
+    OverallSummary <- unique(GsmDesignDF$summary)
+    GsmDesignDF <- AssignTimeSeriesInformation(GsmDesignDF, OverallSummary)
+    GsmDesignDF <- bind_cols(GsmDesignDF, characteristics_ch1)
+    return(GsmDesignDF)
 }
 
 #' Coverts Control Classificaiton to text

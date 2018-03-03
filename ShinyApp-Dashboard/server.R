@@ -372,7 +372,7 @@ server <- function(input, output, session) {
          message("Processing SQL Table Output")
          ExpFactorDF <- SQLSearchData$FilteredResultDF()
          message("Classify the Summary and Return the Filtered GSE GSM DF")
-         ExpFactorClassSummary <- ClassSummary(ExpFactorDF)
+         ExpFactorClassSummary <- ClassSummary(ExpFactorDF) #error is that ExpFactorDF not loaded when this first starts
          message("Expands Characteristics Column")
          FactorColumnNames <- input$WhereVarData
          ExpFactorClassSummary <- GseGsmCharExpand(ExpFactorClassSummary, FactorColumnNames)
@@ -435,8 +435,7 @@ server <- function(input, output, session) {
     #'
     #'
     ExperimentalDesign$FactorDF <- reactive({
-        shiny::req(input$UsefulColumnsCheckbox)
-        input$WhereVarData
+        #shiny::req(input$WhereVarData, input$GsmTableSelect, input$GplTableSelect, input$UsefulColumnsCheckbox)
         message("filtering DataTable with Default ExpVarSelection")
         ExpFactorDF <- ExperimentalDesign$ExpFactorDF()
         ExpFactorDF <- ExpFactorDF %>% select(one_of(input$UsefulColumnsCheckbox)) # Select Only the Exp Vars that are selected in the UsefulColumnsCheckbox
