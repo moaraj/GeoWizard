@@ -340,8 +340,8 @@ ui <- dashboardPage(
         height = "50%",
         
         fluidRow(
-        column(2, uiOutput('GseTabletoKeep_UI') %>% withSpinner(color = "#0dc5c1")),
-        column(2, uiOutput('GseTabletoAnalyze_UI') %>% withSpinner(color = "#0dc5c1")),
+        column(2, uiOutput('GseTabletoKeep_UI')),
+        column(2, uiOutput('GseTabletoAnalyze_UI')),
         column(2, uiOutput("GplTabletoAnalyze_UI")),
         #column(3, hr()),
         column(6,uiOutput("infobox_selectedGSE"))
@@ -470,6 +470,8 @@ ui <- dashboardPage(
         ), # TabItem - GSMMetadata
               
         tabItem(tabName = "DesignMatrix",
+        
+        
         fluidRow(
         column(4,
         box(title = "Summary of Factors",
@@ -477,52 +479,70 @@ ui <- dashboardPage(
             status = "primary",
             width = 12,
             collapsible = T,
-        
-        dataTableOutput("DesignMat_SummaryTable")%>% withSpinner(color = "#0dc5c1"))
+        dataTableOutput("DesignMat_SummaryTable")%>% withSpinner(color = "#0dc5c1")
+        )  # Box
         ), # First Page Column
                        
         column(4,
-        tabBox(title = "Experimental Design", 
+        box(title = "Design Matrix Inputs", 
         width = 12,
-        tabPanel(title = "Formula Input",
-                 solidHeader = T,
-                 status = "primary",
-                 collapsible = T,
-        uiOutput(outputId = "TextAhead"),
-        fluidRow(
-        column(12,
-        
-        textInput(
-        inputId = "formulaInputDesign",
-        label = "Model Matrix Formula Input",
-        placeholder = "~ Expvar1 + Expvar2"
-        ),
-        
-        hr(),
-        p(paste("The detected baseline or control level",
-                "for each factor can be changed below")),
-        uiOutput("RearrangeLevels"),
-        hr(),
-        
-        column(6, actionButton(inputId = "SubmitContrasts", class = "btn-primary", label = "Generate Contrast Matrix")),
-        column(6, actionButton(inputId = "SubmitFormula", class = "btn-primary", label = "Generate Design Matrix"))
-        )
-        )
-        ),
-                          
-        tabPanel(title = "Detected Design",
         solidHeader = T,
         status = "primary",
+        collapsible = T,
+        
+        fluidRow(
+        column(12,
+               
+        column(12,textInput( inputId = "formulaInputDesign", label = "Model Matrix Formula Input", placeholder = "~ Expvar1 + Expvar2")),
+        column(12, p("The detected baseline or control level for each factor can be changed below")),
+        column(12, uiOutput("RearrangeLevels")),
+        column(12, actionButton(inputId = "SubmitFormula", label = "Generate Design Matrix"))
+        )  # Design Matrix Box spanning Column
+        )  # Design Matrix Box Fluid Row
+        ), # Design Matrix Box
+        
+        box(title = "Contrast Matrix Inputs", 
         width = 12,
-        collapsible = T
-        )
-        )  # Design Matrix Tabbox
+        solidHeader = T,
+        status = "primary",
+        collapsible = T,
+        
+        fluidRow(
+        column(12,
+        p("How should expression levels be compared between groups?"),
+        column(12, checkboxInput(inputId = "ContrastLevels", "compare expression between levels of factors", width = "100%")),
+        column(12, checkboxInput(inputId = "ContrastInteractions", "compare expression between ")),
+        column(12, checkboxInput(inputId = "ContrastCustom", "Add custom contrast input")),
+        conditionalPanel('input.ContrastCustom==1',
+        column(12, textInput(inputId = "CustomContrastInput",label = "Custom Contrast Input"))),
+        column(12, actionButton(inputId = "SubmitContrasts", label = "Generate Contrast Matrix"))
+        
+        )  # Contrast Matrix Box Spanning Column
+        )  # Contrast Matrix Box Fluid Row
+        )  # Contrast Matrix Box
         ), # Second Page Column
                           
         column(4,
         tabBox(
         width = 12,
-        tabPanel( title = "Blocks", plotOutput("ExperimentalBlocksPlot") %>% withSpinner(color = "#0dc5c1")),
+        tabPanel( title = "Blocks", 
+        fluidRow(
+        column(12, h4("Experimental Blocks")),
+        column(12, wellPanel(plotOutput("ExperimentalBlocksPlot") %>% withSpinner(color = "#0dc5c1"))),
+        column(12, hr(),h4("Differential Expression Contrasts")),
+        
+        conditionalPanel('input.ContrastLevels==1',
+        column(12, wellPanel(fluidRow(
+        column(12, helpText("Diffential expression analysis between factor levels")),
+        column(12, img(src='Contrast1.png', align = "left", width = "95%")))))),
+        
+        conditionalPanel('input.ContrastInteractions==1',
+        column(12, wellPanel(fluidRow(
+        column(12, helpText("Diffential expression analysis between control and perturbation in different conditions")),
+        column(12, img(src='Contrast2.png', align = "left", width = "95%"))))))
+        
+        )
+        ),
         tabPanel( title = "Design Matrix", DT::dataTableOutput(outputId = 'CustomExpressionTable') %>% withSpinner(color = "#0dc5c1")),
         tabPanel( title = "Contrast Matrix")
         )

@@ -8,7 +8,7 @@ con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
 message(paste('\nConnected Database Tables:', dbListTables(con)))
 
 MolQuery = c("Mycophenolate mofetil")
-MolQuery = c("Tofacitinib")
+MolQuery = c("GSE60482")
 
 
 
@@ -57,7 +57,11 @@ DesignMatrix <- model.matrix( ~ ExpVar4.Text, GraphDF )
 ######### Function to Download File
 GeoRepoPath <- "~/GeoWizard/GEORepo"
 GSE <- selectedGse
-GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepo)
+
+
+
+GSEeset <- LoadGEOFiles(GSE = GSE, GPL, GeoRepo)
+test <- LoadGEOFiles(GSE = GSE, GPL= "GPL9250", GeoRepo)
 ArrayData <- exprs(GSEeset)
 FactorDF <- Step_6[1:2]
 

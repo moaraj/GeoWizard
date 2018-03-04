@@ -6,41 +6,72 @@
 #' 
 #'  @example GeoRepo <- "~/GeoWizard/GEORepo"
 #'  GSE <- "GSE69967"
+#'  GSE <- "GSE60482"
+#'  GPL <- "GPL11154"
 #'  LoadGEOFiles(GSE, GeoRepo)
 
 
-LoadGEOFiles <- function(GSE, GeoRepo){
+LoadGEOFiles <- function(GSE, GPL, GeoRepo){
      GeoRepoFiles <- dir(GeoRepo)
 
-     RegularExp <- paste(GSE, ".+matrix\\.txt\\.gz$", sep = "")
-     MatrixFile <- grep(pattern = RegularExp, x = GeoRepoFiles, value = T)
-     MatrixFilePath <- file.path(GeoRepo, MatrixFile)
-     RDSFilePath <- paste(MatrixFilePath, ".rds", sep = "")
+    if(missing(GPL)) {
+        RegularExp <- paste(GSE, ".+matrix\\.txt\\.gz$", sep = "")
+    } else {
+        RegularExp <- paste(GSE,"-",GPL, ".+matrix\\.txt\\.gz$", sep = "")
+    }
+    
+    MatrixFile <- grep(pattern = RegularExp, x = GeoRepoFiles, value = T)
+    MatrixFilePath <- file.path(GeoRepo, MatrixFile)
+    RDSFilePath <- paste(MatrixFilePath, ".rds", sep = "")
      
-     if(isTRUE(file.exists(RDSFilePath)) & length(MatrixFile) != 0 ){
-          message("Loading Matrix File from RDS")
-          GSEeset <- readRDS(RDSFilePath)
-          
-     } else if (isTRUE(file.exists(MatrixFilePath)) & length(MatrixFile) != 0 ) {
-          message(paste("Matrix File for",GSE, "Found in GEORepo at", GeoRepo))
-          GSEeset <- getGEO(filename = MatrixFilePath)
-          message("Save ESET as RData for faster loading next time")
-          saveRDS(object = GSEeset, file = RDSFilePath) 
-     
-     } else if ( length(MatrixFilePath) > 1) {
-       
-       GSElist <- lapply(MatrixFilePath, function(GseFile){
-         GSEeset <- getGEO(filename = MatrixFilePath)})
-       names(GSElist) <- MatrixFile
-          
-     } else {
-          GSEeset <- getGEO(GSE, destdir = "~/GeoWizard/GEORepo")
-          saveRDS(object = GSEeset, file = RDSFilePath)
-          message("Save ESET as RData for faster loading next time")
-     }
-     
-     return(GSEeset)
+    if (isTRUE(file.exists(RDSFilePath)) &
+        length(MatrixFile) != 0) {
+        message("Loading Matrix File from RDS")
+        GSEeset <- readRDS(RDSFilePath)
+    } else if (isTRUE(file.exists(MatrixFilePath)) &
+        length(MatrixFile) != 0) {
+        message(paste("Matrix File for", GSE, "Found in GEORepo at", GeoRepo))
+        GSEeset <- getGEO(filename = MatrixFilePath)
+        message("Save ESET as RData for faster loading next time")
+        saveRDS(object = GSEeset, file = RDSFilePath)
+    } else if (length(MatrixFilePath) > 1) {
+        GSElist <- lapply(MatrixFilePath, function(GseFile) {
+        GSEeset <- getGEO(filename = MatrixFilePath)
+        })
+        names(GSElist) <- MatrixFile
+    } else {
+        GSEeset <- getGEO(GSE, destdir = "~/GeoWizard/GEORepo")
+        saveRDS(object = GSEeset, file = RDSFilePath)
+        message("Save ESET as RData for faster loading next time")
+    }
+    
+    if(missing(GPL)) { return(GSEeset)
+    } else { GSEeset <- GetGPLFromList(GSEeset, GPL)
+        return(GSEeset)
+    }
 }
+
+#' Retrieve the GSE matrix pertaining to selected GPL
+#'
+#' @param esetList list of expression set objects
+#' @param GPL character string of 
+
+GetGPLFromList <- function(esetList, GPL){
+    if (length(GPL) > 1) {
+    warning("Multiple GPL supplied, using first")
+    GPL <- GPL[1]
+    }
+    
+    if (class(esetList) == "list" | !missing(GPL) |!missing(esetList)) {
+    GPLinList <- lapply(GSEeset, annotation)
+    GPLMatrixFiles <- names(GPLinList)
+    GPLSelectedIndex <- grep(pattern = GPL, x = GPLMatrixFiles)
+    GSEeset <- GSEeset[[GPLSelectedIndex]]
+    } else
+    message("GSE List only contains one element or GPL not supplied")
+    return(esetList)
+    }
+
 
 #' @param GSEeset eset of the GSE being processed
 #' @param Annotation string containing one of gene annotation systems
