@@ -1,20 +1,39 @@
 ui <- fluidPage(
+    fluidRow(
+    column(4,
     uiOutput("UI")
+    )
+    )
+    
 )
 
 server <- function(input, output) {
-    UIinfo <- reactive({x <- paste("moaraj", 1:10, sep = "")})
+    ExperimentalDesign <- reactiveValues()
+    ExperimentalDesign$DesignMatrixInput <- reactive({
+        colnames(mtcars)[1]<- c("moaraj is a foucce")
+        mtcars})
     
     output$UI <- renderUI({
-        x <- UIinfo()
-        #checkboxGroupInput(inputId = "Moaraj1",label = "Moaraj1", choices = c(1:5), selected = 1, inline = F)
-        y <- lapply(x, function(y){
-            column(3,
-            checkboxGroupInput(inputId = y, label = y,choices = 1:5,selected = 1,inline = F))
-            })
+        DesignMatrix <- ExperimentalDesign$DesignMatrixInput()
+        colnamesIndex <- 1:length(colnames(DesignMatrix))
         
-        y <- fluidRow(y)
-        y
+        lapply(colnamesIndex, function(FactorNameIndex){
+            origtext <- colnames(DesignMatrix)[FactorNameIndex]
+            checkinputID <- paste("RenameDesign", FactorNameIndex, sep = "")
+            checkinpuLabel <- paste("Rename column",FactorNameIndex, "-", substr(origtext, start=1, stop=20))
+
+            textInputID <- paste("RenameDesignText", FactorNameIndex, sep = "")
+            textInputLabel <- paste("new column", FactorNameIndex)
+            textInputplaceholder = str_split(origtext, pattern = " ", simplify = T)
+            
+            if(length(textInputplaceholder)>=3) {textInputplaceholder <- paste(textInputplaceholder[1,2:3], collapse = "_")}
+            textInputplaceholder
+            
+            fluidRow(
+            column(6, style = "margin-top: 25px;", checkboxInput(checkinputID, checkinpuLabel)),
+            conditionalPanel(paste("input.",checkinputID,"==1", sep = ""), 
+            column(6, textInput(textInputID ,"",textInputplaceholder))))
+        })
     })
 }
 

@@ -27,7 +27,7 @@ server <- function(input, output, session) {
             GeoSearchResults$InputType <- "select"
             SearchInputUI <- selectizeInput(
                 inputId = "MolSelectInput", 
-                label = "Molecule to GeoSearch", 
+                label = "GEO Keyword Query", 
                 choices =  MolQueryText, 
                 multiple = T,
                 selected = DefaultText)
@@ -222,11 +222,20 @@ server <- function(input, output, session) {
         if (length(SelectedRows) > 0 ) {
         shinyjs::enable("AnalyzeSelectedDatasets")
         shinyjs::hide("GSMMetadataWarning")
+        shinyjs::hide("GSMMetadataWarning_Design")
+        shinyjs::hide("GSMMetadataWarning_Down")
+        shinyjs::hide("GSMMetadataWarning_Exp")
+        
         shinyjs::show("GSMMetadataLoading")
         } else {
         shinyjs::disable("AnalyzeSelectedDatasets")
         shinyjs::disable("ExpressAnalyse")
+        
         shinyjs::show("GSMMetadataWarning")
+        shinyjs::show("GSMMetadataWarning_Design")
+        shinyjs::show("GSMMetadataWarning_Down")
+        shinyjs::show("GSMMetadataWarning_Exp")
+
         shinyjs::hide("GSMMetadataLoading")
         }
         shinyjs::hide("GSMMetadataLoading") 
@@ -496,6 +505,7 @@ server <- function(input, output, session) {
         message("Rendering Factor Data Table")
         input$WhereVarData
         input$UsefulColumnsCheckbox
+        input$RefreshFullFactorTable
         FactorDF <- ExperimentalDesign$FilteredFactorDF()
         
         DT::datatable(data = FactorDF, extensions = 'ColReorder',class = 'compact',
@@ -509,6 +519,7 @@ server <- function(input, output, session) {
         message("Rendering Excluded Factor Data Table")
         input$WhereVarData
         input$UsefulColumnsCheckbox
+        input$RefreshExcludedFactorTable
         
         FactorDF <- ExperimentalDesign$FilteredFactorDF()
         ExcludedFactorDF <- FactorDF %>% select(-one_of(input$UsefulColumnsCheckbox))
@@ -557,6 +568,7 @@ server <- function(input, output, session) {
       
      ExperimentalDesign$ControlFactorDF <- reactive({
          shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
+         input$WhereVarData
          DesignDF <- ExperimentalDesign$FilteredFactorDF()
          
          NamesIndex <- colnames(DesignDF)
@@ -579,20 +591,59 @@ server <- function(input, output, session) {
      
       ##################### Formula Input
      
-     ExperimentalDesign$DesignMatrix <-
-         eventReactive(input$SubmitFormula, {
-             DesignDF <- ExperimentalDesign$ControlFactorDF()
-             Designformula <- input$formulaInputDesign
-             
-             DesignExpression <- try(as.formula(Designformula))
-             if (class(DesignExpression)[1] == "try-error") {
-                 stop("Caught an error trying to make Design Matrix")
-             } else {
-                 DesignMatrix <- model.matrix(as.formula(DesignExpression), DesignDF)
-                 DesignMatrix
-             }
-         })
-     
+    ExperimentalDesign$DesignMatrixInput <- eventReactive(input$SubmitFormula, {
+        DesignDF <- ExperimentalDesign$ControlFactorDF()
+        Designformula <- input$formulaInputDesign
+            
+        DesignExpression <- try(as.formula(Designformula))
+        if (class(DesignExpression)[1] == "try-error") { stop("Caught an error trying to make Design Matrix") 
+        } else { DesignMatrix <- model.matrix(as.formula(DesignExpression), DesignDF)}
+        DesignMatrix
+        })
+    
+    output$DesignMatrixRename_UI <- renderUI({
+        DesignMatrix <- ExperimentalDesign$DesignMatrixInput()
+        colnamesIndex <- 1:length(colnames(DesignMatrix))
+        
+        lapply(colnamesIndex, function(FactorNameIndex){
+            origtext <- colnames(DesignMatrix)[FactorNameIndex]
+            checkinputID <- paste("RenameDesign", FactorNameIndex, sep = "")
+            checkinpuLabel <- paste("Rename column",FactorNameIndex, "-", substr(origtext, start=1, stop=30))
+
+            textInputID <- paste("RenameDesignText", FactorNameIndex, sep = "")
+            textInputLabel <- paste("new column", FactorNameIndex, "name:")
+            textInputplaceholder = str_split(origtext, pattern = " ", simplify = T)
+            
+            if(length(textInputplaceholder)>=3) {textInputplaceholder <- paste(textInputplaceholder[1,1:3], collapse = "_")}
+            textInputplaceholder
+            
+            fluidRow(
+            column(12, checkboxInput(checkinputID, checkinpuLabel)),
+            conditionalPanel(paste("input.",checkinputID,"==1", sep = ""), 
+            column(12, textInput(textInputID ,textInputLabel,textInputplaceholder))))
+        })
+    })
+    
+    ExperimentalDesign$DesignMatrix <- reactive({
+        DesignMatrix <- ExperimentalDesign$DesignMatrixInput()
+        colnamesIndex <- 1:length(colnames(DesignMatrix))
+        
+        NewColNames <- 
+        lapply(colnamesIndex, function(FactorNameIndex){
+            colnameText <- colnames(DesignMatrix)[FactorNameIndex]
+            checkinputID <- paste("RenameDesign", FactorNameIndex, sep = "")
+            textInputID <- paste("RenameDesignText", FactorNameIndex, sep = "")
+            
+            if (input[[checkinputID]] == T) {
+            InputName <- input[[textInputID]]
+            InputName <- gsub("[[:space:]]", "", InputName)
+            colnameText <- InputName
+            } else {colnameText}
+        })
+        colnames(DesignMatrix) <- unlist(NewColNames)
+        DesignMatrix
+    })
+    
       # output$TextAhead <- renderUI({
       #   
       #   shiny::req(input$formulaInputDesign, input$UsefulColumnsCheckbox, input$WhereVarData)
@@ -632,14 +683,13 @@ server <- function(input, output, session) {
                   options = list(
                       scrollY = '300px',
                       paging = FALSE,
-                      dom = 'Bfrtip',
+                      dom = 'Bt',
+                      #dom = 'Bfrtip',
                       buttons = c('copy', 'csv', 'excel')
                   )
               )
           })
       })
-     
-     ######################## 
      
       output$ExperimentalBlocksPlot <- renderPlot({
           shiny::req(input$SubmitFormula,
@@ -970,8 +1020,7 @@ server <- function(input, output, session) {
      #   SampleSize = input$HistSampleSize)
      # })
 
-    ############# BioQC Analysis
-    ############# 
+    # BioQC Analysis
      observeEvent(input$PerformBioQCAnalysis, {
      output$BioQCPlot <- renderPlot({
           message("Loading Expression Set for BioQC")
@@ -981,8 +1030,7 @@ server <- function(input, output, session) {
           })
      })
 
-
-     ################ PCA Plot
+    # PCA Plot
      DataPCA <- reactive({
        GSEeset <- GSEdata$GSEeset()
        ArrayData <- exprs(GSEeset)

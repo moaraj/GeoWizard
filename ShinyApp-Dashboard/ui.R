@@ -157,7 +157,7 @@ ui <- dashboardPage(
         id = "TabSet",
         menuItem("Query Datasets",tabName = "GSESummary",icon = icon("search")),
         menuItem("Filter GSM Metadata", tabName = "GSMMetadata", icon = icon("filter")),
-        menuItem( "Design Matrix", icon = icon("th"), tabName = "DesignMatrix"),
+        menuItem("Design and Contrast Matrix", icon = icon("th"), tabName = "DesignMatrix"),
         menuItem("Download and QC", tabName = "DataQC", icon = icon("download")),
         menuItem("Expression Analysis", tabName = "DifferentialAnalysis", icon = icon("bar-chart")),
         menuItem("Export and Save", tabName = "ReverseSerach", icon = icon("database")),
@@ -186,7 +186,7 @@ ui <- dashboardPage(
         column(6,
         selectInput(
         inputId = "MolSelectFilter",
-        label = "Molecule Libraries",
+        label = "Keyword Libraries",
         choices = c("David's TA Molecules" = "DAVID", "Text Input" = "TextInput",  "FDA approved Drugs" = "FDA", "SPARK" = "SPARK Library"),
         selected = "DAVID")), #selectInput
         
@@ -301,20 +301,10 @@ ui <- dashboardPage(
         tabItem(tabName = "GSMMetadata",
         fluidRow(
         
-        column(12,
-        div( id = "GSMMetadataWarning",
-        box(title = "",
-        height = "200px",
-        solidHeader = T,
-        width = 12,
-        background = "red",
-        fluidRow(
-        column(12, offset = 2, 
-        h1(icon("exclamation-triangle"),"Please select a dataset from the table on the previous page "))
-        )
-        )
-        )
-        ), # Warning Bar when so inputs on GSEtable are selected 
+        # Warning Bar when so inputs on GSEtable are selected 
+        column(12, div( id = "GSMMetadataWarning", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
+        fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))),
+        
         
         column(12,
         div( id = "GSMMetadataLoading",
@@ -435,25 +425,31 @@ ui <- dashboardPage(
         ) # Column Classifications
         ) # Frist Two Thids of Page Fluid flow
         
-        ), # First Two thirds of the page
+        ), # Column | X | X |   |
         
-        column(4,
+        column(4, # Column |   |   | X |
+               
         tabBox(title = "Experimental Factors",
         width = 12,
         side = "right",
         selected = "All Factor Levels",
         
         tabPanel("Ignored Factor Levels", 
-        helpText(paste(
+        fluidPage(
+        column(12, helpText(paste(
             "These factor leves are not used to construct the Design and contrast matricies",
             "but they are stored as meta data tags for retrieving data from a database used",
-            "to store differential expression analysis results")
+            "to store differential expression analysis results"))),
+        column(12, DT::dataTableOutput("ExcludedFactorTable") %>% withSpinner(color = "#0dc5c1")),
+        column(4, actionButton("RefreshExcludedFactorTable", "Refresh Table"))
+        )
         ),
-        DT::dataTableOutput("ExcludedFactorTable") %>% withSpinner(color = "#0dc5c1")
-        ),  
-                                
+        
         tabPanel("All Factor Levels", 
-        DT::dataTableOutput("FullFactorTable") %>% withSpinner(color = "#0dc5c1")
+        fluidRow(
+        column(12, DT::dataTableOutput("FullFactorTable") %>% withSpinner(color = "#0dc5c1")),
+        column(4, actionButton("RefreshFullFactorTable", "Refresh Table"))
+        )
         )
         ),
                          
@@ -470,9 +466,11 @@ ui <- dashboardPage(
         ), # TabItem - GSMMetadata
               
         tabItem(tabName = "DesignMatrix",
-        
-        
+
         fluidRow(
+        column(12, div( id = "GSMMetadataWarning_Design", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
+        fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
+
         column(4,
         box(title = "Summary of Factors",
             solidHeader = T,
@@ -510,8 +508,8 @@ ui <- dashboardPage(
         fluidRow(
         column(12,
         p("How should expression levels be compared between groups?"),
-        column(12, checkboxInput(inputId = "ContrastLevels", "compare expression between levels of factors", width = "100%")),
-        column(12, checkboxInput(inputId = "ContrastInteractions", "compare expression between ")),
+        column(12, checkboxInput(inputId = "ContrastLevels", "Contrasts between experimental variable factor levels", width = "100%", value = T)),
+        column(12, checkboxInput(inputId = "ContrastInteractions", "Interaction term of differtial expression in bewteen two factor levels")),
         column(12, checkboxInput(inputId = "ContrastCustom", "Add custom contrast input")),
         conditionalPanel('input.ContrastCustom==1',
         column(12, textInput(inputId = "CustomContrastInput",label = "Custom Contrast Input"))),
@@ -531,20 +529,43 @@ ui <- dashboardPage(
         column(12, wellPanel(plotOutput("ExperimentalBlocksPlot") %>% withSpinner(color = "#0dc5c1"))),
         column(12, hr(),h4("Differential Expression Contrasts")),
         
+        
+        
         conditionalPanel('input.ContrastLevels==1',
         column(12, wellPanel(fluidRow(
-        column(12, helpText("Diffential expression analysis between factor levels")),
+        column(12, helpText(paste("Compare expression between samples from different levels in an experimental factor.",
+                                  "Example: liver cells vs. liver cells + 1mg ibuprofen"))),
         column(12, img(src='Contrast1.png', align = "left", width = "95%")))))),
         
         conditionalPanel('input.ContrastInteractions==1',
         column(12, wellPanel(fluidRow(
-        column(12, helpText("Diffential expression analysis between control and perturbation in different conditions")),
+        column(12, helpText(paste(
+            "Diffential expression analysis between control and perturbation in different conditions.",
+            "Example: liver cells vs. liver cell + 1mg ibuprofen, incubated for 1 hour vs. 12 hours"))),
         column(12, img(src='Contrast2.png', align = "left", width = "95%"))))))
-        
         )
         ),
-        tabPanel( title = "Design Matrix", DT::dataTableOutput(outputId = 'CustomExpressionTable') %>% withSpinner(color = "#0dc5c1")),
-        tabPanel( title = "Contrast Matrix")
+        
+        tabPanel(
+        title = "Design Matrix", 
+        fluidRow(column(12,
+        h4("Design Matrix"),
+        
+        column(12, wellPanel(fluidRow(DT::dataTableOutput(outputId = 'CustomExpressionTable') %>% withSpinner(color = "#0dc5c1")))),
+        hr(),h4("Rename Design Factor Columns"),
+        column(12, uiOutput("DesignMatrixRename_UI"))
+        )
+        )
+        ),
+        
+        tabPanel(
+        title = "Contrast Matrix",
+        h4("Contrast Matrix"),
+        fluidRow(column(12,
+        column(12, wellPanel(fluidRow(DT::dataTableOutput(outputId="ContrastMatrixTable") %>% withSpinner(color = "#0dc5c1"))))
+        )
+        )
+        )
         )
         )  # Third Page Column
         
@@ -554,6 +575,9 @@ ui <- dashboardPage(
         tabItem(
         tabName = "DataQC",
         fluidRow(
+        column(12, div( id = "GSMMetadataWarning_Down", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
+        fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
+        
         column(10,
                
         tabBox(title = "Raw Data Statistics",width = 12,
@@ -776,12 +800,13 @@ ui <- dashboardPage(
       
 
         
-        
-        
         tabItem(tabName = "DifferentialAnalysis",
         fluidRow(
+            
+        column(12, div( id = "GSMMetadataWarning_Exp", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
+        fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))),
+        
         column(12,
-              
         tabBox(title = "Expression Analysis",
           width = 12,
         tabPanel("Top Table", 
