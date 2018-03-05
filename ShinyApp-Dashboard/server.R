@@ -691,35 +691,25 @@ server <- function(input, output, session) {
           })
       })
      
-      output$ExperimentalBlocksPlot <- renderPlot({
-          shiny::req(input$SubmitFormula,
-                     input$UsefulColumnsCheckbox,
-                     input$WhereVarData)
-          DesignDF <- ExperimentalDesign$ControlFactorDF()
+    output$ExperimentalBlocksPlot <- renderPlot({
+        shiny::req(input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData)
+        DesignDF <- ExperimentalDesign$ControlFactorDF()
+        
+        DesignExpression <- try(as.formula(input$formulaInputDesign))
+          RenderMosaicPlot <- try(vcd::mosaic(DesignExpression, DesignDF))
           
-          DesignExpression <-
-              try(as.formula(input$formulaInputDesign))
-          RenderMosaicPlot <-
-              try(vcd::mosaic(DesignExpression, DesignDF))
-          
-          if (class(RenderMosaicPlot)[1] == "try-error" |
-              class(DesignExpression)[1] == "try-error") {
-              stop(
-                  paste(
-                      "Caught an error trying to make design Mosaic Plot,\n",
-                      "trying changing formula input.\n",
-                      "maybe try",
-                      "~",
-                      colnames(DesignDF)[1]
-                  )
-              )
-          } else {
-              RenderMosaicPlot
-          }
-          
+        if (class(RenderMosaicPlot)[1] == "try-error" |
+        class(DesignExpression)[1] == "try-error") {
+        stop(
+            paste( "Caught an error trying to make design Mosaic Plot,\n",
+                "trying changing formula input.\n",
+                "maybe try ~", colnames(DesignDF)[1])
+            )
+        } else { RenderMosaicPlot }
       })
      
     ######################## Expression Analysis
+    
     ###### Download the Data
     GSEdata <- reactiveValues()
       
@@ -729,7 +719,6 @@ server <- function(input, output, session) {
         
         GSE <- input$GsmTableSelect
         GPL <- input$GplTableSelect
-        
         message(paste("Downloading", GSE, "Data from GEO"))
         GSEeset <- LoadGEOFiles(GSE, GPL, GeoRepoPath = "~/GeoWizard/GEORepo")
         GSEeset
@@ -749,8 +738,7 @@ server <- function(input, output, session) {
             choices = colnames(FeatureData),
             selected = colnames(FeatureData)[1],
             multiple = F,
-            selectize = T
-        )
+            selectize = T)
         }
     })
       
