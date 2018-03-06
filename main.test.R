@@ -8,7 +8,7 @@ con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
 message(paste('\nConnected Database Tables:', dbListTables(con)))
 
 MolQuery = c("Mycophenolate mofetil")
-MolQuery = c("GSE60482")
+MolQuery = c("GSE69967")
 
 
 
@@ -60,18 +60,20 @@ GeoRepoPath <- "~/GeoWizard/GEORepo"
 GSE <- selectedGse
 
 
+GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepo = GeoRepo)
+GSEeset <- GSEeset[[1]]
 
-GSEeset <- LoadGEOFiles(GSE = GSE, GPL, GeoRepo)
 test <- LoadGEOFiles(GSE = GSE, GPL= "GPL9250", GeoRepo)
 ArrayData <- exprs(GSEeset)
 FactorDF <- Step_6[1:2]
+saveRDS(FactorDF,file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.rds")
 
 FeatureData <- fData(GSEeset)
+
 ######### Function to Make GMT Ggplotable
 GSM <- colnames(ArrayData)
 FactorGMT <-  GenFactorGMT(exprs(GSEeset), FactorDF)
 FactorGMTMelt <- melt(FactorGMT)
-
 GSEgmtDF <- GenGMTggplotDF(GSEeset = GSEeset,FactorDF = FactorDF)
 
 ######## GMT Boxplots and Histograms
@@ -91,8 +93,8 @@ GeneSymbolArrayData <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "Re
 ######### QC
 source(file = "QCAnalysis.R")
 RunBioQC(GMT = GeneSymbolArrayData)
-
 PCAPlots <- PlotPCA(ArrayData)
+
 
 ######### Limma
 res <- LimmaOutput(GeneSymbolArrayData,DesignMatrix)
@@ -114,30 +116,3 @@ TopTableFilter <- "logFC"
      ColumnsToKeep <- c(ColumnsToKeep, TopGenes)
      
      FactorGMT <- FactorGMT %>% select(one_of(ColumnsToKeep))
-
-
-
-
-
-View(head(res))
-limma::plotMA(GSEeset)
-limma::plotMA(fit, 3)
-
-View(model.matrix(~ExpVar3.Text+ExpVar4.Text, Step_6))
-
-
-
-ConvertGSEAnnotations()
-message("Loading Expression Set Data")
-GSEeset <- GSEdata$Eset
-
-message("Extracting Gene Symbol feature annotations")
-geneSymbolNames <- colsplit(
-  string = GSEeset@featureData@data$`Gene Symbol`,
-  pattern = " ",
-  names = c("GeneSymbol", "SecondarySymbol"))
-
-GeneSymbolEset <- exprs(GSEeset)
-rownames(GeneSymbolEset) <- geneSymbolNames$GeneSymbol
-GeneSymbolEset
-

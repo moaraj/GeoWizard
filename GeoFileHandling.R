@@ -71,11 +71,15 @@ LoadGEOFiles <- function(GSE, GPL, GeoRepo){
 
 GetGPLFromList <- function(esetList, GPL){
     if (length(GPL) > 1) { warning("Multiple GPL supplied, using first"); GPL <- GPL[1] }
+    
     if (class(esetList) == "list" | !missing(GPL) |!missing(esetList)) {
         GPLinList <- as.character(lapply(esetList, annotation))
         GPLSelectedIndex <- grep(pattern = GPL, x = GPLinList) # Replace Grep Funciton with index ==
         GSEeset <- esetList[[GPLSelectedIndex]]
         if (class(GSEeset)=="ExpressionSet") { return(GSEeset) } else { stop("GetGPLFromList - extracting datamatrix from GEO Query output")}
+        
+    } else if (class(esetList) == "list" && length(esetList) == 1) {
+        GSEeset <- esetList[[1]] 
     } else {
         message("GSE List only contains one element or GPL not supplied")
         return(esetList)    

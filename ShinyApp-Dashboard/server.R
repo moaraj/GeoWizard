@@ -1080,10 +1080,6 @@ server <- function(input, output, session) {
 
      output$PCA <- renderPlot({
        GSEeset <- GSEdata$GSEeset()
-       
-
-
-
        ListPlotPCA <- PlotPCA(ArrayData = ArrayData)
 
        DataPCA$CA <- ListPlotPCA$CA

@@ -574,11 +574,10 @@ ui <- dashboardPage(
         tabItem(
         tabName = "DataQC",
         fluidRow(
-        column(12, div( id = "GSMMetadataWarning_Down", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
+        column(10, div( id = "GSMMetadataWarning_Down", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
         fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
         
         column(10,
-               
         tabBox(title = "Raw Data Statistics",width = 12,
         tabPanel("Download Data",
         fluidRow(
@@ -614,17 +613,12 @@ ui <- dashboardPage(
             choiceNames = c("Gene Matrix","Melted Gene Matrix with Factors"),
             choiceValues = c("GMT", "FactorGMTMelt"), 
             inline = T)
-        
-        
         )  # Well Panel
-        
-        
         )  # InputPanel Spanning Column
         )  # InputPenal Spanning FluidRow
         ), # First Column of TabIteM
                       
         column(8,
-        
         h4("Datatable"),
         hr(),
         DT::dataTableOutput("RawDataQC") %>% withSpinner(color = "#0dc5c1")
