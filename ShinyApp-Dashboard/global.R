@@ -22,16 +22,15 @@ library(DT)
 
 #GeoParse
 library(xml2)
+library(RCurl)
+library(XML)
 library(GEOquery)
 library(GEOmetadb)
-
-
 
 library(limma)
 library(Biobase)
 library(BioQC) #install.packages("https://bioarchive.galaxyproject.org/BioQC_1.4.0.tar.gz", repos = NULL)
 library(vcd)
-
 
 library(RColorBrewer)
 library(beanplot)

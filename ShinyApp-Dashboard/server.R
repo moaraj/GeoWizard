@@ -243,12 +243,9 @@ server <- function(input, output, session) {
     
     
     observeEvent( input[["AnalyzeSelectedDatasets"]], { updateTabItems(session, "TabSet", "GSMMetadata")})
-     
-    
     ################################### GSM Metadata TabItem ###################################
     
     SQLSearchData <- reactiveValues()
-     
     ########################{ SQL Search
 
     #' Render a Table with join GSE and GSM from SQL search
@@ -628,7 +625,7 @@ server <- function(input, output, session) {
             
             fluidRow(
             column(12, checkboxInput(checkinputID, checkinpuLabel)),
-            conditionalPanel(paste("input.",checkinputID,"==1", sep = ""), 
+            conditionalPanel(paste("input.",checkinputID,"==1", sep = ""),
             column(12, textInput(textInputID ,textInputLabel,textInputplaceholder))))
         })
     })
@@ -746,15 +743,16 @@ server <- function(input, output, session) {
       })
     
 
-        
-    
-    
-    
-     
     ######################## Expression Analysis
     
     ###### Download the Data
     GSEdata <- reactiveValues()
+    
+    # output$GMTtoDownloadorUpload_UI <- renderUI(
+    #     shiny::req(input$GsmTableSelect)
+    #     GSE <- input$GsmTableSelect
+    #     radioButtons("DataSourceSelection", inputId = paste("Retreive GMT file", GSE), selected = 1, inline = T, choiceNames = c("Download from GEO", "Upload CSV") , choiceValues = c(1,2))
+    # )
       
     GSEdata$GSEeset <- eventReactive(input$DownloadGEOData, {
         shiny::req(input$GsmTableSelect, input$DownloadGEOData)
@@ -800,6 +798,7 @@ server <- function(input, output, session) {
         return(ExpressionMatrix)
         }
       })
+      
      
       #### Column 1 - GMT File Tab
       output$GMTFileTable <- DT::renderDataTable({
