@@ -58,12 +58,13 @@ server <- shinyServer(function(input, output) {
         
         DesignExpression <- try(as.formula(Designformula))
         if (class(DesignExpression)[1] == "try-error") { stop("Caught an error trying to make Design Matrix")
-        } else { DesignMatrix <- model.matrix(as.formula(DesignExpression), FactorDF)}
+        } else {
+            DesignMatrix <- model.matrix(as.formula(DesignExpression), FactorDF)
+        }
+        
         DesignMatrix
     })
     
-
-
     output$Table <- DT::renderDataTable({
         datatable(ExperimentalDesign$FilteredFactorDF())
     })

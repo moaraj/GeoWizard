@@ -18,10 +18,9 @@ GseGsmTable <- GseTable %>% dplyr::select(-one_of("GPL")) %>%
   dplyr::inner_join(GsmTable, "series_id")
   
 
-
 # Select Single GSE from GSE-GSM Table
 gseList <- unique(GseGsmTable[,'series_id'])
-selectedGse <- 2
+selectedGse <- 1
 selectedGse <- gseList[selectedGse]
 
 # Filter Selected GSE
@@ -52,7 +51,9 @@ Step_6 <- DesignLabs(data.frame(Step_5))
 
 GSM <- Step_1$gsm
 GraphDF <- cbind(GSM, Step_6)
-DesignMatrix <- model.matrix( ~ ExpVar4.Text, GraphDF )
+DesignMatrix <- model.matrix( ~ ExpVar3.ContClass:ExpVar4.ContClass, GraphDF )
+colnames(DesignMatrix) <- c("Intercept","Cont.Cont", "Pert.Cont", "Cont.Pert", "Pert.Pert")
+
 
 ######### Function to Download File
 GeoRepoPath <- "~/GeoWizard/GEORepo"

@@ -566,42 +566,51 @@ server <- function(input, output, session) {
          })
      })
       
-     ExperimentalDesign$ControlFactorDF <- reactive({
-         shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
-         input$WhereVarData
-         DesignDF <- ExperimentalDesign$FilteredFactorDF()
+    ExperimentalDesign$ControlFactorDF <- reactive({
+    shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
+        DesignDF <- ExperimentalDesign$FilteredFactorDF()
+        NamesIndex <- colnames(DesignDF)
          
-         NamesIndex <- colnames(DesignDF)
-         ResDF <- lapply(NamesIndex, function(ColName) {
-             ResultVector <- DesignDF[, ColName]
-             inputName <- paste("Levels_", ColName, sep = "")
-             
-             InputControlLevel <- input[[inputName]]
-             OtherLevels <- levels(factor(ResultVector))
-             levels(ResultVector) <-
-                 unique(c(InputControlLevel, OtherLevels))
-             ResultVector
+        ResDF <- lapply(NamesIndex, function(ColName) {
+            ResultVector <- DesignDF[, ColName]
+            inputName <- paste("Levels_", ColName, sep = "")
+            InputControlLevel <- input[[inputName]]
+            res <- factor(ResultVector,
+            levels=c(InputControlLevel, setdiff(as.character(ResultVector), InputControlLevel)))
+        })
+        names(ResDF) <- NamesIndex
+        ResDF
          })
          
-         names(ResDF) <- NamesIndex
-         ResDF <- data.frame(do.call(cbind, ResDF))
-         ResDF <- ResDF %>% dplyr::arrange_all()
-         ResDF
-     })
      
       ##################### Formula Input
      
     ExperimentalDesign$DesignMatrixInput <- eventReactive(input$SubmitFormula, {
-        DesignDF <- ExperimentalDesign$ControlFactorDF()
+        FactorDF <- ExperimentalDesign$ControlFactorDF()
+        FactorDF <- do.call(cbind.data.frame, FactorDF)
+        DFindex <- c(1:nrow(FactorDF))
+        FactorDF <- cbind.data.frame(DFindex, FactorDF)
+        
+        #shiny::req(input$formulaInputDesign)
         Designformula <- input$formulaInputDesign
-            
+        Designformula_trimmed <- gsub("\\s", "", Designformula)
+        if (!grep(pattern = "^~",x = Designformula_trimmed)) {
+        stop("Formula input must begin with ~")
+        } else {
+        Designformula_factors <- unlist(strsplit(Designformula_trimmed, split = "\\+"))
+        Designformula_final <- gsub("~", "", Designformula_factors)
+        }
+        FormulaFactors <- grep(pattern = paste(Designformula_final,collapse = "|"), colnames(FactorDF), value = T)
+        RearrangeDF <- FactorDF %>% dplyr::arrange_(FormulaFactors)
+        
         DesignExpression <- try(as.formula(Designformula))
-        if (class(DesignExpression)[1] == "try-error") { stop("Caught an error trying to make Design Matrix") 
-        } else { DesignMatrix <- model.matrix(as.formula(DesignExpression), DesignDF)}
+        if (class(DesignExpression)[1] == "try-error") { stop("Caught an error trying to make Design Matrix")
+        } else {DesignMatrix <- model.matrix(as.formula(DesignExpression), FactorDF)}
         DesignMatrix
         })
     
     output$DesignMatrixRename_UI <- renderUI({
+        input$SubmitFormula
         DesignMatrix <- ExperimentalDesign$DesignMatrixInput()
         colnamesIndex <- 1:length(colnames(DesignMatrix))
         
@@ -625,6 +634,7 @@ server <- function(input, output, session) {
     })
     
     ExperimentalDesign$DesignMatrix <- reactive({
+        input$SubmitFormula
         DesignMatrix <- ExperimentalDesign$DesignMatrixInput()
         colnamesIndex <- 1:length(colnames(DesignMatrix))
         
@@ -643,6 +653,7 @@ server <- function(input, output, session) {
         colnames(DesignMatrix) <- unlist(NewColNames)
         DesignMatrix
     })
+    
     
       # output$TextAhead <- renderUI({
       #   
@@ -669,9 +680,7 @@ server <- function(input, output, session) {
       # })
      
       observeEvent(input$SubmitFormula, {
-          shiny::req(input$SubmitFormula,
-                     input$UsefulColumnsCheckbox,
-                     input$WhereVarData)
+          shiny::req(input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData)
           output$CustomExpressionTable <- DT::renderDataTable({
               DesignMatrix <- ExperimentalDesign$DesignMatrix()
               
@@ -691,11 +700,39 @@ server <- function(input, output, session) {
           })
       })
      
+    ExperimentalDesign$ContrastMatrix <- reactive({
+        DesignMatrix <- ExperimentalDesign$DesignMatrix()
+        message(colnames(DesignMatrix))
+        
+        ContrastInput <- ConTextInput(DesignMatrix)
+        message(paste("Contrast Input: ", ContrastInput))
+        ContrastMatrix <- makeContrasts(contrasts = ContrastInput, levels = DesignMatrix)
+        ContrastMatrix
+    })  
+    
+    output$ContrastMatrixTable <- renderDataTable({
+        shiny::req( input$CustomExpressionTable_rows_all)
+        ContrastMatrix <- ExperimentalDesign$ContrastMatrix()
+        DT::datatable(
+            data = ContrastMatrix,
+            rownames = TRUE,
+            class = 'compact',
+            extensions = 'Buttons',
+            options = list(
+                scrollY = '300px',
+                paging = FALSE,
+                dom = 'Bt',
+                buttons = c('copy', 'csv', 'excel')))
+    })
+      
     output$ExperimentalBlocksPlot <- renderPlot({
         shiny::req(input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData)
         DesignDF <- ExperimentalDesign$ControlFactorDF()
         
-        DesignExpression <- try(as.formula(input$formulaInputDesign))
+        DesignExpression <- input$formulaInputDesign
+        DesignExpression <- gsub(x = DesignExpression, pattern = ":",replacement = "\\+")
+        DesignExpression <- try(as.formula(DesignExpression))
+        
           RenderMosaicPlot <- try(vcd::mosaic(DesignExpression, DesignDF))
           
         if (class(RenderMosaicPlot)[1] == "try-error" |
@@ -707,6 +744,12 @@ server <- function(input, output, session) {
             )
         } else { RenderMosaicPlot }
       })
+    
+
+        
+    
+    
+    
      
     ######################## Expression Analysis
     
