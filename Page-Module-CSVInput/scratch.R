@@ -1,4 +1,3 @@
-library(shiny)
 ui <- shinyUI(
     dashboardPage(
     dashboardHeader(),
@@ -8,6 +7,7 @@ ui <- shinyUI(
         
         
     tabItems(
+    
         tabItem(
         tabName = "DataQC",
         fluidRow(
@@ -15,8 +15,10 @@ ui <- shinyUI(
         #column(12, div( id = "GSMMetadataWarning_Down", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
         #fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
         
+        
         tabBox(title = "Raw Data Statistics",
         width = 12,
+        
         tabPanel("Download Data",
         
         fluidRow(
@@ -114,174 +116,10 @@ ui <- shinyUI(
         plotOutput(outputId = "BioQCProfilePlot") %>% withSpinner(color = "#0dc5c1")
         )  # Plot Column 
         )  # Page Fluid Row
-        ),  # tabPanel BioQC"
-    
-    tabPanel(title = "Boxplots",
-        fluidRow(
-        column(4,
-                 
-        wellPanel(
-        fluidRow(
-        column(12,
-                        
-        h4('Plot Selection'), 
-        column(6, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample", "Gene"), selected = "")),
-        column(6, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution", "Factor Distribution"), selected = "Overall Distribution" )),
-        column(12, uiOutput("BoxFactorSelect")),
-        column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("Boxplot", "Violin Plot", "Histogram"), selected = "Boxplot")),
-        column(12, sliderInput("BoxPlot_nGenes", "Number of Genes to Sample", min = 1, max = 100, value = 10)),
-                        
-        h4('Plot Options'), 
-        column(4,checkboxInput('BoxPlot_showData','Show Data')),
-        column(4,checkboxInput('BoxPlot_showDataMean','Show Sample Means')),
-        column(4,checkboxInput('BoxPlot_AddWhiskers','Change Whisker Defintion')),
-        column(4,checkboxInput('BoxPlot_AddNotches','Add Notches')),
-        column(4,checkboxInput('VariableWidth','Variable Width Box')),
-        column(4,checkboxInput('BoxPlot_PlotAxisFlip','Axis Flip')),
-                        
-        conditionalPanel('input.BoxPlot_showData==1', 
-        column(12, br(),hr()),
-        h4("Data Point Plotting Options"),             
-        radioButtons(inputId = "BoxPlot_showDataOption", label = "", choices = c("jitter", "quasirandom", "beeswarm", "tukey", "frowney", "smiley"), selected = "jitter",inline = T),
-        sliderInput(inputId = "BoxPlot_JitterWidth", label = "Data Point Plot Area Width", min = 0,max = 2,step = 0.05,value = 0.1)
-        )),
-                   
-        column(12,
-        conditionalPanel('input.BoxPlot_showDataMean==1',hr(),
-        h4("Sample Mean Options"),             
-        radioButtons(inputId = "SampleMeanConfidenceInterval", label = "Define Confidence Interval of Means", choices = list("85%"=0.85, "90%"=0.90, "95%"=0.95, "99%"=0.99), selected = "95%", inline = T)
-        )),
-                   
-        column(12,
-        conditionalPanel('input.BoxPlot_AddWhiskers==1',hr(),
-        h4("Definition of Whisker Extent"),             
-        radioButtons(inputId = "BoxPlot_WhiskerType", label = "", choices = list("Tukey"=0, "Spear"=1, "Altman"=2), selected = 0, inline = T),             
-        conditionalPanel('input.BoxPlot_WhiskerType==0', "Tukey - whiskers extend to data points that are less than 1.5 x IQR away from 1st/3rd quartile"),
-        conditionalPanel('input.BoxPlot_WhiskerType==1', "Spear - whiskers extend to minimum and maximum values"),
-        conditionalPanel('input.BoxPlot_WhiskerType==2', "Altman - whiskers extend to 5th and 95th percentile (use only if n>40)")
-        )),
-                   
-        column(12,hr(),h4('Additional Parameters')),
-        
-        column(3,checkboxInput('BoxPlot_showColor','Color')),
-        column(3,checkboxInput('BoxPlot_showMargin','Labels & Title')),
-        column(3,checkboxInput('BoxPlot_showPlotSize','Plot Size')),
-        column(3,checkboxInput('BoxPlot_showMargins','Margins', value = 1)),
-        hr(),
-                   
-        column(12,
-        conditionalPanel('input.BoxPlot_showColor==1',
-        hr(),
-        h4('Color Manipulation'),
-        selectInput(inputId = "BoxPlot_ThemeSelect", label = "Select Theme:", choices = c("default","theme_gray", "theme_bw", "theme_light", "theme_dark", "theme_minimal", "theme_classic")),
-        sliderInput("BoxPlot_ncol", "Set Number of Colors", min = 1, max = 256, value = 256),
-        checkboxInput('BoxPlot_colRngAuto','Auto Color Range',value = T)
-        
-        )),
-                   
-        column(12,
-        conditionalPanel('input.BoxPlot_showMargin==1',
-        hr(),
-        h5('Widget Layout'),
-        column(4,textInput('BoxPlot_main','Title','')),
-        column(4,textInput('BoxPlot_xlab','X Title','')),
-        column(4,textInput('BoxPlot_ylab','Y Title','')),
-        sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180),
-        sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
-        )),
-                   
-        column(12,
-        conditionalPanel('input.BoxPlot_showPlotSize==1',
-        hr(),
-        h4('Plot Size Options'),
-        numericInput("BoxPlot_Height", "Plot height:", value=550),
-        numericInput("BoxPlot_Width", "Plot width:", value=750)
-        )),
-        
-        column(12,
-        conditionalPanel('input.BoxPlot_showMargins==1',
-        hr(),
-        h4('Plot Margin Options'),
-        column(3, numericInput("BoxPlot_margin_top", "Top:", value=0.1, step = 0.1)),
-        column(3, numericInput("BoxPlot_margin_bottom", "Bottom:", value=0.4, step = 0.1)),
-        column(3, numericInput("BoxPlot_margin_right", "Right:", value=1, step = 0.1)),
-        column(3, numericInput("BoxPlot_margin_left", "Left:", value=1, step = 0.1))
-        ))
-                   
-        ))),
-            
-        
-        column(8,
-        wellPanel(
-        fluidRow(
-        column(12, h3("Boxplot Render")),
-        column(12, uiOutput("BoxPlotUI") %>% withSpinner(color = "#0dc5c1")),
-        column(12, hr()),
-        column(4, actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh'))),
-        column(4, checkboxInput(inputId = "BoxPlot_ToggleInteractive", label = "Render Interactive Plot"))
+        )  # tabPanel BioQC"
         )
         )
         )
-        )
-        ), # tabPanel(title = "Boxplots"
-    
-        
-        tabPanel(title = "PCA",
-        fluidRow(
-        column(4,
-                 
-        wellPanel(
-        fluidRow(
-        column(12,
-
-        column(12,h3("PCA options")),
-        column(3, checkboxInput(inputId = "PCA_center",label = "Center Data")),
-        column(3, checkboxInput(inputId = "PCA_scale", label = "Scale Data", value = 1)),
-        column(3, checkboxInput(inputId = "MakeScree", label = "Scree Plot", value = 1)),
-        column(3, checkboxInput(inputId = "MakeLoading", label = "Loadings", value = 1)),
-        column(12,hr()),
-        column(6, uiOutput("PCA_GroupUI")),
-        column(6, uiOutput("PCA_LabelUI")),
-        column(6, uiOutput("PCA_xcomp_UI")),
-        column(6, uiOutput("PCA_ycomp_UI")),
-        
-        conditionalPanel(condition = "input.MakeScree == 1",
-        column(12,
-        hr(),h3("Scree Plot Options"),
-        sliderInput(inputId = "nCompScree", label = "Number of Components in Scree plot", min = 1, max = 20, value = 5, step = 1),
-        sliderInput(inputId = "ScreeYMax", label = "Y Max for Screer Plot", min = 0, max = 1, value = 1, step = 0.1),
-        selectInput(inputId = "ScreePlotType", label = "Scree Plot Type", choices = c("pev", "cev"), selected = "pev"),
-        conditionalPanel(condition = "input.ScreePlotType == 'pev'",            
-        "'pev' corresponds proportion of explained variance, i.e. the eigenvalues divided by the trace. "),
-        conditionalPanel(condition = "input.ScreePlotType == 'cev'",
-        "'cev' corresponds to the cumulative proportion of explained variance, i.e. the partial sum of the first k eigenvalues divided by the trace.")
-        )),
-        
-        conditionalPanel(condition = "input.MakeLoading == 1",
-        column(12,hr(),h3("Loadings Plot Options")),
-        column(12, uiOutput("LoadingSelect_UI")),
-        column(12, uiOutput("ShowNLoading_UI")))
-        )))),
-        
-        column(6,
-        h3("PCA Biplot"),
-        plotlyOutput("PCA_BiPlot")%>% withSpinner(color = "#0dc5c1"),
-        conditionalPanel(condition = "input.MakeScree == 1",
-        h3("Scree Plot"),
-        plotOutput("PCA_ScreePlot")%>% withSpinner(color = "#0dc5c1")),
-        conditionalPanel("input.MakeLoading == 1",
-        plotOutput("PCA_LoadingPlot")%>% withSpinner(color = "#0dc5c1")
-        )
-        )
-        
-        )
-        )
-    
-    
-    ) # Raw Data Statistics tabBox
-    ) # DataQC tab Column
-    ) # DataQC tab Fluid Row
-    
 
 ) # Tab Item
 ) # Tab Items
@@ -844,7 +682,6 @@ server <- shinyServer(function(input, output) {
             theme(axis.text.x = element_text(vjust = 1, angle = 90, size = 12)) + 
             theme(legend.text = element_text(size = 12))
         p
-        
         })
         
         

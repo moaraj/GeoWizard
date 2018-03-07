@@ -56,19 +56,15 @@ colnames(DesignMatrix) <- c("Intercept","Cont.Cont", "Pert.Cont", "Cont.Pert", "
 
 
 ######### Function to Download File
-GeoRepoPath <- "~/GeoWizard/GEORepo"
 GSE <- selectedGse
-
-
 GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepo = GeoRepo)
 GSEeset <- GSEeset[[1]]
 
-test <- LoadGEOFiles(GSE = GSE, GPL= "GPL9250", GeoRepo)
 ArrayData <- exprs(GSEeset)
 FactorDF <- Step_6[1:2]
 saveRDS(FactorDF,file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.rds")
-
 FeatureData <- fData(GSEeset)
+
 
 ######### Function to Make GMT Ggplotable
 GSM <- colnames(ArrayData)
@@ -92,8 +88,14 @@ GeneSymbolArrayData <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "Re
 
 ######### QC
 source(file = "QCAnalysis.R")
-RunBioQC(GMT = GeneSymbolArrayData)
+BioQCData <- RunBioQC(GMT = GeneSymbolArrayData)
+BioQCHeatmap(RunBioQCres = BioQCData)
+try(BioQCHeatmap(RunBioQCres = BioQCData))
+
+
+
 PCAPlots <- PlotPCA(ArrayData)
+
 
 
 ######### Limma

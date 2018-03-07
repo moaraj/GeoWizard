@@ -40,9 +40,6 @@ library(ggbeeswarm)
 library(plotly)
 library(heatmaply)
 
-#library(FactoMineR)
-#library(factoextra)
-
 source(file = file.path(GeoWizard, "GeoParse.R"))
 source(file = file.path(GeoWizard, "GSMAnnotation.R"))
 source(file = file.path(GeoWizard, "GeoFileHandling.R"))

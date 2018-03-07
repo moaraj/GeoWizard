@@ -1,11 +1,9 @@
 #' Generate a BioQC Heatmap from Eset
+#' @param GMT matrtix file with gene row names and column sample names
 #'
-#'
-#'
+#' x <- BioQCHeatmap(ArrayData)
 RunBioQC <- function(GMT){
-     
      # Function to determine if GeneSymbol
-     
      message("Loading BioQC Panels")
      gmtFile <- system.file("extdata/exp.tissuemark.affy.roche.symbols.gmt", package="BioQC")
      gmt <- readGmt(gmtFile)
@@ -20,9 +18,13 @@ RunBioQC <- function(GMT){
      bioqcResFil <- filterPmat(wmwResult.greater, 1E-8)
      bioqcAbsLogRes <- absLog10p(bioqcResFil)
      bioqcAbsLogRes <- tail(bioqcAbsLogRes, n = 10)
-     
-     message("Generating BioQC HeatMap")
-     heatmap.2(bioqcAbsLogRes, Colv=TRUE, Rowv=TRUE,
+     return(bioqcAbsLogRes)
+}
+
+BioQCHeatmap <- function(RunBioQCres){
+        bioqcAbsLogRes <- RunBioQCres
+        message("Generating BioQC HeatMap")
+        heatmap.2(bioqcAbsLogRes, Colv=TRUE, Rowv=TRUE,
                cexRow=1, cexCol = 1, dendrogram = "both",
                col=rev(brewer.pal(11, "RdBu")),
                labCol=1:ncol(bioqcAbsLogRes),
