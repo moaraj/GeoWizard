@@ -90,7 +90,32 @@ ui <- shinyUI(
         ) # TabPanel Fluid Row
         ), # Download Data tabPanel
     
+    tabPanel("BioQC", style = "margin-left :10px; margin-right :10px",
+                       
+        fluidRow(
+        column(4,     
+        wellPanel(
+        actionButton(inputId = "PerformBioQCAnalysis", 
+          label = "Perform BioQC Analysis", 
+          size = "large"
+        ),
+                       
+        helpText(
+        paste(
+          "BioQC performs quality control of high-throughput expression data based on ",
+          "tissue gene signatures. It can detect tissue heterogeneity in gene " ,
+          "expression data. The core algorithm is a Wilcoxon-Mann-Whitney ",
+          "test that is optimised for high performance."))
         
+        )  # Input Well Panel
+        ), # Input Column
+                       
+        column(8,
+        plotOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
+        )  # Plot Column 
+        )  # Page Fluid Row
+        ),  # tabPanel BioQC"
+    
     tabPanel(title = "Boxplots",
         fluidRow(
         column(4,
@@ -141,13 +166,14 @@ ui <- shinyUI(
         column(3,checkboxInput('BoxPlot_showColor','Color')),
         column(3,checkboxInput('BoxPlot_showMargin','Labels & Title')),
         column(3,checkboxInput('BoxPlot_showPlotSize','Plot Size')),
-        column(3,checkboxInput('BoxPlot_showMargins','Margins')),
+        column(3,checkboxInput('BoxPlot_showMargins','Margins', value = 1)),
         hr(),
                    
         column(12,
         conditionalPanel('input.BoxPlot_showColor==1',
         hr(),
         h4('Color Manipulation'),
+        selectInput(inputId = "BoxPlot_ThemeSelect", label = "Select Theme:", choices = c("default","theme_gray", "theme_bw", "theme_light", "theme_dark", "theme_minimal", "theme_classic")),
         sliderInput("BoxPlot_ncol", "Set Number of Colors", min = 1, max = 256, value = 256),
         checkboxInput('BoxPlot_colRngAuto','Auto Color Range',value = T)
         
@@ -198,6 +224,7 @@ ui <- shinyUI(
         )
         )
         ), # tabPanel(title = "Boxplots"
+    
         
         tabPanel(title = "PCA",
         fluidRow(
@@ -468,7 +495,7 @@ server <- shinyServer(function(input, output) {
           )
       })
      
-      output$BoxPlotly <- renderPlotly({
+      output$BoxPlotly <- renderPlot({
         shiny::req(input$BoxFactorSelectInput)
         FactorGMTMelt = GSEdata$FactorGMTMelt()
      
@@ -478,12 +505,14 @@ server <- shinyServer(function(input, output) {
             FactorGMTMelt <- FactorGMTMelt %>% filter(GSM %in% GeneSample)
             AesX <- FactorGMTMelt$GSM
             AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
+            GroupVar <- FactorGMTMelt$GSM
             xlabtext <- "GSMs in Dataset"
             legPos <- "top"
             
           } else if (input$BoxPlot_PlotBy == "Factor Distribution") {;message("Factor")
             AesX <- FactorGMTMelt[,input$BoxFactorSelectInput]
             AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
+            GroupVar <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
             xlabtext <- "Experimental Factors"
             legPos <- "top"
           }
@@ -496,31 +525,36 @@ server <- shinyServer(function(input, output) {
             AesX <- FactorGMTMelt$variable
             FactorGMTMelt <- FactorGMTMelt
             AesFill <- "red"
+            GroupVar <- NULL
             xlabtext <- "Assayed Genes"
             legPos <- "none"
             
           } else if (input$BoxPlot_PlotBy == "Factor Distribution") {
             AesX <- FactorGMTMelt$variable
             AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
+            GroupVar <- NULL
             xlabtext <- "Assayed Genes"
             legPos <- "top"
           }
         }
-        
-        p <- 
-            ggplot(data = FactorGMTMelt, aes(y = FactorGMTMelt$value, x = AesX, fill = AesFill)) +
+        red <- "red"
+        p <-
+            ggplot(data = FactorGMTMelt, aes_string(y = FactorGMTMelt$value, x = AesX, group = GroupVar, fill = AesFill)) +
+            #ggplot(data = FactorGMTMelt, aes(y = FactorGMTMelt$value, x = AesX, group = AesFill)) +
             theme(legend.position = legPos) +  
             ylab(label = "Expression Level") +
             xlab(label = xlabtext) +
             guides(fill=guide_legend(title="Experimental Factor Groups")) +
             theme(axis.text.x = element_text(angle = input$BoxPlot_column_text_angle)) + 
-            theme(axis.text = element_text(size = 14)) +
-            theme(axis.title = element_text(size = 14)) + 
-            theme(panel.background = element_rect(fill = "transparent")) # bg of the panel
-          
+            theme(axis.text = element_text(size = 14, hjust = 1)) +
+            theme(axis.title = element_text(size = 14)) +
+            theme(legend.text=element_text(size=14))
         
-        if (input$BoxPlot_Type == "Boxplot") { p <- p + geom_boxplot()
-        } else if (input$BoxPlot_Type == "Violin Plot") {p <- p + geom_violin()
+        if (input$BoxPlot_Type == "Boxplot") {
+            p <- p + geom_boxplot(varwidth = F, position = "dodge")
+            
+        } else if (input$BoxPlot_Type == "Violin Plot") {
+            p <- p + geom_violin()
         } else if (input$BoxPlot_Type == "Line Plot") { p <- p # bean plot code
         }
         
@@ -544,9 +578,17 @@ server <- shinyServer(function(input, output) {
                 input$BoxPlot_margin_left, 
                 "cm"))
         }
+        
+        if (input$BoxPlot_showColor) {
+            if (input$BoxPlot_ThemeSelect == "default") { p <- p }
+            else if (input$BoxPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
+            else if (input$BoxPlot_ThemeSelect == "theme_bw") {p <- p + theme_bw()}
+            else if (input$BoxPlot_ThemeSelect == "theme_light") {p <- p + theme_light()}
+            else if (input$BoxPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
+            else if (input$BoxPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
+            else if (input$BoxPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
+        }
           
-
-
         if (input$BoxPlot_PlotAxisFlip==1) { p <- p + coord_flip()}
         if (length(input$BoxPlot_main) > 0) { p <- p + labs(title = input$BoxPlot_main)}
         if (length(input$BoxPlot_xlab) > 0) { p <- p + labs(x = input$BoxPlot_xlab)}
@@ -555,7 +597,7 @@ server <- shinyServer(function(input, output) {
         #sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180)
         #sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
     
-        p <- ggplotly(p)
+        #p <- ggplotly(p)
         p
       })
       
@@ -564,10 +606,10 @@ server <- shinyServer(function(input, output) {
             plotHeight <- input$BoxPlot_Height
             plotWidth <- input$BoxPlot_Width
             
-            fluidRow( column(12, plotlyOutput(outputId = "BoxPlotly", height = plotHeight, width = plotWidth) %>% 
+            fluidRow( column(12, plotOutput(outputId = "BoxPlotly", height = plotHeight, width = plotWidth) %>% 
                 withSpinner(color = "#0dc5c1")))
             } else { 
-            fluidRow( column(12, plotlyOutput(outputId = "BoxPlotly") %>% 
+            fluidRow( column(12, plotOutput(outputId = "BoxPlotly") %>% 
                 withSpinner(color = "#0dc5c1")))
             }
         })
@@ -674,7 +716,7 @@ server <- shinyServer(function(input, output) {
             
             labeltype <- input$PCA_Label
             if (labeltype != "Sample Number") {labels <- FactorDF[, labeltype]
-             } else { labels <- rownames(Prcomp_res$x)}
+             } else { labels <- c(1:nrow(Prcomp_res$x))}
             
             grouping <- input$PCA_Group
             
@@ -763,6 +805,15 @@ server <- shinyServer(function(input, output) {
             p
             
             })
+            
+                # BioQC Analysis
+        observeEvent(input$PerformBioQCAnalysis, {
+            output$BioQCPlot <- renderPlot({
+            message("Loading Expression Set for BioQC")
+            ExpressionMatrix <- GSEdata$ExpressionMatrix()
+            RunBioQC(ExpressionMatrix)
+          })
+     })
       
 
     
