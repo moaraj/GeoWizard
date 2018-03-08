@@ -312,8 +312,7 @@ ui <- dashboardPage(
         condition="$('html').hasClass('shiny-busy')",
         box(title = "GSE Loading", solidHeader = T, width = 12, background = "yellow",
         fluidRow(column(8, offset = 2, h1(icon("exclamation-triangle"), "Please wait while data is retrieved data from GEO"))),
-        HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>'
-        )
+        HTML('<button class="btn btn-default"><i class="glyphicon glyphicon-refresh gly-spin"></i></button>')
         )
         )
         ), # GSE Search data Loading Message
@@ -575,51 +574,51 @@ ui <- dashboardPage(
         tabItem(
         tabName = "DataQC",
         fluidRow(
-        column(12, div( id = "GSMMetadataWarning_Down", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
+        column(10, div( id = "GSMMetadataWarning_Down", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
         fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
         
         column(10,
-               
         tabBox(title = "Raw Data Statistics",width = 12,
         tabPanel("Download Data",
         fluidRow(
-        column(4,  
+        column(4,
+        
+        fluidRow(
+        column(12,
+               
         wellPanel(
         h4("GMT File"),
         width = 12,
         solidHeader = T,
         status = "primary",
-                      
-        tags$p(tags$strong("Download Data from GEO")),
         
+        column(12,renderUI("GMTtoDownloadorUpload_UI")),
         actionButton(
           inputId = "DownloadGEOData",
           label = "Download",
           icon = icon("download"),
-          block = T
-          ),
-        br(),
-        
+          block = T, width = 12),
+        hr(),
         radioButtons(inputId = "ExpressionDataType",
-          label = "Gene Expression Data Type",
-          choiceNames = c("MicroArray", "NGS Sequencing", "Single Cell Sequencing"),
-          choiceValues = c("mArray", "RNAseq", "ssRNAseq"),
-          selected = "mArray"),
+            label = "Gene Expression Data Type",
+            choiceNames = c("MicroArray", "NGS Sequencing", "Single Cell Sequencing"),
+            choiceValues = c("mArray", "RNAseq", "ssRNAseq"),
+            selected = "mArray"),
         br(),
         uiOutput("GeneAnnotationTypeUI"),
         br(),
         radioButtons(
-          inputId = "RawDataTableMelt", 
-          label = "Which Data Matrix to Show" , 
-          choiceNames = c("Gene Matrix","Melted Gene Matrix with Factors"),
-          choiceValues = c("GMT", "FactorGMTMelt"), 
-          inline = T
-          )
+            inputId = "RawDataTableMelt", 
+            label = "Which Data Matrix to Show" , 
+            choiceNames = c("Gene Matrix","Melted Gene Matrix with Factors"),
+            choiceValues = c("GMT", "FactorGMTMelt"), 
+            inline = T)
         )  # Well Panel
-        ), # First Column
+        )  # InputPanel Spanning Column
+        )  # InputPenal Spanning FluidRow
+        ), # First Column of TabIteM
                       
         column(8,
-        
         h4("Datatable"),
         hr(),
         DT::dataTableOutput("RawDataQC") %>% withSpinner(color = "#0dc5c1")

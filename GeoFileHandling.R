@@ -6,10 +6,13 @@
 #' 
 #'  @example GeoRepo <- "~/GeoWizard/GEORepo"
 #'  GSE <- "GSE69967"
+#'  GPL <- NULL
 #'  GSE <- "GSE60482"
 #'  GPL <- "GPL11154"
-#'  LoadGEOFiles(GSE, GeoRepo)
+#'  esetQuery <- LoadGEOFiles(GSE, GPL, GeoRepo)
 
+
+#setInternet2(use=FALSE)
 
 LoadGEOFiles <- function(GSE, GPL, GeoRepo){
      GeoRepoFiles <- dir(GeoRepo)
@@ -28,50 +31,59 @@ LoadGEOFiles <- function(GSE, GPL, GeoRepo){
         length(MatrixFile) != 0) {
         message("Loading Matrix File from RDS")
         GSEeset <- readRDS(RDSFilePath)
+        
     } else if (isTRUE(file.exists(MatrixFilePath)) &
         length(MatrixFile) != 0) {
         message(paste("Matrix File for", GSE, "Found in GEORepo at", GeoRepo))
         GSEeset <- getGEO(filename = MatrixFilePath)
         message("Save ESET as RData for faster loading next time")
         saveRDS(object = GSEeset, file = RDSFilePath)
+        
     } else if (length(MatrixFilePath) > 1) {
         GSElist <- lapply(MatrixFilePath, function(GseFile) {
         GSEeset <- getGEO(filename = MatrixFilePath)
         })
         names(GSElist) <- MatrixFile
+        
     } else {
-        GSEeset <- getGEO(GSE, destdir = "~/GeoWizard/GEORepo")
+        GSEeset <- try(getGEO(GSE, destdir = GeoRepo))
+        if (class(GSEeset) == "try-error") {
+            Sys.sleep(0.5) # Retry GEO Servers, load adjustment changes acess server sometimes
+            GSEeset <- getGEO(GSE)
+        }
+        if (class(GSEeset) == "try-error") {
+        stop("Error Downloading Data Using GEO Query, download manually")
+        }
+        
+        if(missing(GPL)) { return(GSEeset) 
+        } else { GSEeset <- GetGPLFromList(GSEeset, GPL)}
         saveRDS(object = GSEeset, file = RDSFilePath)
         message("Save ESET as RData for faster loading next time")
     }
     
-    if(missing(GPL)) { return(GSEeset)
-    } else { GSEeset <- GetGPLFromList(GSEeset, GPL)
-        return(GSEeset)
-    }
+    if(class(GSEeset) == "list"){ GSEeset <- GSEeset[[1]] }
+    return(GSEeset)
 }
 
 #' Retrieve the GSE matrix pertaining to selected GPL
 #'
 #' @param esetList list of expression set objects
-#' @param GPL character string of 
+#' @param GPL character string of GPL to extract from GSE
 
 GetGPLFromList <- function(esetList, GPL){
-    if (length(GPL) > 1) {
-    warning("Multiple GPL supplied, using first")
-    GPL <- GPL[1]
-    }
+    if (length(GPL) > 1) { warning("Multiple GPL supplied, using first"); GPL <- GPL[1] }
     
     if (class(esetList) == "list" | !missing(GPL) |!missing(esetList)) {
-    GPLinList <- lapply(GSEeset, annotation)
-    GPLMatrixFiles <- names(GPLinList)
-    GPLSelectedIndex <- grep(pattern = GPL, x = GPLMatrixFiles)
-    GSEeset <- GSEeset[[GPLSelectedIndex]]
-    } else
-    message("GSE List only contains one element or GPL not supplied")
-    return(esetList)
+        GPLinList <- as.character(lapply(esetList, annotation))
+        GPLSelectedIndex <- grep(pattern = GPL, x = GPLinList) # Replace Grep Funciton with index ==
+        GSEeset <- esetList[[GPLSelectedIndex]]
+        if (class(GSEeset)=="ExpressionSet") { return(GSEeset) } else { stop("GetGPLFromList - extracting datamatrix from GEO Query output")}
+        
+    } else {
+        message("GSE List only contains one element or GPL not supplied")
+        return(esetList)    
     }
-
+    }
 
 #' @param GSEeset eset of the GSE being processed
 #' @param Annotation string containing one of gene annotation systems

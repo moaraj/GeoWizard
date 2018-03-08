@@ -1,28 +1,41 @@
 #' Generate a BioQC Heatmap from Eset
+#' @param GeneExpressionInput eset or matrtix file with gene row names and column sample names
+#' @param nTopSignatures number of top scoring signatures to show
+#' BioQCRes <- RunBioQC(GeneExpressionInput = GSEeset, nTopSignatures = 10)
+
+RunBioQC <- function(GeneExpressionInput){
+    # Function to determine if GeneSymbol
+    message("Loading BioQC Panels")
+    gmtFile <- system.file("extdata/exp.tissuemark.affy.roche.symbols.gmt", package="BioQC")
+    gmt <- readGmt(gmtFile)
+    
+    if (class(GeneExpressionInput) == "ExpressionSet") {
+    GeneSymbols <- fData(ExpressSetInput)$`Gene Symbol`    
+    } else if (class(GeneExpressionInput) == "matrix") {
+    GeneSymbols <- rownames(GeneExpressionInput)
+    } else { stop("Error in RunBioQC input must be matrix or ExpressionSet")}
+    
+    genesets <- BioQC::readGmt(gmtFile)
+    testIndex <- BioQC::matchGenes(gmt, GeneSymbols)
+     
+    wmwResult.greater <- wmwTest(GeneExpressionInput, testIndex, valType="p.greater")
+    #wmwResult.less <- wmwTest(GeneExpressionInput, testIndex, valType="p.less")
+    #wmwResult.Q <- wmwTest(GeneExpressionInput, testIndex, valType="Q")
+    
+    bioqcResFil <- filterPmat(wmwResult.greater, 1E-8)
+    bioqcAbsLogRes <- absLog10p(bioqcResFil)
+    return(bioqcAbsLogRes)
+}
+
 #'
 #'
 #'
-RunBioQC <- function(GMT){
-     
-     # Function to determine if GeneSymbol
-     
-     message("Loading BioQC Panels")
-     gmtFile <- system.file("extdata/exp.tissuemark.affy.roche.symbols.gmt", package="BioQC")
-     gmt <- readGmt(gmtFile)
-     
-     genesets <- BioQC::readGmt(gmtFile)
-     testIndex <- BioQC::matchGenes(genesets, GMT)
-     
-     wmwResult.greater <- wmwTest(GMT, testIndex, valType="p.greater")
-     #wmwResult.less <- wmwTest(GSEeset, testIndex, valType="p.less")
-     #wmwResult.Q <- wmwTest(GSEeset, testIndex, valType="Q")
-     
-     bioqcResFil <- filterPmat(wmwResult.greater, 1E-8)
-     bioqcAbsLogRes <- absLog10p(bioqcResFil)
-     bioqcAbsLogRes <- tail(bioqcAbsLogRes, n = 10)
-     
-     message("Generating BioQC HeatMap")
-     heatmap.2(bioqcAbsLogRes, Colv=TRUE, Rowv=TRUE,
+#'
+#BioQCHeatmap(BioQCRes)
+BioQCHeatmap <- function(BioQCRes){
+        message("Generating BioQC HeatMap")
+        message(class(BioQCRes))
+        heatmap.2(x = BioQCRes, Colv=TRUE, Rowv=TRUE,
                cexRow=1, cexCol = 1, dendrogram = "both",
                col=rev(brewer.pal(11, "RdBu")),
                labCol=1:ncol(bioqcAbsLogRes),
@@ -34,6 +47,27 @@ RunBioQC <- function(GMT){
                lhei = c(1.5,4,1),
                trace = 'none')
 }
+
+#'
+#'
+#'
+#'
+#'
+
+BioQCProfile <- function(BioQCRes, TissueSelection){
+        BioQCDataSelection <- BioQCRes[c(TissueSelection),]
+        BioQCDataMelt <- melt(BioQCDataSelection) 
+        colnames(BioQCDataMelt) <- c("tissue", "sample", "bioqc")
+        p <- 
+            ggplot(data = BioQCDataMelt, aes(x = sample,y = bioqc, group = tissue, color = tissue)) + 
+            geom_point() + geom_line() + 
+            labs(x ="Sample GSM Acession", y = "BioQC Score", color = "BioQC Tissue Score") + 
+            theme(legend.position="bottom") + 
+            theme(axis.text.x = element_text(vjust = 1, angle = 90, size = 12)) + 
+            theme(legend.text = element_text(size = 12))
+        return(p)
+}
+
 
 #' @param ExpressionMatrix eset of GSE being processed
 #' @param FactorDF DF - each column a vectors #' experimental factor found in the title, 

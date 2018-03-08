@@ -22,16 +22,18 @@ library(DT)
 
 #GeoParse
 library(xml2)
+library(RCurl)
+library(XML)
 library(GEOquery)
 library(GEOmetadb)
 
-
-
 library(limma)
 library(Biobase)
-library(BioQC) #install.packages("https://bioarchive.galaxyproject.org/BioQC_1.4.0.tar.gz", repos = NULL)
+#install.packages("https://bioarchive.galaxyproject.org/BioQC_1.4.0.tar.gz", repos = NULL, lib =  "~/GeoWizard/RequiredPackages/")
+library(BioQC)
+library(Rcpp)
+library(BioQC)
 library(vcd)
-
 
 library(RColorBrewer)
 library(beanplot)
@@ -40,9 +42,6 @@ library(beeswarm)
 library(ggbeeswarm)
 library(plotly)
 library(heatmaply)
-
-#library(FactoMineR)
-#library(factoextra)
 
 source(file = file.path(GeoWizard, "GeoParse.R"))
 source(file = file.path(GeoWizard, "GSMAnnotation.R"))
