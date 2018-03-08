@@ -2,6 +2,11 @@
 .Rhistory
 .Rapp.history
 
+# R Data files
+*.rds
+*.gz.rds
+*.txt.gz.rds
+
 # Session Data files
 .RData
 .rds
@@ -33,7 +38,6 @@ vignettes/*.pdf
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
-
 
 # Large GSE Files and SQLLite
 *.sqlite

@@ -1,0 +1,389 @@
+#! /usr/bin/env Rscript
+
+suppressMessages(library(ribiosUtils))
+suppressMessages(library(ribiosArg))
+scriptInit()
+
+usage <- paste("Identify differentially expressed genes using the limma model\n",
+               "Usage: ", scriptName(), " -infile FILE -design FILE -contrast FILE -outdir DIR [-annotateFeatures] [-featureAnno FILE] [-groups G1,G2...,GN] [-weight] [-doPathwayAnalysis] [-log -]\n",
+               "Mandatory parameters:\n",
+               "  -infile: Input expression file in GCT or tab-delimited file format. Log2-transformation and/or between array normalisation *must* have been done.\n",
+	       "  -design: Design matrix in tab-delimited format. It must have the same number of rows as samples in the infile\n",	
+               "  -contrast: Contrast matrix in tab-delimited format. It must have the same number of rows as columns in the design file\n",
+               "\n",
+               "Optional parameters:\n",
+               "  -annotateFeatures: Try to annotate features with Roche Bioinformatics Infrastructure. See 'featureAnno' for alternative\n",
+               "  -featureAnno: tab-delimited file annotating features.The first column must contain feature names.\n",
+	       "                 A column containing 'GeneSymbol' or 'HumanGeneSymbol' is used to map features to official gene symbols, which are used for pathway analysis\n",
+               "  -groups: Strings separated by commas (,) assigning samples into mutually exclusive groups. Must be of the same length as sample numbers\n",
+               "  -outdir: output directory. A new directory will be created if it does not exist yet. If missing, files will be written to the current directory.\n",
+	       "  -weight: use linear model to estimate sample weights.\n",
+               "  -doPathwayAnalysis: perform pathway analysis with camera method.\n",
+	       "  -mps: (experimental) perform pathway analysis with molecular phenotyping gene sets\n",
+               "  -writedb: (experimental) write results to the ROGER database\n",
+               "  -log FILE: write log file. If missing, no logging takes place. Set to '-' will direct loggings to stdout.\n\n",
+	       "For advanced users:\n",
+               "  -debug: debug mode: pathway analysis in run faster by subsampling genesets\n",
+                sep="")
+
+argParse("annotateFeatures featureAnno,1 groups,1 log,1 outdir,1 weight doPathwayAnalysis mps debug writedb","infile design contrast", usage=usage)
+
+##----------------------------------------##
+## parse input parameters
+##----------------------------------------##
+registerLog(argGet("log", default=NULL))
+doLog("%s starts", scriptName())
+doLog("Parsing input parameters")
+
+assertFile(infile <- argGet("infile"))
+assertFile(designFile <- argGet("design"))
+assertFile(contrastFile <- argGet("contrast"))
+
+weight <- argPresent("weight")
+
+createDir(outdir <- argGet("outdir", default=getwd()))
+outfile <- function(x) file.path(outdir, x)
+
+## check expression and dimension compability
+libordie(ribiosIO)
+expmat <- read_exprs_matrix(infile)
+design <- read_exprs_matrix(designFile)
+conts <- read_exprs_matrix(contrastFile)
+
+## constrain 1: nrow(design)==ncol(expmat)
+if(nrow(design)!=ncol(expmat))
+  qqmsg(sprintf("[Error]: Expression matrix has %d columns, while design matrix has %d rows. They must be identical!",
+                ncol(expmat), nrow(design)),
+        status=2)
+## constrain 2: nrow(conts)==ncol(design)
+if(nrow(conts)!=ncol(design))
+  qqmsg(sprintf("[Error]: Design matrix has %d columns, while contrasts matrix has %d rows. They must be identical!",
+                nrow(conts), ncol(design)),
+        status=3)
+
+## doPathwayAnalysis
+doPathwayAnalysis <- argPresent("doPathwayAnalysis")
+useMPS <- argPresent("mps")
+
+## feature annotation
+isAnnotated <- TRUE
+if(argPresent("annotateFeatures") || (doPathwayAnalysis & !argPresent("featureAnno"))) {
+    libordie(ribiosAnnotation)
+    doLog("Annotating features with Roche Bioinformatics Infrastructure")
+    fdf <- annotateProbeIDs(rownames(expmat), orthologue=TRUE)
+    colnames(fdf)[1] <- "Feature" ## by default annotateProbeIDs return 'ProbeID' as the first column name
+} else if(!is.null(featFile <- argGet("featureAnno"))) {
+    doLog("Annotating features with user's input file")
+    feat <- read.table(featFile, sep="\t",
+                       header=TRUE, check.names=FALSE, comment.char="", quote="\"", row.names=1L)
+    fdf <- cbind(Feature=rownames(expmat),
+                 matchColumn(rownames(expmat), feat, 0L))
+} else {
+    fdf <- data.frame(Feature=rownames(expmat),
+                      row.names=rownames(expmat))
+    isAnnotated <- FALSE
+}
+
+## levels must be valid names
+## design.names.backup <- colnames(design); colnames(design) <- make.names(colnames(design))
+conts.names.backup <- colnames(conts); colnames(conts) <- make.names(colnames(conts))
+
+if(!is.null(input.strings <- argGet("groups", default=NULL))) {
+  groups <- parseStrings(input.strings)
+} else {
+  groups <- apply(design, 1, function(x) paste(colnames(design), x, sep=".", collapse="_"))
+}
+
+isWriteDB <- argPresent("writedb")
+
+## debug
+if(argPresent("debug"))
+    setDebug()
+
+##----------------------------------------##
+## load libraries
+##----------------------------------------##
+libordie(xtable)
+libordie(ribiosExpression, minVer="1.0-36")
+libordie(ribiosGSEA)
+libordie(Biobase)
+libordie(limma)
+libordie(edgeR)
+libordie(KernSmooth)
+libordie(splines)
+
+##----------------------------------------##
+## read in files
+##----------------------------------------##
+DGE_STATS_RDATA <- outfile("dge_stats.RData")
+
+doLog("Performing differential gene expression analysis using limma")
+
+## limma
+eset <- new("ExpressionSet", exprs=expmat)
+fData(eset) <- fdf
+if(weight) {
+  doLog("Estimating weights by linear model", level=1L)
+  weights <- arrayWeights(eset, design=design)
+} else {
+  weights <- rep(1L, ncol(expmat))
+}
+
+esetFit <- lmFit(object=eset, design=design, weights=weights)
+esetFit <- contrasts.fit(esetFit, conts)
+esetFit <- eBayes(esetFit)
+esetTopTables <- lapply(1:ncol(conts),
+                        function(x) {
+                            tbl <- topTable(esetFit, coef=x, number=nrow(eset))
+                            tbl <- limmaTopTable2dgeTable(tbl)
+                            return(tbl)
+                        })
+names(esetTopTables) <- conts.names.backup
+
+## camera
+getGeneSymbols <- function(featureTbl) {
+    genes <- NULL
+    if("GeneSymbol" %in% colnames(featureTbl)) {
+        genes <- featureTbl[,"GeneSymbol"]
+    } else if ("HumanGeneSymbol" %in% colnames(featureTbl)) {
+        genes <- featureTbl[, "HumanGeneSymbol"]
+    }
+    if(is.null(genes)) return(NULL)
+    if(mean(!is.na(genes))>=0.25) { ## when more than 25% probes are annotated 
+        return(as.character(genes))
+    } else {
+        return(NULL)
+    }
+}
+esetCamera <- function(eset, geneSymbols, design, contrasts, gscs) {
+    categories <- gsCategory(gscs)
+    cameraTables <- tapply(gscs, categories, function(gsc) {
+                               tt <- gscCamera(exprs(eset), geneSymbols,
+                                               gsc=gsc, design=design, contrasts=contrasts)
+                           })
+    cameraTable <- do.call(rbind, cameraTables)
+    cameraTable$Category <- rep(names(cameraTables), sapply(cameraTables, nrow))
+    cameraTable <- putColsFirst(cameraTable, "Category")
+    rownames(cameraTable) <- NULL
+    return(cameraTable)
+}
+
+gscs <- NULL
+cameraResult <- NULL
+if(doPathwayAnalysis) {
+    esetGeneSymbols <- getGeneSymbols(fData(eset))
+    if(!is.null(esetGeneSymbols)) {
+
+        doLog("Performing competitive pathway analysis using the camera method")
+
+        doLog("Importing gene sets", level=1)
+        gscs <- ribiosGSEA::readDefaultGenesets(path="/pstore/apps/bioinfo/geneexpression/data/gmt",
+                                            mps=useMPS)
+        
+        doLog("Performing analysis with camera", level=1)
+        cameraResult <- esetCamera(eset,
+                                   esetGeneSymbols,
+                                   design, conts, gscs)
+    } else {
+        doLog("Skip pathway analysis because no valid feature annotations were provided.")
+        doLog("Run the script without any parameter to see the requirement for featureAnno", level=1)
+    }
+} else {
+    doLog("Skip pathway analysis")
+}
+
+doLog("Saving statistical models into R binary file")
+save(eset, esetFit, esetTopTables, cameraResult, gscs,
+     file=DGE_STATS_RDATA)
+
+##----------------------------------------##
+## output results and HTML summary page
+##----------------------------------------##
+## top tables
+doLog("Export results")
+ttFileNames <- outfile(sprintf("toptable_%s.txt", conts.names.backup))
+write.tableList(esetTopTables, ttFileNames,
+                sep="\t", quote=FALSE, row.names=FALSE)
+
+esetTruncTables <- lapply(esetTopTables, truncateDgeTable)
+truncPosFiles <- outfile(sprintf("TruncatedDEGtable-positive-%s.txt", conts.names.backup))
+truncNegFiles <- outfile(sprintf("TruncatedDEGtable-negative-%s.txt", conts.names.backup))
+for(i in seq(along=esetTruncTables)) {
+    writeMatrix(esetTruncTables[[i]]$pos, truncPosFiles[i])
+    writeMatrix(esetTruncTables[[i]]$neg, truncNegFiles[i])
+}
+
+rnkFileNames <- outfile(sprintf("rnktable_logFC_%s.rnk", conts.names.backup))
+
+esetRnkTables <- lapply(esetTopTables, function(x) sortByCol(x[,c("Feature", "logFC")], "logFC"))
+write.tableList(esetRnkTables, rnkFileNames,
+                sep="\t", quote=FALSE, row.names=FALSE)
+
+rnkTstatFileNames <- outfile(sprintf("rnktable_tstat_%s.rnk", conts.names.backup))
+esetTstatRnkTables <- lapply(esetTopTables, function(x) sortByCol(x[,c("Feature", "t")], "t"))
+write.tableList(esetTstatRnkTables, rnkTstatFileNames,
+                sep="\t", quote=FALSE, row.names=FALSE)
+
+gscsFileName <- outfile("camera-genesets.gmt")
+cameraResultFileName <- outfile("camera-results.txt")
+if(!is.null(gscs)) {
+    writeGmt(gscs, gscsFileName)
+}
+if(!is.null(cameraResult)) {
+    writeMatrix(cameraResult, cameraResultFileName, row.names=FALSE)
+}
+
+## volcano plots
+volcanos <- function(topTables, 
+                     xlab="LogFC", ylab="-log10(P-value)",...) {
+  names <- names(topTables)
+  for(i in seq(along=topTables)) {
+    xx <- topTables[[i]]$logFC
+    yy <- -log10(topTables[[i]]$PValue)
+    smoothScatter(xx, yy, main=names[i],
+                  xlab=xlab, ylab=ylab,...)
+  }
+}
+VOLCANO_PLOT_FILE <- outfile("volcano_plots.pdf")
+openFileDevice(VOLCANO_PLOT_FILE)
+volcanos(esetTopTables)
+closeFileDevice()
+
+## p-value histograms
+pHist <- function(topTables, xlab="P-value", ylab="Count",col="lightblue",...) {
+  names <- names(topTables)
+  for(i in seq(along=topTables)) {
+    xx <- topTables[[i]]$PValue
+    hist(xx, breaks=pmin(100, length(xx)), col=col,
+         main=names[i], ...)
+  }
+}
+PHIST_FILE <- outfile("pvalues_histogram.pdf")
+openFileDevice(PHIST_FILE)
+pHist(esetTopTables)
+closeFileDevice()
+
+## write HTML report
+writeHTML <- function(file,
+                      design,
+                      contrasts,
+                      topTableFileNames,
+                      rnkTableFileNames,
+                      truncPosTableFileNames,
+                      truncNegTableFileNames,
+                      rnkTstatFileNames=NULL,
+                      gscsFileName=NULL,
+                      cameraResultFileName=NULL,
+                      volcanoFile,
+                      phistFile,
+                      statFile) {
+  fmt <- "<html>\
+<header>\
+<title>HTML report of differential gene expression</title> \
+</header>\
+<body>\
+<h2>Report of differential gene expression</h2>\
+BEDA Basel, PS-TTB\
+<h3>Top tables:</h3>\
+<ol>\
+%s\
+</ol>\
+<h3>LogFC Rnk files:</h3>\
+<ol>\
+%s\
+</ol>\
+<h3>Truncated top tables:</h3>\
+<ol>\
+%s\
+</ol>\
+%s \
+<h3>Design and contrast matrix</h3>\
+<h4>design matrix</h4>\
+%s\
+<h4>contrast matrix</h4>\
+%s\
+<h3>Diagnostic plots</h3>\
+<ol>\
+<li><a href=\"%s\">Volcano plots</a></li>\
+<li><a href=\"%s\"><i>p</i>-value distributions</a></li>\
+</ol>\
+%s \
+<h3>Binary R file</h3>\
+<a href=\"%s\">Binary RData file</a> can be downloaded for manual inspection.\
+</body>\
+</html>"
+  tt <- paste(sprintf("<li><a href='%s'>%s</a></li>",
+                      basename(topTableFileNames),
+                      colnames(contrasts)),
+              collapse="\n")
+  rnks <- paste(sprintf("<li><a href='%s'>%s</a></li>",
+                        basename(rnkTableFileNames),
+                        colnames(contrasts)),
+                collapse="\n")
+  truncs <- paste(sprintf("<li>%s<ul><li><a href='%s'>positive</a></li><li><a href='%s'>negative</a></li></ul></li>",
+                          colnames(contrasts),
+                          basename(truncPosTableFileNames),
+                          basename(truncNegTableFileNames)),
+                  collapse="\n")
+  if(!is.null(rnkTstatFileNames)) {
+    trnks <- sprintf("<h3>t-stat Rnk files:</h3><ol>%s</ol>",
+                     paste(sprintf("<li><a href='%s'>%s</a></li>",
+                                   basename(rnkTstatFileNames),
+                                   colnames(contrasts)),
+                           collapse="\n")
+                     )
+  } else {
+    trnks <- ""
+  }
+  designHTML <- print(xtable(design), type="html", print.results=FALSE)
+  contrastHTML <- print(xtable(contrasts), type="html", print.results=FALSE)
+  if(!is.null(cameraResultFileName) & !is.null(gscsFileName)) {
+      cameraTrunk <- paste("<h3>Pathway analysis results (camera method)</h3>\n",
+                           "<ol>",
+                           "<li><a href='", basename(gscsFileName), "'>gene set gmt file</a></li>\n", 
+                           "<li><a href='", basename(cameraResultFileName), "'>pathway analysis result: tab-delimited file</a></li>\n",
+                           "</ol>", sep="")
+  } else {
+      cameraTrunk <- ""
+  }
+  htmlString <- sprintf(fmt,
+                        tt,
+                        rnks,
+                        truncs,
+                        trnks,
+                        designHTML,
+                        contrastHTML,
+                        volcanoFile, phistFile,
+                        cameraTrunk,
+                        statFile)
+  writeLines(htmlString, con=file)
+}
+writeHTML(file=outfile("index.html"),
+          design=design,
+          contrasts=conts,
+          topTableFileNames=ttFileNames,
+          rnkTableFileNames=rnkFileNames,
+          truncPosTableFileNames=truncPosFiles,
+          truncNegTableFileNames=truncNegFiles,
+          rnkTstatFileNames=rnkTstatFileNames,
+          gscsFileName=gscsFileName,
+          cameraResultFileName=cameraResultFileName,
+          volcanoFile=basename(VOLCANO_PLOT_FILE),
+          phistFile=basename(PHIST_FILE),
+          statFile=basename(DGE_STATS_RDATA))
+
+## writedb
+if(isWriteDB) {
+    doLog("Writing results to ROGER")
+    libordie(ribiosROGER)
+    eset <- maPhenoData(eset, phenoDataFile=NULL, groups=groups)
+    rogerCon <- ribiosROGER::devROGER()
+    importLimmaResult(conn=rogerCon, eSet=eset, eSetFit=esetFit,
+                      enrichTbl=cameraResult, valType="RMA",
+                      xref=NA, anno=isAnnotated, verbose=TRUE)
+}
+##----------------------------------------##
+## Exiting
+##----------------------------------------##
+doLog("%s exits", scriptName())
+qqmsg(status=0L)

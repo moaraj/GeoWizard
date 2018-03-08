@@ -1,0 +1,115 @@
+#!/bin/bash /apps64/bi/R/proxyRscript
+
+suppressMessages(library(ribiosArg))
+suppressMessages(library(ribiosUtils))
+scriptInit()
+
+usage <- paste("Identify differentially expressed genes with DEseq\n\n",
+scriptName(), " [-gct ]FILE [-cls ]FILE [-control ]control [-treatment ]treatment [-outfile FILE]\
+Parameters:\
+-gct: A file in the GCT format, containing unnormalized read counts of genes\
+-cls: A file in the CLS format, matching the gct file\
+-control: Control condition\
+-treatment: Treatment condition. The comparison is Treatment-Control.\
+Optional:\
+-log: logfile. If not specified, no logging is done. Using '-' to print log on to stdout.\
+-sumquant: filter features whose count sum is under certain quantile. The value should be between 0 and 1. Default value:0 (e.g. no filtering).\
+-outfile: output file (stdout if missing)", sep="")
+
+argParse("log,1 sumquant,1 outfile,1", "gct cls control treatment", usage=usage)
+
+##----------------------------------------##
+## Logging
+##----------------------------------------##
+log <- argGet("log")
+registerLog(log)
+doLog(sprintf("%s starts", scriptName()))
+
+##----------------------------------------##
+## input parsing
+##----------------------------------------##
+assertFile(gctfile <- argGet("gct"))
+assertFile(clsfile <- argGet("cls"))
+control <- argGet("control")
+treatment <- argGet("treatment")
+outf <- ifelse(argPresent("outfile"), argGet("outfile"), "")
+sumquant <- parseNumVec(argGet("sumquant"), expLen=1L, failVal=0)
+if(sumquant<0 || sumquant>1)
+  qqmsg("sumquant must be between 0 and 1")
+
+##----------------------------------------##
+## library loading
+##----------------------------------------##
+
+libordie("ribiosIO")
+libordie("DESeq", minVer="1.10.0")
+
+##----------------------------------------##
+## file parsing
+##----------------------------------------##
+tbl <- read_exprs_matrix(gctfile)
+clsTbl <- read_cls(clsfile)
+classes <- names(table(clsTbl))
+if(is.na(control.ind <- pmatch(control, classes)))
+  qqmsg("control does match any class in the cls file", status=1L)
+if(is.na(treatment.ind <- pmatch(treatment, classes)))
+  qqmsg("treatment does match any class in the cls file", status=1L)
+
+doLog(sprintf("Input matrix: %d features x %d samples", nrow(tbl), ncol(tbl)))
+doLog(sprintf("Sample classes [%d]: %s", nlevels(clsTbl), paste("[", seq(along=classes), "]", classes, sep="", collapse=" ")))
+doLog(sprintf("Control: [%d]%s", control.ind, control))
+doLog(sprintf("Treatment: [%d]%s", treatment.ind, treatment))
+
+##----------------------------------------##
+## preprocessing
+##----------------------------------------##
+if(any(is.na(tbl))) {
+  isNa <- is.na(tbl)
+  tbl[is.na(tbl)] <- 0L
+  doLog(sprintf("Replace %d NA values with 0", sum(isNA)))
+}
+
+rs <- rowSums(tbl)
+thr <- quantile(rs, probs=sumquant, na.rm=TRUE)
+uniFil <- rs > thr
+if(sumquant>0) {
+  doLog(sprintf("Filter by count sum, threshold=%2.1f", thr))
+  doLog(sprintf("%d features are discarded, %d remain", sum(!uniFil), sum(uniFil)), level=1)
+}  
+
+subtbl <- tbl[uniFil,]
+design <- data.frame(row.names=colnames(tbl),
+                        condition=clsTbl)
+
+##----------------------------------------##
+## DESeq
+##----------------------------------------##
+cds <- newCountDataSet(subtbl, design$condition)
+cds <- estimateSizeFactors(cds)
+cds.sizeFactors <- sizeFactors(cds)
+
+doLog("Size factors")
+doLog("Sample\tSize Factor", level=1)
+for(i in 1:ncol(cds))
+  doLog(sprintf("%s\t%2.2f", sampleNames(cds)[i], cds.sizeFactors[i]), level=1)
+
+doLog("Esimate dispersions...")
+cds <- estimateDispersions(cds)
+
+doLog("Performing nbinomTest...")
+res <- nbinomTest(cds, control, treatment)
+
+doLog("Annotation (more TO DO)...")
+res$desc <- attr(tbl, "desc")[match(res[, 1], rownames(tbl))]
+
+res <- sortByCol(res, c("padj", "log2FoldChange"), decreasing=FALSE)
+colnames(res) <- c("id", "baseMean", "baseControl", "baseTreatment",
+                   "foldChange", "log2FoldChange", "pval", "padj", "desc")
+res <- putColsFirst(res, c("id","desc"))
+write.table(res, file=outf, sep="\t", row.names=FALSE, quote=FALSE)
+
+##----------------------------------------##
+## Quit
+##----------------------------------------##
+doLog("Quit")
+qqmsg(status=0L)

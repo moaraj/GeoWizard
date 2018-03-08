@@ -3,45 +3,42 @@
 #'
 #'
 #'
-LimmaRes <- function(ArrayData, DesignMatrix){
-     fit <- lmFit(ArrayData, DesignMatrix)
-     fit <- eBayes(fit)
-     fit <- eBayes(fit,trend=TRUE)
-     return(fit)
-}
-
-#'
-#'
-#'
-LimmaTopTable <- function(fit, DesignMatrix) {
-     DesignMatrix <- fit$design 
+LimmaOutput <- function(ArrayData, DesignMatrix, ContrastString){
+    ContrastMatrix <- makeContrasts(ContrastMatrix, levels = DesignMatrix)    
+    ContrastMatrix <- PairWiseContrast(colnames(DesignMatrix))
+    fit <- lmFit(GeneSymbolArrayData, DesignMatrix)
+    fit <- contrasts.fit(fit, ContrastMatrix)
+    fit <- eBayes(fit)
+    
+    ContrastNames <- colnames(fit$coefficients)
+    TopTableList <- lapply(1:length(ContrastNames), function(Index){
+        LimmaTable <- topTable(fit, coef = Index, n=1000, adjust="BH")
+        LimmaTable$Contrast <- ContrastNames[Index]
+        LimmaTable
+        })
      
-     ExpVar <- colnames(DesignMatrix)
-     ExpVarIndex <- 1:length(ExpVar)
-     if (grep(pattern = "Intercept", x = ExpVar[1])) {
-          ExpVarIndex <- ExpVarIndex[-1]
-     }
+    names(TopTableList) <- colnames(fit$coefficients)
+    LimmaTable <- bind_rows(TopTableList)
      
-     TopTableList <- lapply(ExpVarIndex, function(Index){
-          LimmaTable <- topTable(fit, coef = Index, n=1000, adjust="BH")
-          LimmaTable$ExpVar <- ExpVar[Index]
-          LimmaTable
-     })
-     
-     names(TopTableList) <- ExpVar[ExpVarIndex]
-     LimmaTable <- bind_rows(TopTableList)
-     
-     return(LimmaTable)
-}
-
-#'
-#'
-#'
-LimmaOutput <- function(ArrayData, DesignMatrix){
-     fit <- LimmaRes(ArrayData, DesignMatrix)
-     TopTable <- LimmaTopTable(fit, DesignMatrix)
      return(TopTable)
 }
+
+PairWiseContrast <-
+    function(levels) {
+    n <- length(levels)
+    Contrast <- matrix(0,n,choose(n,2))
+    rownames(Contrast) <- levels
+    colnames(Contrast) <- 1:choose(n,2)
+    k <- 0
+    for (i in 1:(n-1))
+    for (j in (i+1):n) {
+    k <- k+1
+    Contrast[i,k] <- 1
+    Contrast[j,k] <- -1
+    colnames(Contrast)[k] <- paste(levels[i],"-",levels[j],sep="")
+    }
+    Contrast
+    }
 
 #Deseq Pipline
 

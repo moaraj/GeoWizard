@@ -1,0 +1,9 @@
+absLog10p	absLog10p
+entropy	entropy
+entropyDiversity	entropy
+entropySpecificity	entropy
+filterPmat	filterPmat
+gini	gini
+readGmt	readGmt
+sampleSpecialization	entropy
+wmwTest	wmwTest
