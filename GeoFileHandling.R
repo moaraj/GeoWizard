@@ -61,6 +61,7 @@ LoadGEOFiles <- function(GSE, GPL, GeoRepo){
         message("Save ESET as RData for faster loading next time")
     }
     
+    if(class(GSEeset) == "list"){ GSEeset <- GSEeset[[1]] }
     return(GSEeset)
 }
 
@@ -78,8 +79,6 @@ GetGPLFromList <- function(esetList, GPL){
         GSEeset <- esetList[[GPLSelectedIndex]]
         if (class(GSEeset)=="ExpressionSet") { return(GSEeset) } else { stop("GetGPLFromList - extracting datamatrix from GEO Query output")}
         
-    } else if (class(esetList) == "list" && length(esetList) == 1) {
-        GSEeset <- esetList[[1]] 
     } else {
         message("GSE List only contains one element or GPL not supplied")
         return(esetList)    

@@ -1093,90 +1093,90 @@ server <- function(input, output, session) {
      output$Scree <- renderPlot({ DataPCA$Scree })
      output$Cont <- renderPlot({ DataPCA$Cont })
 
-    #  
-    #  ###################################################################### Expression Analysis
-    #  ExpressionAnalysis <- reactiveValues()
-    #  
-    #  ExpressionAnalysis$LimmaResults <- reactive({
-    #    GSEeset <- GSEdata$GSEeset() #Expression Set
-    #    DesignMatrix <- ExperimentalDesign$DesignMatrix() #Matrix
-    #    
-    #    if(!is.null(GSEeset) & !is.null(DesignMatrix)){
-    #      ArrayData <- exprs(GSEeset) #Matrix
-    #      DesignMatrix <- DesignMatrix
-    #      LimmaOutput(ArrayData,DesignMatrix)
-    #      message("Performing Limma DEA")
-    #    } else {
-    #      message("GSEeset not Loaded")
-    #      NULL
-    #      }
-    #    
-    #    
-    #    })
-    #  
-    #  ############ Volcano Plot
-    # 
-    #  output$PValThres <- renderUI({
-    #       numericInput(inputId = "PValThresInput",
-    #                    label = "pValue Threshold",
-    #                    value = 2,
-    #                    min = 1,
-    #                    step = 0.5)
-    #  })
-    # 
-    #  output$LogFCThres <- renderUI({
-    #       numericInput(inputId = "LogFCThresInput",
-    #                    label = "LogFC Threshold",
-    #                    value = 1,
-    #                    min = 0,
-    #                    max = 5,
-    #                    step = 0.5)
-    #  })
-    # 
-    #  output$VolcanoPlot <- renderPlot({
-    #    shiny::req(input$SubmitFormula)
-    #    
-    #    pValueThresHold <- input$PValThresInput
-    #    logFCThresHold <- input$LogFCThresInput
-    #      
-    #    LimmaTable <- ExpressionAnalysis$LimmaResults()
-    #    LimmaTable <- as.data.frame(LimmaTable)
-    #    
-    #    LimmaTable <- LimmaTable %>%
-    #     mutate(Threshold = abs(logFC) > logFCThresHold) %>%
-    #       mutate(Threshold = as.numeric(Threshold)) %>%
-    #         mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
-    #      
-    #    ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) + geom_point() + theme_grey() + facet_wrap(~ExpVar)
-    #   
-    # 
-    #    })
-    #  
-    #  
-    #  ############ MA Plot
-    #  
-    #  output$MALogFCThres <- renderUI({
-    #       numericInput(inputId = "MALogFCThresInput",
-    #                    label = "LogFC Threshold",
-    #                    value = 1,
-    #                    min = 0,
-    #                    max = 5,
-    #                    step = 0.5)
-    #  })
-    #  
-    #  output$MAPlot <- renderPlot({
-    #       logFCThresHold <- input$MALogFCThresInput
-    # 
-    #       LimmaTable <- ExpressionAnalysis$LimmaResults()
-    #       LimmaTable <- as.data.frame(LimmaTable)
-    #       LimmaTable <- LimmaTable %>% mutate(Threshold = abs(logFC) > logFCThresHold)
-    # 
-    #       ggplot(LimmaTable, aes(x = AveExpr, y = logFC, color = factor(Threshold))) +
-    #            geom_point() +
-    #            theme_grey()
-    #       
-    #       })
-    #  
+
+     ###################################################################### Expression Analysis
+     ExpressionAnalysis <- reactiveValues()
+
+     ExpressionAnalysis$LimmaResults <- reactive({
+       GSEeset <- GSEdata$GSEeset() #Expression Set
+       DesignMatrix <- ExperimentalDesign$DesignMatrix() #Matrix
+
+       if(!is.null(GSEeset) & !is.null(DesignMatrix)){
+         ArrayData <- exprs(GSEeset) #Matrix
+         DesignMatrix <- DesignMatrix
+         LimmaOutput(ArrayData,DesignMatrix)
+         message("Performing Limma DEA")
+       } else {
+         message("GSEeset not Loaded")
+         NULL
+         }
+
+
+       })
+
+     ############ Volcano Plot
+
+     output$PValThres <- renderUI({
+          numericInput(inputId = "PValThresInput",
+                       label = "pValue Threshold",
+                       value = 2,
+                       min = 1,
+                       step = 0.5)
+     })
+
+     output$LogFCThres <- renderUI({
+          numericInput(inputId = "LogFCThresInput",
+                       label = "LogFC Threshold",
+                       value = 1,
+                       min = 0,
+                       max = 5,
+                       step = 0.5)
+     })
+
+     output$VolcanoPlot <- renderPlot({
+       shiny::req(input$SubmitFormula)
+
+       pValueThresHold <- input$PValThresInput
+       logFCThresHold <- input$LogFCThresInput
+
+       LimmaTable <- ExpressionAnalysis$LimmaResults()
+       LimmaTable <- as.data.frame(LimmaTable)
+
+       LimmaTable <- LimmaTable %>%
+        mutate(Threshold = abs(logFC) > logFCThresHold) %>%
+          mutate(Threshold = as.numeric(Threshold)) %>%
+            mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
+
+       ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) + geom_point() + theme_grey() + facet_wrap(~ExpVar)
+
+
+       })
+
+
+     ############ MA Plot
+
+     output$MALogFCThres <- renderUI({
+          numericInput(inputId = "MALogFCThresInput",
+                       label = "LogFC Threshold",
+                       value = 1,
+                       min = 0,
+                       max = 5,
+                       step = 0.5)
+     })
+
+     output$MAPlot <- renderPlot({
+          logFCThresHold <- input$MALogFCThresInput
+
+          LimmaTable <- ExpressionAnalysis$LimmaResults()
+          LimmaTable <- as.data.frame(LimmaTable)
+          LimmaTable <- LimmaTable %>% mutate(Threshold = abs(logFC) > logFCThresHold)
+
+          ggplot(LimmaTable, aes(x = AveExpr, y = logFC, color = factor(Threshold))) +
+               geom_point() +
+               theme_grey()
+
+          })
+
     #  ##################################################################################### Clustering
     #  
     # # #Import/Select Data ----

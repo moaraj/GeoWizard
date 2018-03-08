@@ -1,0 +1,8 @@
+absLog10p               Absolute base-10 logarithm of p-values
+entropy                 Shannon entropy and related concepts
+filterPmat              Filter rows of p-value matrix under the
+                        significance threshold
+gini                    Calculate Gini Index of a numeric vector
+readGmt                 Read in gene sets from a GMT file
+wmwTest                 Wilcoxon-Mann-Whitney rank sum test for
+                        high-throughput expression profiling data
