@@ -237,17 +237,14 @@ server <- function(input, output, session) {
         shinyjs::hide("GSMMetadataWarning_Design")
         shinyjs::hide("GSMMetadataWarning_Down")
         shinyjs::hide("GSMMetadataWarning_Exp")
-        
         shinyjs::show("GSMMetadataLoading")
         } else {
         shinyjs::disable("AnalyzeSelectedDatasets")
         shinyjs::disable("ExpressAnalyse")
-        
         shinyjs::show("GSMMetadataWarning")
         shinyjs::show("GSMMetadataWarning_Design")
         shinyjs::show("GSMMetadataWarning_Down")
         shinyjs::show("GSMMetadataWarning_Exp")
-
         shinyjs::hide("GSMMetadataLoading")
         }
         shinyjs::hide("GSMMetadataLoading") 
@@ -451,6 +448,16 @@ server <- function(input, output, session) {
         })
     })
     
+    # Render Input to remove Specific Rows
+    #' @input
+    #' @req GseGsmTable_rows_all, UsefulColumnsCheckbox preventing selection input from rendering till the Use factor columns are renderd and used to filter the data
+    #' @output Render a numerical input that allows use to define specific rows to remove
+    output$RemoveSpecificRows_UI <- renderUI({
+        shiny::req(input$UsefulColumnsCheckbox, input$GseGsmTable_rows_all)
+        FactorDF <- ExperimentalDesign$ExpFactorDF()
+        selectInput(inputId = "RemoveSpecificRows", label = "Remove Specific Rows", choices = as.character(1:nrow(FactorDF)), multiple = T)
+    })
+    
     ########################{ Take Levels from inputs and determine rows of DF
     #' @input
     #' @req
@@ -459,7 +466,7 @@ server <- function(input, output, session) {
         #shiny::req(input$UsefulColumnsCheckbox, input$WhereVarData)
         message("Running RowsToKeep for Factor Level Filtering")
         FactorDF <- ExperimentalDesign$ExpFactorDF()
-        FactorDF <- FactorDF %>% select(one_of(input$UsefulColumnsCheckbox))
+        FactorDF <- FactorDF %>% dplyr::select(one_of(input$UsefulColumnsCheckbox))
         if (!is.data.frame(FactorDF)){ FactorDF <- as.data.frame(FactorDF) }
         
         NamesIndex <- colnames(FactorDF)
@@ -486,12 +493,17 @@ server <- function(input, output, session) {
         } else { 
             stop("Error in FactorDF, restart app or select different factor columns") }
         
+        
+        if(isTruthy(input$RemoveSpecificRows)){
+            message("Removing specific Use selected row")
+            removeSpecificRows <- as.numeric(input$RemoveSpecificRows)
+            RowsToKeep <- setdiff(RowsToKeep, removeSpecificRows)
+        }
+        
         ExperimentalDesign$RowsToKeep <- RowsToKeep
         FilteredFactorDF <- FactorDF[RowsToKeep,]
-        
         FilteredFactorDF <- as.data.frame(FilteredFactorDF)
-        if (ncol(FilteredFactorDF) < 2) {
-            colnames(FilteredFactorDF) <- "ExpVar1"}
+        if (ncol(FilteredFactorDF) < 2) { colnames(FilteredFactorDF) <- "ExpVar1"}
        FilteredFactorDF
        })
      

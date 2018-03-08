@@ -393,37 +393,22 @@ ui <- dashboardPage(
         uiOutput("FactorRenameAndClass_UI")
         ),
         
-        box(title = "Filter Factor Levels",
+        box(title = "Filter Rows and Factor Levels",
         solidHeader = T,
         status = "primary",
         width = 12,
         collapsible = T,
         height = "50%",
-        div(
-        class = "overflowbox",
         
         fluidRow(
         style="margin-left :5px; margin-right :5px",
-        uiOutput(outputId = "FilterGSMbyFactor")
-        ),  
-                              
-        fluidRow(
-        style="margin-left :5px; margin-right :5px",
+        column(12, uiOutput("RemoveSpecificRows_UI")),
+        column(12 ,uiOutput(outputId = "FilterGSMbyFactor")),
+        column(4, actionButton( inputId = 'FilterGSMLevels', label = "Reset Filter", class = "btn-primary")),
+        column(4, actionButton( inputId = "HideGSMLevelsFilter", label = 'Hide Filter Boxes', class = "btn-primary"))
         
-        actionButton(
-        inputId = 'FilterGSMLevels',
-        label = "Reset Filter",
-        class = "btn-primary"
-        ),
-                                 
-        actionButton(
-        inputId = "HideGSMLevelsFilter",
-        label = 'Hide Filter Boxes',
-        class = "btn-primary"
-        )
-        )
-        )
-        )
+        ) # Fluid Row for Box 
+        ) # Filter factor level box
         ) # Column Classifications
         ) # Frist Two Thids of Page Fluid flow
         
