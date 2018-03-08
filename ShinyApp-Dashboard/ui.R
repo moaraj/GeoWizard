@@ -186,8 +186,8 @@ ui <- dashboardPage(
         column(6,
         selectInput(
         inputId = "MolSelectFilter",
-        label = "Keyword Libraries",
-        choices = c("David's TA Molecules" = "DAVID", "Text Input" = "TextInput",  "FDA approved Drugs" = "FDA", "SPARK" = "SPARK Library"),
+        label = "GEO Query Type",
+        choices = c("GEO Series Accession" = "Accession", "Inflammation Molecules" = "DAVID", "Text Input" = "TextInput",  "FDA approved Drugs" = "FDA", "SPARK" = "SPARK Library"),
         selected = "DAVID")), #selectInput
         
         column(6),
@@ -302,8 +302,11 @@ ui <- dashboardPage(
         fluidRow(
         
         # Warning Bar when so inputs on GSEtable are selected 
-        column(12, div( id = "GSMMetadataWarning", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
-        fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))),
+        column(12, 
+        div( id = "GSMMetadataWarning", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
+        fluidRow( 
+        column(12, 
+        h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))),
         
         
         column(12,
@@ -468,7 +471,7 @@ ui <- dashboardPage(
 
         fluidRow(
         column(12, div( id = "GSMMetadataWarning_Design", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
-        fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
+        fluidRow( column(12, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
 
         column(4,
         box(title = "Summary of Factors",
@@ -476,7 +479,17 @@ ui <- dashboardPage(
             status = "primary",
             width = 12,
             collapsible = T,
-        dataTableOutput("DesignMat_SummaryTable")%>% withSpinner(color = "#0dc5c1")
+        fluidRow(
+        column(12, dataTableOutput("DesignMat_SummaryTable")%>% withSpinner(color = "#0dc5c1")),
+        column(12, hr()),
+        column(12, h4("Rename Factor Columns")),
+        column(12, p("UI OUTPUT - Rename Factor Cols")),
+        column(4, actionButton("ApplyFactorColRename", "Apply Changes"))
+        )
+        
+        
+        
+        
         )  # Box
         ), # First Page Column
                        
@@ -575,7 +588,7 @@ ui <- dashboardPage(
         tabName = "DataQC",
         fluidRow(
         column(10, div( id = "GSMMetadataWarning_Down", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
-        fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
+        fluidRow( column(12, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
         
         column(10,
         tabBox(title = "Raw Data Statistics",width = 12,
@@ -803,7 +816,7 @@ ui <- dashboardPage(
         fluidRow(
             
         column(12, div( id = "GSMMetadataWarning_Exp", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
-        fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))),
+        fluidRow( column(12, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))),
         
         column(12,
         tabBox(title = "Expression Analysis",

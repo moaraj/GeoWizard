@@ -6,9 +6,17 @@ server <- function(input, output, session) {
     #'
     #'
     output$MolSelectFromLibrary <- renderUI({
-        if (input$MolSelectFilter == "TextInput") {
+        if (input$MolSelectFilter == "Accession") {
+            SearchInputUI <- 
+                textAreaInput(inputId = "GSESelectText", 
+                label = "Comma separated GSE#s", 
+                placeholder = "GSE60482, GSE57251, GSE87669, GSE76951",
+                height = '100px')
+            GeoSearchResults$InputType <- "GSE"
+            
+        } else if (input$MolSelectFilter == "TextInput") {
             SearchInputUI <- textAreaInput(inputId = "MolSelectText", 
-                label = "Comma Separated Text input", 
+                label = "Comma Separated Text", 
                 placeholder = "Mycophenolate mofetil, Tofacitinib",
                 height = '100px')
             GeoSearchResults$InputType <- "textbox"
@@ -61,8 +69,12 @@ server <- function(input, output, session) {
     #'
     #' 
     GeoSearchResults$GseTable <- eventReactive(input$MolSelectButton, {
-        if (isTruthy(input$MolSelectText)) {
+        if (isTruthy(input$MolSelectText)){
             message("Text Query Detected")
+            MolQueryText <- gsub(pattern = "\n|\t", replacement = "", x = input$MolSelectText)
+            MolQuery <- unlist(str_split(MolQueryText, pattern = ","))
+        } else if (isTruthy(input$GSESelectText)) {
+            message("GSE Query Detected")
             MolQueryText <- gsub(pattern = "\n|\t", replacement = "", x = input$MolSelectText)
             MolQuery <- unlist(str_split(MolQueryText, pattern = ","))
         } else if (isTruthy(input$MolSelectInput)){
@@ -699,10 +711,9 @@ server <- function(input, output, session) {
      
     ExperimentalDesign$ContrastMatrix <- reactive({
         DesignMatrix <- ExperimentalDesign$DesignMatrix()
-        message(colnames(DesignMatrix))
-        
         ContrastInput <- ConTextInput(DesignMatrix)
         message(paste("Contrast Input: ", ContrastInput))
+        ContrastInput <- gsub(" ", "", ContrastInput)
         ContrastMatrix <- makeContrasts(contrasts = ContrastInput, levels = DesignMatrix)
         ContrastMatrix
     })  

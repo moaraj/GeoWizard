@@ -12,7 +12,6 @@ ui <- shinyUI(
         
         
     tabItems(
-        
         tabItem(
         tabName = "DataQC",
         fluidRow(
@@ -341,7 +340,7 @@ ui <- shinyUI(
         column(12, hr()),
         
         h4("Volcano Plot Options"),
-        column(12, selectInput(inputId = "VolacanoPlot_SelectContrast",label = "Select Contrast", choices = c("HealthySkin-Drug", "DiseaseSkin-Drug"))),
+        column(12, uiOutput("SelectContrast_UI")),
         column(4, checkboxInput(inputId = "VolacanoPlot_PvalLine", label = "p-value line")),
         column(4, checkboxInput(inputId = "VolacanoPlot_LogLine", label = "logFC line")),
         column(4, checkboxInput(inputId = "VolacanoPlot_labelhitt", label = "label hits")),
@@ -1112,6 +1111,83 @@ server <- shinyServer(function(input, output) {
         nGenes <- nrow(ExpressionMatrix)
         valueBox( nGenes, "Number of Genes in GSE", icon = icon("list"), color = "yellow")
         })
+        
+        
+        
+        ###################### Expression Analysis
+        ExpressionAnalysis <- reactiveValues()
+
+        ExpressionAnalysis$LimmaResults <- reactive({
+        GSEeset <- GSEdata$GSEeset() #Expression Set
+        #DesignMatrix <- ExperimentalDesign$DesignMatrix() #Matrix
+
+       if(!is.null(GSEeset) & !is.null(DesignMatrix)){
+         ArrayData <- exprs(GSEeset) #Matrix
+         DesignMatrix <- DesignMatrix
+         LimmaOutput(ArrayData,DesignMatrix)
+         message("Performing Limma DEA")
+       } else {
+         message("GSEeset not Loaded")
+         NULL
+         }
+
+
+       })
+
+     ############ Volcano Plot
+
+     output$PValThres <- renderUI({
+          numericInput(inputId = "PValThresInput",
+                       label = "pValue Threshold",
+                       value = 2,
+                       min = 1,
+                       step = 0.5)
+     })
+
+     output$LogFCThres <- renderUI({
+          numericInput(inputId = "LogFCThresInput",
+                       label = "LogFC Threshold",
+                       value = 1,
+                       min = 0,
+                       max = 5,
+                       step = 0.5)
+     })
+     
+    output$SelectContrast_UI <- renderUI({
+        LimmaTable <- LimmaTable
+        selectInput(inputId = "Volcanoplot_SelectContrast", label = "Select Contrast", choices = unique(LimmaTable$Contrast))
+     })
+
+        output$VolcanoPlot <- renderPlot({
+        #shiny::req(input$SubmitFormula)
+
+        pValueThresHold <- input$PValThresInput
+        logFCThresHold <- input$LogFCThresInput
+
+        #LimmaTable <- ExpressionAnalysis$LimmaResults()
+        #LimmaTable <- as.data.frame(LimmaTable)
+        selectedContrast <- input$Volcanoplot_SelectContrast
+        LimmaTable <- LimmaTable %>% dplyr::filter(Contrast == selectedContrast)
+        
+        LimmaTable <- LimmaTable %>%
+        mutate(Threshold = abs(logFC) > logFCThresHold) %>%
+        mutate(Threshold = as.numeric(Threshold)) %>%
+        mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
+        
+        p <- ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) + geom_point() + theme_grey()
+        
+        if (input$VolcanoPlot_showColor) {
+            if (input$VolcanoPlot_ThemeSelect == "default") { p <- p }
+            else if (input$VolcanoPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_bw") {p <- p + theme_bw()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_light") {p <- p + theme_light()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
+        }
+          
+        p
+       })
         
         
         

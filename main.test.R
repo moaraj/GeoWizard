@@ -49,12 +49,6 @@ Step_5 <- c(Step_5A, Step_5B, Step_5C)
 Step_6 <- DesignLabs(data.frame(Step_5))
 
 
-GSM <- Step_1$gsm
-GraphDF <- cbind(GSM, Step_6)
-DesignMatrix <- model.matrix( ~ ExpVar3.ContClass:ExpVar4.ContClass, GraphDF )
-colnames(DesignMatrix) <- c("Intercept","Cont.Cont", "Pert.Cont", "Cont.Pert", "Pert.Pert")
-
-
 ######### Function to Download File
 GSE <- selectedGse
 GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepo = GeoRepo)
@@ -65,56 +59,16 @@ FactorDF <- Step_6[1:2]
 saveRDS(FactorDF,file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.rds")
 FeatureData <- fData(GSEeset)
 
-
-######### Function to Make GMT Ggplotable
-GSM <- colnames(ArrayData)
-FactorGMT <-  GenFactorGMT(exprs(GSEeset), FactorDF)
-FactorGMTMelt <- melt(FactorGMT)
-GSEgmtDF <- GenGMTggplotDF(GSEeset = GSEeset,FactorDF = FactorDF)
-
-######## GMT Boxplots and Histograms
-GMTBoxplot(GSEgmtDF = GSEgmtDF, BoxPlotType = "Sample", PlotBy = "Overall", PlotFactor = "ExpVar3.Text" )
-GMTBoxplot(GSEgmtDF = GSEgmtDF, BoxPlotType = "Sample", PlotBy = "Factor", PlotFactor = "ExpVar3.Text" )
-GMTBoxplot(GSEgmtDF = GSEgmtDF,BoxPlotType = "Gene" , PlotBy = "Overall",PlotFactor = "ExpVar3.Text")
-GMTBoxplot(GSEgmtDF = GSEgmtDF,BoxPlotType = "Gene" , PlotBy = "Factor",PlotFactor = "ExpVar3.Text")
-
-GMTHistPlot(GSEgmtDF, "Gene", "ExpVar3.Text", 10)
-GMTHistPlot(GSEgmtDF, "Sample", "ExpVar3.Text", 10)
-GMTHistPlot(GSEgmtDF, "Factor", "ExpVar3.Text", 10)
-
 ########## Convert to Gene Symbol
 source(file = "GeoFileHandling.R")
-GeneSymbolArrayData <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "RefSeq")
+GeneSymbolArrayData <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "Gene Symbol")
 
-######### QC
-source(file = "QCAnalysis.R")
-BioQCData <- RunBioQC(GMT = GeneSymbolArrayData)
-BioQCHeatmap(RunBioQCres = BioQCData)
-try(BioQCHeatmap(RunBioQCres = BioQCData))
-
-
-
-PCAPlots <- PlotPCA(ArrayData)
-
-
+GSM <- Step_1$gsm
+GraphDF <- cbind(GSM, Step_6)
+DesignMatrix <- model.matrix( ~ 0 + ExpVar3.ContClass:ExpVar4.ContClass, GraphDF )
+colnames(DesignMatrix) <- c("Cont.Cont","Pert.Cont","Cont.Pert","Pert.Pert")
+ContrastString <- ConTextInput(DesignMatrix)
+ContrastMatrix <- makeContrasts(ContrastString, levels = DesignMatrix)
 
 ######### Limma
-res <- LimmaOutput(GeneSymbolArrayData,DesignMatrix)
-
-
-TopTableFilter <- "logFC"
-     LimmaTable <- res %>% arrange_(TopTableFilter)
-     nGenes <- 10
-     
-     TopGenes <- LimmaTable[1:nGenes,1]
-     TopGenes[TopGenes == ""] <- NA
-     TopGenes <- na.omit(TopGenes)
-     
-     FactorGMT <- GenFactorGMT(GSEeset, FactorDF)
-     colnames(FactorGMT) <- make.names(colnames(FactorGMT), unique=TRUE)
-     
-     ColumnsToKeep <- colnames(FactorGMT)
-     ColumnsToKeep <- grep(pattern = "GSM|ExpVar",x = ColumnsToKeep, value = T)
-     ColumnsToKeep <- c(ColumnsToKeep, TopGenes)
-     
-     FactorGMT <- FactorGMT %>% select(one_of(ColumnsToKeep))
+res <- LimmaOutput(GeneSymbolArrayData, DesignMatrix, ContrastMatrix)
