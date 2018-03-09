@@ -2,8 +2,15 @@
 .Rhistory
 .Rapp.history
 
+# R Data files
+*.rds
+*.gz.rds
+*.txt.gz.rds
+
 # Session Data files
-.RData
+*.RData
+*.rds
+*.gz.rds
 
 # Example code in package build process
 *-Ex.R
@@ -31,7 +38,6 @@ vignettes/*.pdf
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
-
 
 # Large GSE Files and SQLLite
 *.sqlite

@@ -1,4 +1,4 @@
-Keywordfile <- source(file = "GeoTrainingSets/KeyWords.r")
+Keywordfile <- source(file = file.path(GeoWizard, "GeoTrainingSets/keywords.R"))
 
 #' The Following three functions
 #' classify the GSMs in each GSEwhether of not
@@ -103,13 +103,20 @@ ExtractExpVarList <- function(GsmList) {
 
 
 ClassSummary <- function(GsmDesignDF) {
-     message("executing ClassSummary")
-     characteristics_ch1 <- GsmDesignDF %>% dplyr::select(characteristics_ch1)
-     GsmDesignDF <- GsmDesignDF %>% dplyr::select(-characteristics_ch1)
-     OverallSummary <- unique(GsmDesignDF$OverallSummary)
-     GsmDesignDF <- AssignTimeSeriesInformation(GsmDesignDF, OverallSummary)
-     GsmDesignDF <- bind_cols(GsmDesignDF, characteristics_ch1)
-     return(GsmDesignDF)
+    message("Executing ClassSummary")
+    if (class(GsmDesignDF) != 'data.frame') {
+    stop("ClassSummary - GsmDesignDF must be dataframe")
+    } else if(sum(grep(pattern = "characteristics_ch1", x = colnames(GsmDesignDF))) < 1){
+    stop("ClassSummary - GsmDesignDF incorrectly loaded")    
+    }
+    
+    characteristics_ch1 <- GsmDesignDF %>% dplyr::select(characteristics_ch1)
+    GsmDesignDF <- GsmDesignDF %>% dplyr::select(-characteristics_ch1)
+    
+    OverallSummary <- unique(GsmDesignDF$summary)
+    GsmDesignDF <- AssignTimeSeriesInformation(GsmDesignDF, OverallSummary)
+    GsmDesignDF <- bind_cols(GsmDesignDF, characteristics_ch1)
+    return(GsmDesignDF)
 }
 
 #' Coverts Control Classificaiton to text
@@ -128,8 +135,6 @@ NumtoText <- function(strvec) {
      return(strvec)
 }
 
-
-
 #' Extract Useful Classificaitons
 #' 
 #' Takes in list of Experimental Factors and returns a dataframe of only those classificaiton 
@@ -137,7 +142,6 @@ NumtoText <- function(strvec) {
 #'
 #'
 #'
-
 DesignLabs <- function(FullClassDF) {
      GsmTextDF <- FullClassDF %>% dplyr::select(matches("Text"))
      GsmContDF <- FullClassDF %>% dplyr::select(matches("Cont"))
@@ -268,18 +272,15 @@ AssignBlockCatagories <- function(GsmDesignDf, PertInformation) {
 #' Determine if Time Series Experiment
 #'
 #'
-AssignTimeSeriesInformation <-
-     function(GsmDesignDF, OverallSummary) {
-          message("Determining if study has a time series")
-          ClassTimeSeries <-
-               MatchExpKeys(OverallSummary, ExpKeywords$is_time_study)
-          if (ClassTimeSeries == FALSE) {
-               message("This gene series does not contain a time series experiment")
-          } else {
-               message("This Gene Series contains a time series experiment")
-          }
-          GsmDesignDF["TimeSeries"] <- ClassTimeSeries
-          return(GsmDesignDF)
+AssignTimeSeriesInformation <-  
+    function(GsmDesignDF, OverallSummary) {
+        message("Determining if study has a time series")
+        ClassTimeSeries <- MatchExpKeys(OverallSummary, ExpKeywords$is_time_study)
+        if (ClassTimeSeries == FALSE) { message("This gene series does not contain a time series experiment")
+        } else { message("This Gene Series contains a time series experiment")
+        }
+        GsmDesignDF <- GsmDesignDF %>% mutate(TimeSeries = ClassTimeSeries)
+        return(GsmDesignDF)
      }
 
 
@@ -398,26 +399,17 @@ ContMultiTreat <-
 
 ExpGroupAsign <- function(ExpDesignDescription, GSE) {
      ExpKeywords <- readRDS("ExpKeywords.rds")
-     OverallDesign <-
-          paste(ExpDesignDescription[["OverallDesign"]], collapse = "")
-     OverallSummary <-
-          paste(ExpDesignDescription[["OverallSummary"]], collapse = "")
+     OverallDesign <- paste(ExpDesignDescription[["OverallDesign"]], collapse = "")
+     OverallSummary <- paste(ExpDesignDescription[["OverallSummary"]], collapse = "")
      GsmDesignDf <- ExpDesignDescription[["GsmDesign"]]
      geo_accession <- ExpDesignDescription$GSE
      
-     UsefulDesignFactorCols <-
-          ExpDesignDescription[["UsefulDesignFactorCols"]]
-     message(sprintf(
-          "There are %d useful factors found in this study",
-          length(UsefulDesignFactorCols)
-     ))
-     GsmDesignDf <-
-          AssignTimeSeriesInformation(GsmDesignDf, OverallSummary, OverallDesign)
+     UsefulDesignFactorCols <- ExpDesignDescription[["UsefulDesignFactorCols"]]
+     message(sprintf("There are %d useful factors found in this study", length(UsefulDesignFactorCols)))
      
-     ControlInformation <-
-          AssignContainsControls(GsmDesignDf, UsefulDesignFactorCols)
-     PertInformation <-
-          AssignContainsPerturbations(GsmDesignDf, UsefulDesignFactorCols)
+     GsmDesignDf <- AssignTimeSeriesInformation(GsmDesignDf, OverallSummary, OverallDesign)
+     ControlInformation <- AssignContainsControls(GsmDesignDf, UsefulDesignFactorCols)
+     PertInformation <- AssignContainsPerturbations(GsmDesignDf, UsefulDesignFactorCols)
      
      GsmDesignDf <- AssignBlockCatagories(GsmDesignDf)
      
