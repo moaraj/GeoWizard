@@ -1,164 +1,130 @@
-library(shiny)
 
-
-ui <- fluidPage(
-  fluidRow(
-  column(4,
-         
-  wellPanel(
-  fluidRow(
-  column(12,
-  
-  
-  h4('Plot Selection'), 
-  column(6, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample", "Gene"), selected = "")),
-  column(6, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution", "Factor-wise Distribution"), selected = "Overall Distribution" )),
-  column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("Boxplot", "Violin Plot", "Line Plot"), selected = "Boxplot")),
-  column(12, sliderInput("BoxPlot_nGenes", "Number of Genes to Sample", min = 1, max = 100, value = 10)),
-
-  h4('Plot Options'), 
-  column(4,checkboxInput('BoxPlot_showData','Show Data')),
-  column(4,checkboxInput('BoxPlot_showDataMean','Show Sample Means')),
-  column(4,checkboxInput('BoxPlot_AddWhiskers','Change Whisker Defintion')),
-  column(4,checkboxInput('BoxPlot_AddNotches','Add Notches')),
-  column(4,checkboxInput('VariableWidth','Variable Width Box')),
-  column(4,checkboxInput('BoxPlot_PlotAxisFlip','Axis Flip')),
-  
-  
-  conditionalPanel('input.BoxPlot_showData==1', br(),hr(),
-  h4("Data Point Plotting Options"),                 
-  radioButtons(inputId = "BoxPlot_showDataOption", label = "", choices = c("jitter", "quasirandom", "beeswarm", "tukey", "frowney", "smiley"), selected = "jitter",inline = T),
-  sliderInput(inputId = "BoxPlot_JitterWidth", label = "Data Point Plot Area Width", min = 0,max = 2,step = 0.05,value = 0.1)
-  )),
-  
-  
-  column(12,
-  conditionalPanel('input.BoxPlot_showDataMean==1',hr(),
-  h4("Sample Mean Options"),                 
-  radioButtons(inputId = "SampleMeanConfidenceInterval", label = "Define Confidence Interval of Means", choices = list("85%"=0.85, "90%"=0.90, "95%"=0.95, "99%"=0.99), selected = "95%", inline = T)
-  )),
-  
-  column(12,
-  conditionalPanel('input.BoxPlot_AddWhiskers==1',hr(),
-  h4("Definition of Whisker Extent"),                 
-  radioButtons(inputId = "BoxPlot_WhiskerType", label = "", choices = list("Tukey"=0, "Spear"=1, "Altman"=2), selected = 0, inline = T),                 
-  conditionalPanel('input.BoxPlot_WhiskerType==0', "Tukey - whiskers extend to data points that are less than 1.5 x IQR away from 1st/3rd quartile"),
-  conditionalPanel('input.BoxPlot_WhiskerType==1', "Spear - whiskers extend to minimum and maximum values"),
-  conditionalPanel('input.BoxPlot_WhiskerType==2', "Altman - whiskers extend to 5th and 95th percentile (use only if n>40)")
-  )),
-  
-
-  column(12,hr(),h4('Additional Parameters')),
-  
-                                                                           
-  column(3,checkboxInput('BoxPlot_showColor','Color')),
-  column(3,checkboxInput('BoxPlot_showMargin','Labels and Title')),
-  column(3,checkboxInput('BoxPlot_showPlotSize','Plot Size')),
-  hr(),
-  
-  column(12,
-  conditionalPanel('input.BoxPlot_showColor==1',
-  hr(),
-  h4('Color Manipulation'),
-  uiOutput('colUI'),
-  sliderInput("BoxPlot_ncol", "Set Number of Colors", min = 1, max = 256, value = 256),
-  checkboxInput('BoxPlot_colRngAuto','Auto Color Range',value = T),
-  conditionalPanel('!input.colRngAuto',uiOutput('colRng'))
-  )),
-                                                                           
-  column(12,
-  conditionalPanel('input.BoxPlot_showMargin==1',
-  hr(),
-  h5('Widget Layout'),
-  column(4,textInput('BoxPlot_main','Title','')),
-  column(4,textInput('BoxPlot_xlab','X Title','')),
-  column(4,textInput('BoxPlot_ylab','Y Title','')),
-  sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180),
-  sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
-  
-  )),
-  
-  column(12,
-  conditionalPanel('input.BoxPlot_showPlotSize==1',
-  hr(),
-  h4('Plot Size Options'),
-  numericInput("BoxPlot_Height", "Plot height:", value=550),
-	numericInput("BoxPlot_Width", "Plot width:", value=750)
-	))
-  
-  ))),
-  
-  column(6,
-  fluidRow(
-  column(12,uiOutput("BoxPlotUI")),
-  column(4, actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh')))
-  ))
-  )
-  )
-
-  
-  
-server <- function(input, output) {
-  # Libraries
-  library(plotly)
-  library(ggplot2)
-  library(reshape2)
-  library(ggbeeswarm)
-
-  
-  BoxPlotData <- reactive({
-    input$RefreshPlot
-    DF <- iris
-    DF <- melt(DF)
-    })
-  
-  output$BoxPlotly <- renderPlotly({
-    DF <- BoxPlotData()
-    DF <- data.frame(DF)
+BoxplotGSE <- function(
+    GeneData,
+    BoxPlot_IndpVar,
+    BoxPlot_PlotBy,
+    BoxPlot_Type,
+    #BoxPlot_ThemeSelect
+    #BoxPlot_showData,
+    #BoxPlot_showDataOption,
+    #BoxPlot_showMargins,
+    #coord_flip,
+    #BoxPlot_main,
+    #BoxPlot_xlab,
+    #BoxPlot_ylab 
+    ){
     
-    p <- ggplot(data = DF, aes(x = variable, y = value))
-    
-    if (input$BoxPlot_Type == "Boxplot") { p <- p + geom_boxplot()
-    } else if (input$BoxPlot_Type == "Violin Plot") {p <- p + geom_violin()
-    } else if (input$BoxPlot_Type == "Line Plot") { p <- p # bean plot code
+    message("Rendering Boxplot")
+    if (input$BoxPlot_IndpVar == "s") {
+        if (input$BoxPlot_PlotBy == "o") {
+            message("Plotting Sample Overall Distribution")
+            AesX <- FactorGMTMelt.Sampled[,GSM]
+            AesY <- FactorGMTMelt.Sampled[,value]
+            AesFill <- factor(FactorGMTMelt.Sampled[,input$BoxFactorSelectInput])
+            GroupVar <- NULL
+            xlabtext <- "GSMs in Dataset"
+            legPos <- "none"
+        
+        } else if (input$BoxPlot_PlotBy == "f") {
+            message("Plotting Sample Factor Distributions")
+            AesX <- FactorGMTMelt.Sampled[,input$BoxFactorSelectInput]
+            AesY <- FactorGMTMelt.Sampled$value
+            AesFill <- FactorGMTMelt.Sampled[,input$BoxFactorSelectInput]
+            GroupVar <- factor(FactorGMTMelt.Sampled[,input$BoxFactorSelectInput])
+            xlabtext <- "Experimental Factors"
+            legPos <- "top"
     }
-    
-    if (input$BoxPlot_showData==1) {
-      JitterWidth <- input$BoxPlot_JitterWidth
-          if (input$BoxPlot_showDataOption == "jitter") { p <- p + geom_jitter(width = JitterWidth) 
-    } else if(input$BoxPlot_showDataOption == "quasirandom"){ p <- p + geom_quasirandom(width = JitterWidth)
-    } else if(input$BoxPlot_showDataOption == "beeswarm"){ p <- p + geom_beeswarm(width = JitterWidth)
-    } else if(input$BoxPlot_showDataOption == "tukey"){ p <- p + geom_quasirandom(width = JitterWidth, method = "tukey")
-    } else if(input$BoxPlot_showDataOption == "frowney"){ p <- p + geom_quasirandom(width = JitterWidth, method = "frowney")
-    } else if(input$BoxPlot_showDataOption == "smiley"){ p <- p + geom_quasirandom(width = JitterWidth, method = "smiley")
-    } else { NULL }
+    FactorGMTMelt <- FactorGMTMelt.Genes
+        
+    } else if (input$BoxPlot_IndpVar == "g") {
+        if (input$BoxPlot_PlotBy == "o") {
+            message("Plotting overall distribution for gene selection")
+            AesX <- FactorGMTMelt.Genes[,"variable"]
+            AesY <- FactorGMTMelt.Sampled[,"value"]
+            AesFill <- FactorGMTMelt.Genes[,"variable"]
+            GroupVar <- NULL
+            xlabtext <- "Gene Names"
+            legPos <- "none"
+        
+        } else if (input$BoxPlot_PlotBy == "f") {
+            message("Plotting factor distribution for gene selection")
+            AesX <- FactorGMTMelt[,"variable"]
+            AesY <- FactorGMTMelt.Sampled[,"value"]
+            AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
+            GroupVar <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
+            xlabtext <- "Experimental Factors"
+            legPos <- "top"
     }
-    
-    
-    if (input$BoxPlot_PlotAxisFlip==1) { p <- p + coord_flip()}
-    if (length(input$BoxPlot_main) > 0) { p <- p + labs(title = input$BoxPlot_main)}
-    if (length(input$BoxPlot_xlab) > 0) { p <- p + labs(x = input$BoxPlot_xlab)}
-    if (length(input$BoxPlot_ylab) > 0) { p <- p + labs(y = input$BoxPlot_ylab)}
-    
-    #sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180)
-    #sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
-    
-    p <- ggplotly(p)
-    p
-  })
-  
-  output$BoxPlotUI <- renderUI({
-    if(input$BoxPlot_showPlotSize){ 
-      plotHeight <- input$BoxPlot_Height
-      plotWidth <- input$BoxPlot_Width
-      } else { 
-      plotHeight <- NULL
-      plotWidth <- NULL 
-      }
-    plotlyOutput(outputId = "BoxPlotly",height = plotHeight, width = plotWidth)})
-  }
-  
+    FactorGMTMelt <- FactorGMTMelt.Genes
+    }
+    p <- ggplot(data = FactorGMTMelt, aes_string(y = AesY, x = AesX, group = GroupVar, fill = AesFill))
+}
 
+             
+     
+        
 
-shinyApp(ui = ui, server = server)
+        
+     
+        
+         if (input$BoxPlot_Type == "Boxplot") { p <- p + geom_boxplot(varwidth = F)
+         } else if (input$BoxPlot_Type == "Violin Plot") { p <- p + geom_violin()
+         } else if (input$BoxPlot_Type == "Line Plot") { p <- p }
+         p
+         })
 
+         if (input$BoxPlot_showColor) {
+             if (input$BoxPlot_ThemeSelect == "default") { p <- p }
+             else if (input$BoxPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
+             else if (input$BoxPlot_ThemeSelect == "theme_bw") {p <- p + theme_bw()}
+             else if (input$BoxPlot_ThemeSelect == "theme_light") {p <- p + theme_light()}
+             else if (input$BoxPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
+             else if (input$BoxPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
+             else if (input$BoxPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
+         }
+      
+         p <- p + theme(legend.position = legPos) +
+             ylab(label = "Expression Level") +
+             xlab(label = xlabtext) +
+             guides(fill=guide_legend(title="Experimental Factor Groups")) +
+             theme(axis.text.x = element_text(angle = input$BoxPlot_column_text_angle)) +
+             theme(axis.text = element_text(size = 14, hjust = 1)) +
+             theme(axis.title = element_text(size = 14)) +
+             theme(legend.text=element_text(size=14))
+      
+      
+      
+         if (input$BoxPlot_showData==1) {
+           JitterWidth <- input$BoxPlot_JitterWidth
+           if (input$BoxPlot_showDataOption == "jitter") { p <- p + geom_jitter(width = JitterWidth)
+           } else if(input$BoxPlot_showDataOption == "quasirandom"){ p <- p + geom_quasirandom(width = JitterWidth)
+           } else if(input$BoxPlot_showDataOption == "beeswarm"){ p <- p + geom_beeswarm(width = JitterWidth)
+           } else if(input$BoxPlot_showDataOption == "tukey"){ p <- p + geom_quasirandom(width = JitterWidth, method = "tukey")
+           } else if(input$BoxPlot_showDataOption == "frowney"){ p <- p + geom_quasirandom(width = JitterWidth, method = "frowney")
+           } else if(input$BoxPlot_showDataOption == "smiley"){ p <- p + geom_quasirandom(width = JitterWidth, method = "smiley")
+           } else { NULL }
+         }
+      
+         if (input$BoxPlot_showMargins==1) {
+             p <-
+                 p + theme(plot.margin = margin(
+                 input$BoxPlot_margin_top,
+                 input$BoxPlot_margin_right,
+                 input$BoxPlot_margin_bottom,
+                 input$BoxPlot_margin_left,
+                 "cm"))
+         }
+      
+      
+      
+         if (input$BoxPlot_PlotAxisFlip==1) { p <- p + coord_flip()}
+         if (length(input$BoxPlot_main) > 0) { p <- p + labs(title = input$BoxPlot_main)}
+         if (length(input$BoxPlot_xlab) > 0) { p <- p + labs(x = input$BoxPlot_xlab)}
+         if (length(input$BoxPlot_ylab) > 0) { p <- p + labs(y = input$BoxPlot_ylab)}
+      
+         sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180)
+         sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
+      
+         p <- ggplotly(p)
+         p
+       })

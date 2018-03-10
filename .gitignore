@@ -43,3 +43,4 @@ vignettes/*.pdf
 *.sqlite
 *.soft
 *.gz
+.Rproj.user

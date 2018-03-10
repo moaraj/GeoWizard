@@ -2,7 +2,8 @@ GeoWizard <- "~/GeoWizard/"
 GeoRepo <- "~/GeoWizard/GeoRepo"
 GSE <- "GSE69967"
 
-ui <- shinyUI(
+ui <- 
+    shinyUI(
     dashboardPage(
     dashboardHeader(),
     dashboardSidebar(sidebarMenu(
@@ -39,8 +40,8 @@ ui <- shinyUI(
         conditionalPanel('input.DataSourceSelection==1',
         h4("GEO Accession"),
         column(12,
-        column(6,textInput(inputId = "GsmTableSelect",label = "GSE input", value = GSE)),
-        column(6,textInput(inputId = "GplTableSelect",label = "GPL input", value = GPL)),
+        column(6,textInput(inputId = "GsmTableSelect",label = "GSE input", value = "GSE69967")),
+        column(6,textInput(inputId = "GplTableSelect",label = "GPL input", value = "GPL")),
         column(12,actionButton( inputId = "DownloadGEOData", label = "Download", icon = icon("download"), block = T)),
         column(12, hr()),
         uiOutput("GeneAnnotationTypeUI"),hr())),
@@ -158,11 +159,16 @@ ui <- shinyUI(
         column(12,
                         
         h4('Plot Selection'), 
-        column(6, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample", "Gene"), selected = "")),
-        column(6, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution", "Factor Distribution"), selected = "Overall Distribution" )),
-        column(12, uiOutput("BoxFactorSelect")),
+        column(12, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample" = "s", "Gene" = "g"), selected = "")),
+        column(12, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution" = "1", "Factor Distribution" = "2"), selected = "1")),
+        column(12, uiOutput("GeneFactorSelect_UI")),
+        column(12, uiOutput("BoxFactorSelect_UI")),
+        
+        ##########################################################################
+
+        
         column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("Boxplot", "Violin Plot", "Histogram"), selected = "Boxplot")),
-        column(12, sliderInput("BoxPlot_nGenes", "Number of Genes to Sample", min = 1, max = 100, value = 10)),
+        column(12, sliderInput("BoxPlot_nGenes", "Portion of Genes to Sample", min = 1, max = 1000, value = 100, step = 100)),
                         
         h4('Plot Options'), 
         column(4,checkboxInput('BoxPlot_showData','Show Data')),
@@ -637,7 +643,6 @@ server <- shinyServer(function(input, output) {
     GSEdata$ExpressionMatrix <- reactive({
         shiny::req(input$GeneAnnotationType)
         DataSourceSelection <- input$DataSourceSelection
-        
         if(DataSourceSelection == 1) {
             ExpressionMatrix <- GSEdata$MatrixAnnotated(); message("Annotated GMT Matrix asigned to reactive value: GSEdata$ExpressionMatrix")
         } else if(DataSourceSelection == 2) { 
@@ -646,21 +651,6 @@ server <- shinyServer(function(input, output) {
         return(ExpressionMatrix)
       })
     
-    #'
-    #'
-    #'
-    #'
-    #'
-    # output$GMTcsvTable <- DT::renderDataTable({
-    #     shiny::req(shiny::req(input$GsmTableSelect, input$DownloadGEOData))
-    #     DF <- GSEdata$ExpressionMatrix()
-    #     DT::datatable(data = as.data.frame(DF), rownames = TRUE,  extensions = 'Buttons', 
-    #         options = list( 
-    #             scrollY = '300px', 
-    #             scrollX = TRUE, 
-    #             dom = 'Bfrtip',
-    #             buttons = c('copy', 'csv', 'excel')))
-    # })
     
     #'
     #'
@@ -670,12 +660,10 @@ server <- shinyServer(function(input, output) {
         #ControlFactorDF <- ExperimentalDesign$ControlFactorDF()   change
         ControlFactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
         ExpressionMatrix <- GSEdata$ExpressionMatrix()
-        message("Generating FactorGMT")
-        FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix, FactorDF = ControlFactorDF)
+        FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix, FactorDF = ControlFactorDF); message("line 657: Generating FactorGMT")
         return(FactorGMT)
       })
     
-    #'
     #'
     #'
     #'
@@ -687,93 +675,146 @@ server <- shinyServer(function(input, output) {
         if (is.data.frame(FactorGMT)) {
             message("Melting FactorGMT for plotting")
             FactorGMTMelt <- melt(FactorGMT) ; message("FactorGMTMelt loaded")
-        } else { stop("Factor GMT File not loaded properly") }
-        return(FactorGMTMelt)
+            return(FactorGMTMelt)
+        
+        } else { 
+            return(NULL)
+            stop("Factor GMT File not loaded properly")}
     })
     
     output$RawDataQC <- renderDataTable({
         if (input$RawDataTableMelt == "GMT") {
             message("Expression Matrix loaded for RawDataQC Table ")
-            TableData <- GSEdata$ExpressionMatrix()
+            TableData <- GSEdata$ExpressionMatrix() 
+            
         } else if (input$RawDataTableMelt == "FactorGMTMelt") {
             message("FactorGMTMelt loaded for RawDataQC Table ")
             TableData <- GSEdata$FactorGMTMelt() 
+            
         } else { stop("Data not loaded properly") }
         
-        DT::datatable(
-            data = as.data.frame(TableData),
-            rownames = TRUE,
-            class = 'compact',
-            extensions = 'Buttons',
-            options = list(
-                scrollX = F,
-                scrollY = '300px',
-                paging = T,
-                dom = 'Bfrtip',
-                buttons = c('copy', 'csv', 'excel')
-              )
-          )
+        DT::datatable(data = as.data.frame(TableData), rownames = TRUE, class = 'compact', extensions = 'Buttons',
+            options = list( scrollX = F, scrollY = '300px', paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
       })
     
     
-    ######## Boxplot Tab
-      output$BoxFactorSelect <- renderUI({
-          shiny::req(shiny::req(input$GsmTableSelect))
-          message("Rendering Boxplot Factor Select Input")
-          FactorGMTMelt <-  GSEdata$FactorGMTMelt()
-          FactorOptions <- grep(pattern = "ExpVar", x = colnames(FactorGMTMelt), value = T)
-          selectInput( inputId = "BoxFactorSelectInput", label = "Fill by Factor", choices = FactorOptions, selected = FactorOptions[1]
-          )
-      })
-     
+    #################### Boxplot Tab
+
+        BoxplotData <- reactiveValues()
+        
+        BoxplotData$FactorGMTMelt.Samples <- reactive({
+            shiny::req(input$RawDataQC_rows_all)
+            message("Generating FactorGMTMelt reactive values for Boxplot Input")
+            FactorGMT <-  GSEdata$FactorGMT()
+            FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+            
+            message( "Sampling Gene Matrix")
+            sampledColumns <- sort(sample(x = ((ncol(FactorDF)+1):ncol(FactorGMT)), size = 100))
+            message( "Filtering Gene Matrix")
+            FactorGMT.Filtered <- FactorGMT[, c(1:(ncol(FactorDF)+1), sampledColumns)]
+            FactorGMTMelt <- melt(FactorGMT.Filtered)
+            FactorGMTMelt
+        })
+        
+        BoxplotData$FactorGMTMelt.Genes <- reactive({
+            shiny::req(input$RawDataQC_rows_all)
+            message("Generating FactorGMTMelt reactive values for Boxplot Input")
+            FactorGMT <-  GSEdata$FactorGMT()
+            FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+            
+            message("Sampling n genes")
+            FactorGMT.GeneFilt <- FactorGMT[, c( 1:(ncol(FactorDF)+1), sample((ncol(FactorDF)+2):ncol(FactorGMT), size = 10))]
+            message("melting gene sample DF")
+            FactorGMTMelt.GeneFilt <- melt(FactorGMT.GeneFilt)
+            FactorGMTMelt.GeneFilt
+        })
+        
+        output$BoxFactorSelect_UI <- renderUI({
+            shiny::req(input$RawDataQC_rows_all)
+            message("Rendering Boxplot Factor Select Input")
+            FactorGMTMelt <-  GSEdata$FactorGMTMelt.Samples(); message("Rendering Boxplot Factor Select Input 2")
+            FactorOptions <- colnames(FactorGMTMelt)
+            selectInput( inputId = "BoxFactorSelectInput", label = "Fill by Factor", choices = FactorOptions)
+        })
+        
+        output$GeneFactorSelect_UI <- renderUI({
+            shiny::req(input$RawDataQC_rows_all)
+            message("Rendering Boxplot Gene Select Input")
+            FactorGMT.GeneFilt <- BoxplotData$FactorGMTMelt.Genes()
+            if (isTruthy(FactorGMT.GeneFilt)) {
+            Gene <- FactorGMT.GeneFilt$variable
+            selectInput( inputId = "GeneSelectInput", label = "Fill by Factor", choices = Gene)
+            } else return(NULL)
+
+        })
+        
+    
         output$BoxPlotly <- renderPlot({
-            shiny::req(input$BoxFactorSelectInput)
-            message("Rendering Boxplotly")
-            FactorGMTMelt = GSEdata$FactorGMTMelt()
+            shiny::req(input$RawDataQC_rows_all)
+            message("Rendering Boxplot")
+            FactorGMTMelt.Genes <- BoxplotData$FactorGMTMelt.Genes()
+            FactorGMTMelt.Samples <- BoxplotData$FactorGMTMelt.Samples()
+            View(FactorGMTMelt.Samples)
             
-            if (input$BoxPlot_IndpVar == "Sample") { 
-            if (input$BoxPlot_PlotBy == "Overall Distribution") { 
+            if (input$BoxPlot_IndpVar == "Sample") {
+                if (input$BoxPlot_PlotBy == "Overall Distribution") {
+                    message("Plotting Sample Overall Distribution")
+                    AesX <- FactorGMTMelt.Samples$GSM
+                    AesY <- FactorGMTMelt.Samples$value
+                    AesFill <- factor(FactorGMTMelt.Samples[,input$BoxFactorSelectInput])
+                    GroupVar <- NULL
+                    xlabtext <- "GSMs in Dataset"
+                    legPos <- "none"
+    
+                } else if (input$BoxPlot_PlotBy == "Factor Distribution") {
+                    message("Plotting Sample Factor Distributions")
+                    AesX <- FactorGMTMelt.Samples[,input$BoxFactorSelectInput]
+                    AesFill <- factor(FactorGMTMelt.Samples[,input$BoxFactorSelectInput])
+                    GroupVar <- factor(FactorGMTMelt.Samples[,input$BoxFactorSelectInput])
+                    xlabtext <- "Experimental Factors"
+                    legPos <- "top"
+                }
+                FactorGMTMelt <- FactorGMTMelt.Genes
+                
             
-            nSamples <- sample(x = FactorGMTMelt$GSM, size = input$BoxPlot_nGenes)
-            FactorGMTMelt <- FactorGMTMelt %>% filter(GSM %in% nSamples)
-            AesX <- FactorGMTMelt$GSM
-            AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-            GroupVar <- FactorGMTMelt$GSM
-            xlabtext <- "GSMs in Dataset"
-            legPos <- "top"
-            
-          } else if (input$BoxPlot_PlotBy == "Factor Distribution") {
-            AesX <- FactorGMTMelt[,input$BoxFactorSelectInput]
-            AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-            GroupVar <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-            xlabtext <- "Experimental Factors"
-            legPos <- "top"
-          }
+            } else if (input$BoxPlot_IndpVar == "Gene") {
           
-        } else if (input$BoxPlot_IndpVar == "Gene") {
-          GeneSample <- sample(x = FactorGMTMelt$variable, size = input$BoxPlot_nGenes)
-          FactorGMTMelt <- FactorGMTMelt %>% filter(variable %in% GeneSample)
-          
-          if (input$BoxPlot_PlotBy == "Overall Distribution") {
-            AesX <- FactorGMTMelt$variable
-            FactorGMTMelt <- FactorGMTMelt
-            AesFill <- "red"
-            GroupVar <- NULL
-            xlabtext <- "Assayed Genes"
-            legPos <- "none"
+                if (input$BoxPlot_PlotBy == "Overall Distribution") {
+                    message("Plotting overall distribution for gene selection")
+                    AesX <- FactorGMTMelt.Genes$variable
+                    AesFill <- FactorGMTMelt.Genes$variable
+                    GroupVar <- NULL
+                    xlabtext <- "Gene Names"
+                    legPos <- "none"
             
-          } else if (input$BoxPlot_PlotBy == "Factor Distribution") {
-            AesX <- FactorGMTMelt$variable
-            AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-            GroupVar <- NULL
-            xlabtext <- "Assayed Genes"
-            legPos <- "top"
-          }
+                } else if (input$BoxPlot_PlotBy == "Factor Distribution") {
+                    message("Plotting factor distribution for gene selection")
+                    AesX <- FactorGMTMelt$variable
+                    AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
+                    xlabtext <- "Experimental Factors"
+                    legPos <- "top"
+                }
+                FactorGMTMelt <- FactorGMTMelt.Genes
+            }
+            
+            p <- ggplot(data = FactorGMTMelt, aes_string(y = FactorGMTMelt$value, x = AesX, group = GroupVar, fill = AesFill)) 
+            
+        if (input$BoxPlot_Type == "Boxplot") { p <- p + geom_boxplot(varwidth = F)
+        } else if (input$BoxPlot_Type == "Violin Plot") { p <- p + geom_violin()
+        } else if (input$BoxPlot_Type == "Line Plot") { p <- p }
+        
+        
+        if (input$BoxPlot_showColor) {
+            if (input$BoxPlot_ThemeSelect == "default") { p <- p }
+            else if (input$BoxPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
+            else if (input$BoxPlot_ThemeSelect == "theme_bw") {p <- p + theme_bw()}
+            else if (input$BoxPlot_ThemeSelect == "theme_light") {p <- p + theme_light()}
+            else if (input$BoxPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
+            else if (input$BoxPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
+            else if (input$BoxPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
         }
-        red <- "red"
-        p <-
-            ggplot(data = FactorGMTMelt, aes_string(y = FactorGMTMelt$value, x = AesX, group = GroupVar, fill = AesFill)) +
-            theme(legend.position = legPos) +  
+        
+        p <- p + theme(legend.position = legPos) +  
             ylab(label = "Expression Level") +
             xlab(label = xlabtext) +
             guides(fill=guide_legend(title="Experimental Factor Groups")) +
@@ -782,13 +823,7 @@ server <- shinyServer(function(input, output) {
             theme(axis.title = element_text(size = 14)) +
             theme(legend.text=element_text(size=14))
         
-        if (input$BoxPlot_Type == "Boxplot") {
-            p <- p + geom_boxplot(varwidth = F, position = "dodge")
-            
-        } else if (input$BoxPlot_Type == "Violin Plot") {
-            p <- p + geom_violin()
-        } else if (input$BoxPlot_Type == "Line Plot") { p <- p # bean plot code
-        }
+
         
         if (input$BoxPlot_showData==1) {
           JitterWidth <- input$BoxPlot_JitterWidth
@@ -811,15 +846,7 @@ server <- shinyServer(function(input, output) {
                 "cm"))
         }
         
-        if (input$BoxPlot_showColor) {
-            if (input$BoxPlot_ThemeSelect == "default") { p <- p }
-            else if (input$BoxPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
-            else if (input$BoxPlot_ThemeSelect == "theme_bw") {p <- p + theme_bw()}
-            else if (input$BoxPlot_ThemeSelect == "theme_light") {p <- p + theme_light()}
-            else if (input$BoxPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
-            else if (input$BoxPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
-            else if (input$BoxPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
-        }
+
           
         if (input$BoxPlot_PlotAxisFlip==1) { p <- p + coord_flip()}
         if (length(input$BoxPlot_main) > 0) { p <- p + labs(title = input$BoxPlot_main)}
@@ -846,42 +873,6 @@ server <- shinyServer(function(input, output) {
             }
         })
      
-      ## *** Download EPS file ***
-      output$downloadPlotEPS <- downloadHandler(
-        filename <- function() { paste('Boxplot.eps') },
-        content <- function(file) {
-          postscript(file, horizontal = FALSE, onefile = FALSE, paper = "special", width = input$myWidth/72, height = input$myHeight/72)
-          ## ---------------
-          generateBoxPlot(dataM())
-          ## ---------------
-          dev.off()
-        },
-        contentType = 'application/postscript'
-      )
-      ## *** Download PDF file ***
-      output$downloadPlotPDF <- downloadHandler(
-        filename <- function() { paste('Boxplot.pdf') },
-        content <- function(file) {
-          pdf(file, width = input$myWidth/72, height = input$myHeight/72)
-          ## ---------------
-          generateBoxPlot(dataM())
-          ## ---------------
-          dev.off()
-        },
-        contentType = 'application/pdf' # MIME type of the image
-      )
-      ## *** Download SVG file ***
-      output$downloadPlotSVG <- downloadHandler(
-        filename <- function() { paste('Boxplot.svg') },
-        content <- function(file) {
-          svg(file, width = input$myWidth/72, height = input$myHeight/72)
-          ## ---------------
-          generateBoxPlot(dataM())
-          ## ---------------
-          dev.off()
-        },
-        contentType = 'image/svg'
-      )
       
       
     ########## PCA
@@ -908,14 +899,14 @@ server <- shinyServer(function(input, output) {
             #' @param FactorDF
             output$PCA_GroupUI <- renderUI({
             FactorDF <- FactorGMTCast()$FactorDF
-            FactorGrouping <- c("None","GSM", colnames(FactorDF))
+            FactorGrouping <- c("None", colnames(FactorDF))
             selectInput(inputId = "PCA_Group", label = "Group by Factor", choices = FactorGrouping, selected = "None", multiple = F)
             })
             
             #' Render Input that allows user to select PCA labeling factor
             output$PCA_LabelUI <- renderUI({
             FactorDF <- FactorGMTCast()$FactorDF
-            FactorGrouping <- c("Sample Number","GSM", colnames(FactorDF))
+            FactorGrouping <- c("Sample Number", colnames(FactorDF))
             selectInput(inputId = "PCA_Label", label = "Label by Factor", choices = FactorGrouping, selected = "Sample Number", multiple = F)
             })
             
@@ -941,7 +932,7 @@ server <- shinyServer(function(input, output) {
             PCA_ResDF <- data.frame(PCA_ResDF)
             Prcomp_res <-  PCA_Data()$Prcomp_res
             FactorDF <- FactorGMTCast()$FactorDF
-              
+            
             var_expl_x <- round(100 * Prcomp_res$sdev[as.numeric(gsub("[^0-9]", "", input$PCA_xcomp))]^2/sum(Prcomp_res$sdev^2), 1)
             var_expl_y <- round(100 * Prcomp_res$sdev[as.numeric(gsub("[^0-9]", "", input$PCA_ycomp))]^2/sum(Prcomp_res$sdev^2), 1)
             
@@ -1109,7 +1100,7 @@ server <- shinyServer(function(input, output) {
         message("rendering nGenes Info Box")
         ExpressionMatrix <- GSEdata$ExpressionMatrix()
         nGenes <- nrow(ExpressionMatrix)
-        valueBox( nGenes, "Number of Genes in GSE", icon = icon("list"), color = "yellow")
+        valueBox( nGenes, "Number of Genes in GSE", icon = icon("dna"), color = "yellow")
         })
         
         
