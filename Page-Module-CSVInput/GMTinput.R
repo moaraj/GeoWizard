@@ -341,27 +341,28 @@ ui <-
         fluidRow(
         
         h4("Expression Analysis Options"),
-        column(12, selectInput(inputId = "DiffExMethod", label = "Difference Expression Analysis Method",choices = c("EdgeR", "Limma", "DESeq2"))),
+        column(12, uiOutput("DiffExMethod_UI")),
         column(12, actionButton("SubmitDEA","Perform Differntial Expression Analysis")),
-        
         column(12, hr()),
-        h4("Significance Threshold"),
-        column(12, selectInput(inputId = "MultiTestCorr", label = "Multiple Testing Correction", choices = c("None", "Bonferroni", "Benjamini–Hochberg", "Westfall-Young"))),
-        column(12, uiOutput("PValThres")),
-        column(12, uiOutput("LogFCThres")),
+        
+        h4("Significance Threshold"),                                                   #choices = list("Tukey"=0, "Spear"=1, "Altman"=2)
+        column(6, uiOutput("PValThres")),
+        column(6, uiOutput("LogFCThres")),
+        column(12, selectInput(inputId = "MultiTestCorr", label = "Multiple Testing Correction", 
+        choices = c("None" = "none", "Holm" = "holm", "Hochberg" = "hochberg","Bonferroni" = "bonferroni", "Benjamini–Hochberg" = "BH", "Benjamini-Hochberg-Yekutieli" = "BY"))),  
         column(12, hr()),
         
         h4("Volcano Plot Options"),
         column(12, uiOutput("SelectContrast_UI")),
-        column(4, checkboxInput(inputId = "VolacanoPlot_PvalLine", label = "p-value line")),
-        column(4, checkboxInput(inputId = "VolacanoPlot_LogLine", label = "logFC line")),
+        column(4, checkboxInput(inputId = "VolacanoPlot_PvalLine", label = "p-value line", value = T)),
+        column(4, checkboxInput(inputId = "VolacanoPlot_LogLine", label = "logFC line", value = T)),
         column(4, checkboxInput(inputId = "VolacanoPlot_labelhitt", label = "label hits")),
         
         column(12,hr(),h4('Additional Parameters')),
         column(3,checkboxInput('VolcanoPlot_showColor','Color')),
         column(3,checkboxInput('VolcanoPlot_showLabs','Labels & Title')),
         column(3,checkboxInput('VolcanoPlot_showPlotSize','Plot Size')),
-        column(3,checkboxInput('VolcanoPlot_showMargins','Margins', value = 1)),
+        column(3,checkboxInput('VolcanoPlot_showMargins','Margins')),
                            
         column(12,
         conditionalPanel('input.VolcanoPlot_showColor==1',
@@ -410,7 +411,10 @@ ui <-
         wellPanel(
         fluidRow(
         h4("Volcano Plot"),
-        plotOutput("VolcanoPlot")
+        column(12, plotOutput("VolcanoPlot")),
+        column(12, hr()),
+        column(6, uiOutput("VolcanoPlot_HighlightGene_UI"))
+        
         )  # Volcano Plot Fluid Row
         ),  # Volcano Plot Well Panel
                       
@@ -637,11 +641,14 @@ server <- shinyServer(function(input, output) {
     
     GSEdata$ExpressionMatrix <- reactive({
         shiny::req(input$GeneAnnotationType)
-        DataSourceSelection <- input$DataSourceSelection
-        if(DataSourceSelection == 1) {
-            ExpressionMatrix <- GSEdata$MatrixAnnotated(); message("Annotated GMT Matrix asigned to reactive value: GSEdata$ExpressionMatrix")
-        } else if(DataSourceSelection == 2) { 
-            ExpressionMatrix <- GSEdata$GMTinput_CSV(); message("GMTinput_CSV asigned to reactive value: GSEdata$ExpressionMatrix")
+        if(input$DataSourceSelection == 1) {
+            message("Annotated GMT Matrix asigned to reactive value: GSEdata$ExpressionMatrix")
+            ExpressionMatrix <- GSEdata$MatrixAnnotated()
+        } else if(input$DataSourceSelection == 2) { 
+            message("GMTinput_CSV asigned to reactive value: GSEdata$ExpressionMatrix")
+            if (isTruthy(input$GMTcsv)) {
+            ExpressionMatrix <- GSEdata$GMTinput_CSV()
+            }
         }
         return(ExpressionMatrix)
       })
@@ -1017,68 +1024,66 @@ server <- shinyServer(function(input, output) {
         
         
         
-        ###################### Expression Analysis
+        ##################################################################################################################################### Expression Analysis
         ExpressionAnalysis <- reactiveValues()
+        
+        output$DiffExMethod_UI <- renderUI({
+            DataSetType <- input$ExpressionDataType
+            if (DataSetType == "RNAseq" | DataSetType == "ssRNAseq") { selectedMethod <- "DESeq2"
+            } else { selectedMethod <- "Limma" }
+            selectInput(inputId = "DiffExMethod", label = "Difference Expression Analysis Method",choices = c("EdgeR", "Limma", "DESeq2"), selected = selectedMethod)
+        })
+        
+        ExpressionAnalysis$LimmaResults <- eventReactive(input$SubmitDEA, {
+            message("Loading Objects from for limma analysis")
+            #ExpressionMatrix <- GSEdata$ExpressionMatrix() 
+            #DesignMatrix <- ExperimentalDesign$DesignMatrix()
+            #ContrastMatrix <- ExperimentalDesign$Contrast()
+            
+            ExpressionMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ExpressionMatrix.rds")
+            DesignMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_DesignMatrix.rds")
+            ContrastMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ContrastMatrix.rds")
 
-        ExpressionAnalysis$LimmaResults <- reactive({
-        GSEeset <- GSEdata$GSEeset() #Expression Set
-        #DesignMatrix <- ExperimentalDesign$DesignMatrix() #Matrix
-
-       if(!is.null(GSEeset) & !is.null(DesignMatrix)){
-         ArrayData <- exprs(GSEeset) #Matrix
-         DesignMatrix <- DesignMatrix
-         LimmaOutput(ArrayData,DesignMatrix)
-         message("Performing Limma DEA")
-       } else {
-         message("GSEeset not Loaded")
-         NULL
-         }
-
-
+        if(!is.null(ExpressionMatrix) & !is.null(DesignMatrix) &!is.null(ContrastMatrix)){
+            message("Performing Limma DEA")
+            res <- LimmaOutput(ExpressionMatrix,DesignMatrix,ContrastMatrix)}
+            return(res)
        })
 
      ############ Volcano Plot
 
-     output$PValThres <- renderUI({
-          numericInput(inputId = "PValThresInput",
-                       label = "pValue Threshold",
-                       value = 2,
-                       min = 1,
-                       step = 0.5)
-     })
+        output$PValThres <- renderUI({
+        numericInput(inputId = "PValThresInput", label = "pValue Threshold", value = 15, min = 1, step = 0.5)
+        })
 
-     output$LogFCThres <- renderUI({
-          numericInput(inputId = "LogFCThresInput",
-                       label = "LogFC Threshold",
-                       value = 1,
-                       min = 0,
-                       max = 5,
-                       step = 0.5)
-     })
+        output$LogFCThres <- renderUI({
+        numericInput(inputId = "LogFCThresInput", label = "LogFC Threshold", value = 1, min = 0, max = 5, step = 0.5)
+        })
      
-    output$SelectContrast_UI <- renderUI({
-        LimmaTable <- LimmaTable
+        output$SelectContrast_UI <- renderUI({
+        shiny::req(input$DiffExMethod)
+        LimmaTable <- ExpressionAnalysis$LimmaResults()
         selectInput(inputId = "Volcanoplot_SelectContrast", label = "Select Contrast", choices = unique(LimmaTable$Contrast))
-     })
+        })
 
         output$VolcanoPlot <- renderPlot({
-        #shiny::req(input$SubmitFormula)
-
+            
         pValueThresHold <- input$PValThresInput
         logFCThresHold <- input$LogFCThresInput
 
-        #LimmaTable <- ExpressionAnalysis$LimmaResults()
-        #LimmaTable <- as.data.frame(LimmaTable)
+        LimmaTable <- ExpressionAnalysis$LimmaResults()
+        LimmaTable <- as.data.frame(LimmaTable)
         selectedContrast <- input$Volcanoplot_SelectContrast
-        LimmaTable <- LimmaTable %>% dplyr::filter(Contrast == selectedContrast)
-        
+        LimmaTable <- LimmaTable %>% dplyr::filter(Contrast == selectedContrast) %>%
+            mutate(adj.P.Val = p.adjust(P.Value, method = input$MultiTestCorr))
+
         LimmaTable <- LimmaTable %>%
-        mutate(Threshold = abs(logFC) > logFCThresHold) %>%
-        mutate(Threshold = as.numeric(Threshold)) %>%
-        mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
+        mutate(LogThreshold = abs(logFC) > logFCThresHold) %>%
+        mutate(PThreshold = as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold)) %>%
+        mutate(Threshold = paste(LogThreshold, PThreshold))
         
-        p <- ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) + geom_point() + theme_grey()
-        
+        p <- ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold))) + geom_point() + theme_grey()
+
         if (input$VolcanoPlot_showColor) {
             if (input$VolcanoPlot_ThemeSelect == "default") { p <- p }
             else if (input$VolcanoPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
@@ -1088,9 +1093,33 @@ server <- shinyServer(function(input, output) {
             else if (input$VolcanoPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
             else if (input$VolcanoPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
         }
-          
+        
+        if(input$VolacanoPlot_LogLine) {p <- p + geom_vline(xintercept = c(logFCThresHold, -logFCThresHold), linetype="dashed", color="red", size=1.2)}
+        if(input$VolacanoPlot_PvalLine) {p <- p + geom_hline(yintercept = pValueThresHold, linetype="dashed", color="red", size=1.2)}
+        
+        p <- p + theme(axis.text = element_text(size = 14, hjust = 1)) +
+            theme(axis.title = element_text(size = 14)) +
+            theme(legend.text=element_text(size=14))
+        
+        if (length(input$VolcanoPlot_HighlightGene) > 1) {
+            SelectedGenes <- input$VolcanoPlot_HighlightGene
+            HighlightData <- LimmaTable %>% filter(gene %in% SelectedGenes)
+        p <- p + 
+            geom_point(data = HighlightData, aes(x = logFC, y = -log(adj.P.Val)), colour="red", size=5) + 
+            geom_label(data=HighlightData,aes(x = logFC, y = -log(adj.P.Val), label=gene, size=14, vjust=1, colour = "black"))
+        } else {p <- p}
+        
+
+        p <- p + scale_x_continuous(limits = c(-3, 3))
+        p <- p + theme(legend.position = "bottom")
         p
        })
+        
+        
+        output$VolcanoPlot_HighlightGene_UI <- renderUI({
+        LimmaTable <- ExpressionAnalysis$LimmaResults()
+        selectInput(inputId = "VolcanoPlot_HighlightGene", label = "Highlight Gene", choices = LimmaTable$gene, multiple = T)
+        })
         
         
         

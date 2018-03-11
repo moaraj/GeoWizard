@@ -55,23 +55,28 @@ GSE <- "GSE69967"
 GPL <- "GPL570"
 source("GeoFileHandling.R")
 GSEeset <- LoadGEOFiles(GSE, GPL, GeoRepo)
+GSEeset <- readRDS(file = "GeoWizard/GEORepo/GSE69967-GPL570.rds")
+FactorDF <- readRDS(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.rds")
+
+
+colnames(FactorDF) <- c("GSM", "Treatment", "Tissue")
 
 ExpressionMatrix <- exprs(GSEeset)
-FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
 FeatureData <- fData(GSEeset)
 
 ########## Convert to Gene Symbol
 ExpressionMatrix.GeneSymbol <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "Gene Symbol")
 FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix.GeneSymbol, FactorDF)
 
+DesignMatrix <- model.matrix( ~ Treatment + Tissue, FactorDF)
+colnames(DesignMatrix) <- c("Control.Lesion","Treatment.Lesion","Control.Healthy","Treatment.Healthy")
+colnames(DesignMatrix) <- c("Intercept","Treatment.Disease","Treatment.Healthy")
 
-GSM <- Step_1$gsm
-GraphDF <- cbind(GSM, Step_6)
-DesignMatrix <- model.matrix( ~ 0 + ExpVar3.ContClass:ExpVar4.ContClass, GraphDF )
-colnames(DesignMatrix) <- c("Cont.Cont","Pert.Cont","Cont.Pert","Pert.Pert")
-ContrastString <- ConTextInput(DesignMatrix)
+ContrastString <- ConTextInput(DesignMatrix, "Treatment.Healthy")
+ContrastMatrix <- GenContrastMatrix(ContrastString)
 ContrastMatrix <- makeContrasts(ContrastString, levels = DesignMatrix)
-
+#if 0 in formula
+ContrastMatrix[1,] <- 0
 
 ######### Limma
-res <- LimmaOutput(GeneSymbolArrayData, DesignMatrix, ContrastMatrix)
+res <- LimmaOutput(ExpressionMatrix.GeneSymbol, DesignMatrix, ContrastMatrix)
