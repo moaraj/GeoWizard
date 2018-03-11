@@ -100,7 +100,7 @@ BoxPlotGSE <- function(
             message("Plotting factor distribution for gene selection")
             AesX <- FactorGMTMelt[,"variable"]
             AesY <- FactorGMTMelt[,"value"]
-            AesFill <- factor(FactorGMTMelt[,BoxFactorSelectInput])
+            AesFill <- FactorGMTMelt[,BoxFactorSelectInput]
             GroupVar <- NULL
             xlabtext <- "Experimental Factors"
             legPos <- "top"
@@ -137,6 +137,8 @@ BoxPlotGSE <- function(
         theme(axis.text = element_text(size = 14, hjust = 1)) +
         theme(axis.title = element_text(size = 14)) +
         theme(legend.text=element_text(size=14))
+    
+    
 
     if (BoxPlot_showData==1) {
        if (BoxPlot_showDataOption == "jitter") { p <- p + geom_jitter(width = BoxPlot_JitterWidth, alpha = BoxPlot_JitterAlpha, fill =  BoxPlot_JitterFill)

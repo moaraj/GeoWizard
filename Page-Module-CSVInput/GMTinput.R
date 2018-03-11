@@ -31,8 +31,6 @@ ui <-
         fluidRow(
         column(12,
         
-        column(12,uiOutput("DownloadDataInfoBox")),
-        #column(12, uiOutput("DownloadInputAcession")
         h4("Data Source"),
         column(12, uiOutput("InputSourceGMT")),
         column(12, tags$hr()),
@@ -42,7 +40,7 @@ ui <-
         column(12,
         column(6,textInput(inputId = "GsmTableSelect",label = "GSE input", value = "GSE69967")),
         column(6,textInput(inputId = "GplTableSelect",label = "GPL input", value = "GPL")),
-        column(12,actionButton( inputId = "DownloadGEOData", label = "Download", icon = icon("download"), block = T)),
+        column(12,actionButton( inputId = "DownloadGEOData", label = "Download Data from GEO", icon = icon("download"), block = T)),
         column(12, hr()),
         uiOutput("GeneAnnotationTypeUI"),hr())),
         
@@ -94,7 +92,7 @@ ui <-
         column(4, actionButton(inputId = "RefreshRawDataQCTable", label = "Refresh Table",icon = icon('refresh')))),
         fluidRow(
         column(12, hr()),
-        column(12,valueBoxOutput("nGSESamples"),valueBoxOutput("nGSEGenes")))
+        column(12,valueBoxOutput("DownloadDataInfoBox"),valueBoxOutput("nGSESamples"),valueBoxOutput("nGSEGenes")))
         
         ))) # Table Column
         
@@ -161,8 +159,8 @@ ui <-
         column(12,
                         
         h4('Plot Selection'), 
-        column(6, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample" = "s", "Gene" = "g"), selected = "")),
-        column(6, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution" = "o", "Factor Distribution" = "f"), selected = "1")),
+        column(6, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample" = "s", "Gene" = "g"), selected = "g")),
+        column(6, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution" = "o", "Factor Distribution" = "f"), selected = "")),
         column(6, uiOutput("BoxPlot_GeneSelect_UI")),
         column(6, uiOutput("BoxPlot_FactorSelect_UI")),
         
@@ -207,7 +205,7 @@ ui <-
         column(3,checkboxInput('BoxPlot_showColor','Color')),
         column(3,checkboxInput('BoxPlot_showLabs','Labels & Title')),
         column(3,checkboxInput('BoxPlot_showPlotSize','Plot Size')),
-        column(3,checkboxInput('BoxPlot_showMargins','Margins', value = 1)),
+        column(3,checkboxInput('BoxPlot_showMargins','Margins')),
         hr(),
                    
         column(12,
@@ -225,8 +223,8 @@ ui <-
         hr(),
         h5('Widget Layout'),
         column(4,textInput('BoxPlot_main','Title','')),
-        column(4,textInput('BoxPlot_xlab','X Title','')),
-        column(4,textInput('BoxPlot_ylab','Y Title','')),
+        column(4,textInput('BoxPlot_xlab','X Title','Experimental Group')),
+        column(4,textInput('BoxPlot_ylab','Y Title','Expression Levels')),
         sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180),
         sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
         )),
@@ -260,7 +258,7 @@ ui <-
         column(2,actionButton(inputId = "RefreshBoxPlotSample", label = "Resample Genes",icon = icon('refresh'))),
         column(2,actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh'))),
         column(2,checkboxInput(inputId = "BoxPlot_ToggleLegend", label = "Show Legend")),
-        column(2,checkboxInput(inputId = "BoxPlot_ToggleInteractive", label = "Render Interactive Plot"))
+        column(4,checkboxInput(inputId = "BoxPlot_ToggleInteractive", label = "Render Interactive Plot"))
         )
         )  # Well Panel for Plots
         )  # Second Column of Page
@@ -542,17 +540,6 @@ server <- shinyServer(function(input, output) {
     #'
     GSEdata <- reactiveValues()
     
-    #'
-    #'
-    #'
-    #'
-    #'
-    output$DownloadDataInfoBox <- renderUI({
-    column(12,
-    tags$div(id="pane",
-    fluidRow(valueBox(width = 12, "GSE:", "GPL:" )),
-    tags$style(type="text/css","#pane{font-size:20px;}")))    
-    })
     
     #'
     #'
@@ -718,14 +705,17 @@ server <- shinyServer(function(input, output) {
         })
         
         output$BoxPlot_FactorSelect_UI <- renderUI({
+            shiny::req(input$BoxPlot_PlotBy)
             message("Rendering BoxPlot Factor Select Input")
-            FactorOptions <- c("GSM",colnames(ExperimentalDesign$ControlFactorDF()))
+            
+            if(input$BoxPlot_PlotBy == "o"){ FactorOptions <- c("GSM",colnames(ExperimentalDesign$ControlFactorDF()))
+            } else { FactorOptions <- c(colnames(ExperimentalDesign$ControlFactorDF())) }
             selectInput( inputId = "BoxPlot_FactorSelect", label = "Fill by Factor", choices = FactorOptions)
         })
 
 
         output$BoxPlot_ggplot <- renderPlot({
-            #shiny::req(input$RefreshBoxPlotSample, input$GeneSelectInput, input$BoxFactorSelectInput)
+            shiny::req(input$BoxPlot_PlotBy, input$BoxPlot_FactorSelect)
             message("Rednering BoxPlot")
             FactorGMTMelt <- GSEdata$FactorGMTMelt.Sampled()
             
@@ -983,6 +973,21 @@ server <- shinyServer(function(input, output) {
 
         })
         
+        #'
+        #'
+        #'
+        #'
+        #'
+        output$DownloadDataInfoBox <- renderValueBox({
+        shiny::req( input$GsmTableSelect,input$GplTableSelect)
+        GSE <- input$GsmTableSelect
+        GPL  <- input$GplTableSelect
+        valueBox(value = GSE, subtitle = paste("Design and Contrast Matrix for", GPL),icon = icon('check-circle'),color = "blue")
+        })
+        
+        #'
+        #'
+        #'        
         output$nGSESamples <- renderValueBox({
         shiny::req(input$GeneAnnotationType)
         message("rendering nSamples Info Box")
@@ -991,6 +996,11 @@ server <- shinyServer(function(input, output) {
         valueBox( nSamples, "Number of Samples in GSE", icon = icon("list"), color = "purple")
         })
         
+        
+        #'
+        #'
+        #'
+        #'
         output$nGSEGenes <- renderValueBox({
         shiny::req(input$GeneAnnotationType)
         message("rendering nGenes Info Box")
