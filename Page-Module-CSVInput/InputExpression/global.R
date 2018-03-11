@@ -1,5 +1,5 @@
 GeoWizard <- "~/GeoWizard/"
-GeoRepo <- "~/GeoWizard/GeoRepo"
+GeoRepo <- "~/GeoWizard/GEORepo/"
 
 library(shiny)
 library(shinydashboard)

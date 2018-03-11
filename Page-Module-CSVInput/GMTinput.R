@@ -134,8 +134,10 @@ ui <-
         wellPanel(
         fluidRow(
         h4("BioQC Heatmap"),
-        plotlyOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
-        )
+        column(12,
+        fluidRow(
+        plotlyOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")    
+        )))
         ),
         
         wellPanel(
@@ -150,7 +152,7 @@ ui <-
         )  # Page Fluid Row
         ),  # tabPanel BioQC"
     
-        tabPanel(title = "Boxplots",
+        tabPanel(title = "BoxPlots",
         fluidRow(
         column(4,
                  
@@ -159,16 +161,16 @@ ui <-
         column(12,
                         
         h4('Plot Selection'), 
-        column(12, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample" = "s", "Gene" = "g"), selected = "")),
-        column(12, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution" = "1", "Factor Distribution" = "2"), selected = "1")),
-        column(12, uiOutput("GeneFactorSelect_UI")),
-        column(12, uiOutput("BoxFactorSelect_UI")),
+        column(6, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample" = "s", "Gene" = "g"), selected = "")),
+        column(6, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution" = "o", "Factor Distribution" = "f"), selected = "1")),
+        column(6, uiOutput("BoxPlot_GeneSelect_UI")),
+        column(6, uiOutput("BoxPlot_FactorSelect_UI")),
         
         ##########################################################################
 
         
-        column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("Boxplot", "Violin Plot", "Histogram"), selected = "Boxplot")),
-        column(12, sliderInput("BoxPlot_nGenes", "Portion of Genes to Sample", min = 1, max = 1000, value = 100, step = 100)),
+        column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("BoxPlot", "Violin Plot", "Histogram"), selected = "BoxPlot")),
+        column(12, sliderInput("BoxPlot_nGenes", "Portion of Genes to Sample", min = 1, max = 100, value = 10, step = 10)),
                         
         h4('Plot Options'), 
         column(4,checkboxInput('BoxPlot_showData','Show Data')),
@@ -180,7 +182,8 @@ ui <-
                         
         conditionalPanel('input.BoxPlot_showData==1', 
         column(12, br(),hr(),h4("Data Point Plotting Options")),
-        radioButtons(inputId = "BoxPlot_showDataOption", label = "", choices = c("jitter", "quasirandom", "beeswarm", "tukey", "frowney", "smiley"), selected = "jitter",inline = T),
+        radioButtons(inputId = "BoxPlot_showDataOption", label = "", choices = c("jitter", "quasirandom", "beeswarm", "tukey"), selected = "jitter",inline = T),
+        sliderInput(inputId = "BoxPlot_JitterAlpha", label = "Data Point alpha", min = 0,max = 1,step = 0.1,value = 1),
         sliderInput(inputId = "BoxPlot_JitterWidth", label = "Data Point Plot Area Width", min = 0,max = 2,step = 0.05,value = 0.1)
         )),
                    
@@ -245,19 +248,24 @@ ui <-
         column(3, numericInput("BoxPlot_margin_right", "Right:", value=1, step = 0.1)),
         column(3, numericInput("BoxPlot_margin_left", "Left:", value=1, step = 0.1))
         ))))
-        ), # Boxplots tabPanel Input Column
+        ), # BoxPlots tabPanel Input Column
 
         column(8,
         wellPanel(
         fluidRow(
-        column(12, h4("Boxplot")),
-        column(12, uiOutput("BoxPlotUI") %>% withSpinner(color = "#0dc5c1")),
+        column(12, h4("BoxPlot")),
+        column(12, plotOutput("BoxPlot_ggplot") %>% withSpinner(color = "#0dc5c1")),
         column(12, hr()),
-        column(4, actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh'))),
-        column(4, checkboxInput(inputId = "BoxPlot_ToggleInteractive", label = "Render Interactive Plot"))
-        ))))
-        ), # tabPanel(title = "Boxplots"
-    
+        
+        column(2,actionButton(inputId = "RefreshBoxPlotSample", label = "Resample Genes",icon = icon('refresh'))),
+        column(2,actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh'))),
+        column(2,checkboxInput(inputId = "BoxPlot_ToggleLegend", label = "Show Legend")),
+        column(2,checkboxInput(inputId = "BoxPlot_ToggleInteractive", label = "Render Interactive Plot"))
+        )
+        )  # Well Panel for Plots
+        )  # Second Column of Page
+        )  # tabPanel Fluid Row
+        ), # tabPanel(title = "BoxPlots"
         
         tabPanel(title = "PCA",
         fluidRow(
@@ -656,11 +664,19 @@ server <- shinyServer(function(input, output) {
     #'
     #'
     #'
-    GSEdata$FactorGMT <- reactive({
-        #ControlFactorDF <- ExperimentalDesign$ControlFactorDF()   change
+    
+    ExperimentalDesign <- reactiveValues()
+    ExperimentalDesign$ControlFactorDF <- reactive({
         ControlFactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
-        ExpressionMatrix <- GSEdata$ExpressionMatrix()
-        FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix, FactorDF = ControlFactorDF); message("line 657: Generating FactorGMT")
+        ControlFactorDF
+    })
+    
+    GSEdata$FactorGMT <- reactive({
+        ControlFactorDF <- ExperimentalDesign$ControlFactorDF()  
+        message("Loading Expression Matrix fro Factor GMT input")
+        ExpressionMatrix <- GSEdata$ExpressionMatrix() 
+        message("line 657: Generating FactorGMT")
+        FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix, FactorDF = ControlFactorDF)
         return(FactorGMT)
       })
     
@@ -668,29 +684,14 @@ server <- shinyServer(function(input, output) {
     #'
     #'
     #'
-    GSEdata$FactorGMTMelt <- reactive({
-        shiny::req(input$GsmTableSelect)
-        FactorGMT <- GSEdata$FactorGMT()
-        #FactorGMT <- FactorGMT[input$GMTFileTable_rows_all,]
-        if (is.data.frame(FactorGMT)) {
-            message("Melting FactorGMT for plotting")
-            FactorGMTMelt <- melt(FactorGMT) ; message("FactorGMTMelt loaded")
-            return(FactorGMTMelt)
-        
-        } else { 
-            return(NULL)
-            stop("Factor GMT File not loaded properly")}
-    })
     
     output$RawDataQC <- renderDataTable({
         if (input$RawDataTableMelt == "GMT") {
             message("Expression Matrix loaded for RawDataQC Table ")
             TableData <- GSEdata$ExpressionMatrix() 
-            
         } else if (input$RawDataTableMelt == "FactorGMTMelt") {
             message("FactorGMTMelt loaded for RawDataQC Table ")
-            TableData <- GSEdata$FactorGMTMelt() 
-            
+            TableData <- melt(GSEdata$FactorGMT())
         } else { stop("Data not loaded properly") }
         
         DT::datatable(data = as.data.frame(TableData), rownames = TRUE, class = 'compact', extensions = 'Buttons',
@@ -698,180 +699,75 @@ server <- shinyServer(function(input, output) {
       })
     
     
-    #################### Boxplot Tab
+    #################### BoxPlot Tab
 
-        BoxplotData <- reactiveValues()
-        
-        BoxplotData$FactorGMTMelt.Samples <- reactive({
-            shiny::req(input$RawDataQC_rows_all)
-            message("Generating FactorGMTMelt reactive values for Boxplot Input")
-            FactorGMT <-  GSEdata$FactorGMT()
-            FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
-            
-            message( "Sampling Gene Matrix")
-            sampledColumns <- sort(sample(x = ((ncol(FactorDF)+1):ncol(FactorGMT)), size = 100))
-            message( "Filtering Gene Matrix")
-            FactorGMT.Filtered <- FactorGMT[, c(1:(ncol(FactorDF)+1), sampledColumns)]
-            FactorGMTMelt <- melt(FactorGMT.Filtered)
-            FactorGMTMelt
+        output$BoxPlot_GeneSelect_UI <- renderUI({
+            message("Rendering BoxPlot Gene Select Input")
+            return(textInput( inputId = "BoxPlot_GeneSelect", label = "Plot Specific Gene"))
         })
         
-        BoxplotData$FactorGMTMelt.Genes <- reactive({
-            shiny::req(input$RawDataQC_rows_all)
-            message("Generating FactorGMTMelt reactive values for Boxplot Input")
-            FactorGMT <-  GSEdata$FactorGMT()
-            FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
-            
-            message("Sampling n genes")
-            FactorGMT.GeneFilt <- FactorGMT[, c( 1:(ncol(FactorDF)+1), sample((ncol(FactorDF)+2):ncol(FactorGMT), size = 10))]
-            message("melting gene sample DF")
-            FactorGMTMelt.GeneFilt <- melt(FactorGMT.GeneFilt)
-            FactorGMTMelt.GeneFilt
+        
+        GSEdata$FactorGMTMelt.Sampled <- reactive({
+            message("Generating FactorGMTMelt reactive values for BoxPlot Input")
+            FactorGMT.sampled <- sampleFactorGMT(FactorGMT = GSEdata$FactorGMT(),
+                nFactors = ncol(ExperimentalDesign$ControlFactorDF()),
+                SpecificGenes = input$BoxPlot_GeneSelect,
+                nGenes = input$BoxPlot_nGenes)
+            FactorGMTMelt.sampled <- melt(FactorGMT.sampled)
+            FactorGMTMelt.sampled
         })
         
-        output$BoxFactorSelect_UI <- renderUI({
-            shiny::req(input$RawDataQC_rows_all)
-            message("Rendering Boxplot Factor Select Input")
-            FactorGMTMelt <-  GSEdata$FactorGMTMelt.Samples(); message("Rendering Boxplot Factor Select Input 2")
-            FactorOptions <- colnames(FactorGMTMelt)
-            selectInput( inputId = "BoxFactorSelectInput", label = "Fill by Factor", choices = FactorOptions)
+        output$BoxPlot_FactorSelect_UI <- renderUI({
+            message("Rendering BoxPlot Factor Select Input")
+            FactorOptions <- c("GSM",colnames(ExperimentalDesign$ControlFactorDF()))
+            selectInput( inputId = "BoxPlot_FactorSelect", label = "Fill by Factor", choices = FactorOptions)
         })
-        
-        output$GeneFactorSelect_UI <- renderUI({
-            shiny::req(input$RawDataQC_rows_all)
-            message("Rendering Boxplot Gene Select Input")
-            FactorGMT.GeneFilt <- BoxplotData$FactorGMTMelt.Genes()
-            if (isTruthy(FactorGMT.GeneFilt)) {
-            Gene <- FactorGMT.GeneFilt$variable
-            selectInput( inputId = "GeneSelectInput", label = "Fill by Factor", choices = Gene)
-            } else return(NULL)
 
-        })
-        
-    
-        output$BoxPlotly <- renderPlot({
-            shiny::req(input$RawDataQC_rows_all)
-            message("Rendering Boxplot")
-            FactorGMTMelt.Genes <- BoxplotData$FactorGMTMelt.Genes()
-            FactorGMTMelt.Samples <- BoxplotData$FactorGMTMelt.Samples()
-            View(FactorGMTMelt.Samples)
+
+        output$BoxPlot_ggplot <- renderPlot({
+            #shiny::req(input$RefreshBoxPlotSample, input$GeneSelectInput, input$BoxFactorSelectInput)
+            message("Rednering BoxPlot")
+            FactorGMTMelt <- GSEdata$FactorGMTMelt.Sampled()
             
-            if (input$BoxPlot_IndpVar == "Sample") {
-                if (input$BoxPlot_PlotBy == "Overall Distribution") {
-                    message("Plotting Sample Overall Distribution")
-                    AesX <- FactorGMTMelt.Samples$GSM
-                    AesY <- FactorGMTMelt.Samples$value
-                    AesFill <- factor(FactorGMTMelt.Samples[,input$BoxFactorSelectInput])
-                    GroupVar <- NULL
-                    xlabtext <- "GSMs in Dataset"
-                    legPos <- "none"
-    
-                } else if (input$BoxPlot_PlotBy == "Factor Distribution") {
-                    message("Plotting Sample Factor Distributions")
-                    AesX <- FactorGMTMelt.Samples[,input$BoxFactorSelectInput]
-                    AesFill <- factor(FactorGMTMelt.Samples[,input$BoxFactorSelectInput])
-                    GroupVar <- factor(FactorGMTMelt.Samples[,input$BoxFactorSelectInput])
-                    xlabtext <- "Experimental Factors"
-                    legPos <- "top"
-                }
-                FactorGMTMelt <- FactorGMTMelt.Genes
+            BoxPlot_JitterFill <- "red"
+
+            p <-BoxPlotGSE(
+                # Data 
+                FactorGMTMelt = FactorGMTMelt,
+                BoxPlot_IndpVar = input$BoxPlot_IndpVar, 
+                BoxPlot_PlotBy = input$BoxPlot_PlotBy,
+                BoxFactorSelectInput = input$BoxPlot_FactorSelect, 
                 
-            
-            } else if (input$BoxPlot_IndpVar == "Gene") {
-          
-                if (input$BoxPlot_PlotBy == "Overall Distribution") {
-                    message("Plotting overall distribution for gene selection")
-                    AesX <- FactorGMTMelt.Genes$variable
-                    AesFill <- FactorGMTMelt.Genes$variable
-                    GroupVar <- NULL
-                    xlabtext <- "Gene Names"
-                    legPos <- "none"
-            
-                } else if (input$BoxPlot_PlotBy == "Factor Distribution") {
-                    message("Plotting factor distribution for gene selection")
-                    AesX <- FactorGMTMelt$variable
-                    AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-                    xlabtext <- "Experimental Factors"
-                    legPos <- "top"
-                }
-                FactorGMTMelt <- FactorGMTMelt.Genes
-            }
-            
-            p <- ggplot(data = FactorGMTMelt, aes_string(y = FactorGMTMelt$value, x = AesX, group = GroupVar, fill = AesFill)) 
-            
-        if (input$BoxPlot_Type == "Boxplot") { p <- p + geom_boxplot(varwidth = F)
-        } else if (input$BoxPlot_Type == "Violin Plot") { p <- p + geom_violin()
-        } else if (input$BoxPlot_Type == "Line Plot") { p <- p }
-        
-        
-        if (input$BoxPlot_showColor) {
-            if (input$BoxPlot_ThemeSelect == "default") { p <- p }
-            else if (input$BoxPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
-            else if (input$BoxPlot_ThemeSelect == "theme_bw") {p <- p + theme_bw()}
-            else if (input$BoxPlot_ThemeSelect == "theme_light") {p <- p + theme_light()}
-            else if (input$BoxPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
-            else if (input$BoxPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
-            else if (input$BoxPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
-        }
-        
-        p <- p + theme(legend.position = legPos) +  
-            ylab(label = "Expression Level") +
-            xlab(label = xlabtext) +
-            guides(fill=guide_legend(title="Experimental Factor Groups")) +
-            theme(axis.text.x = element_text(angle = input$BoxPlot_column_text_angle)) + 
-            theme(axis.text = element_text(size = 14, hjust = 1)) +
-            theme(axis.title = element_text(size = 14)) +
-            theme(legend.text=element_text(size=14))
-        
-
-        
-        if (input$BoxPlot_showData==1) {
-          JitterWidth <- input$BoxPlot_JitterWidth
-          if (input$BoxPlot_showDataOption == "jitter") { p <- p + geom_jitter(width = JitterWidth) 
-          } else if(input$BoxPlot_showDataOption == "quasirandom"){ p <- p + geom_quasirandom(width = JitterWidth)
-          } else if(input$BoxPlot_showDataOption == "beeswarm"){ p <- p + geom_beeswarm(width = JitterWidth)
-          } else if(input$BoxPlot_showDataOption == "tukey"){ p <- p + geom_quasirandom(width = JitterWidth, method = "tukey")
-          } else if(input$BoxPlot_showDataOption == "frowney"){ p <- p + geom_quasirandom(width = JitterWidth, method = "frowney")
-          } else if(input$BoxPlot_showDataOption == "smiley"){ p <- p + geom_quasirandom(width = JitterWidth, method = "smiley")
-          } else { NULL }
-        }
-        
-        if (input$BoxPlot_showMargins==1) {
-            p <-
-                p + theme(plot.margin = margin(
-                input$BoxPlot_margin_top,
-                input$BoxPlot_margin_right,
-                input$BoxPlot_margin_bottom,
-                input$BoxPlot_margin_left, 
-                "cm"))
-        }
-        
-
-          
-        if (input$BoxPlot_PlotAxisFlip==1) { p <- p + coord_flip()}
-        if (length(input$BoxPlot_main) > 0) { p <- p + labs(title = input$BoxPlot_main)}
-        if (length(input$BoxPlot_xlab) > 0) { p <- p + labs(x = input$BoxPlot_xlab)}
-        if (length(input$BoxPlot_ylab) > 0) { p <- p + labs(y = input$BoxPlot_ylab)}
-        
-        #sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180)
-        #sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
-    
-        #p <- ggplotly(p)
-        p
+                # Colors and Aesthetics
+                BoxPlot_Type =  input$BoxPlot_Type,
+                BoxPlot_showColor = input$BoxPlot_showColor, 
+                BoxPlot_ThemeSelect = input$BoxPlot_ThemeSelect,
+                BoxPlot_ToggleLegend = input$BoxPlot_ToggleLegend,
+                
+                # Jitter Settings
+                BoxPlot_showData = input$BoxPlot_showData, 
+                BoxPlot_showDataOption = input$BoxPlot_showDataOption, 
+                BoxPlot_JitterWidth = input$BoxPlot_JitterWidth, 
+                BoxPlot_JitterAlpha = input$BoxPlot_JitterAlpha, 
+                BoxPlot_JitterFill = BoxPlot_JitterFill,
+                
+                # Margin Settings // Important for Plotly, ggplot doesnt really have trouble with Marigs
+                BoxPlot_showMargins = input$BoxPlot_showMargins, 
+                BoxPlot_margin_top = input$BoxPlot_margin_top, 
+                BoxPlot_margin_right = input$BoxPlot_margin_right, 
+                BoxPlot_margin_bottom = input$BoxPlot_margin_bottom, 
+                BoxPlot_margin_left = input$BoxPlot_margin_left,
+                
+                # Axis Flip 
+                BoxPlot_PlotAxisFlip = input$BoxPlot_PlotAxisFlip,
+                
+                # Labels
+                BoxPlot_main = input$BoxPlot_main, 
+                BoxPlot_xlab = input$BoxPlot_xlab, 
+                BoxPlot_ylab = input$BoxPlot_ylab, 
+                BoxPlot_xlab_angle = input$BoxPlot_xlab_angle)
+            p
       })
-      
-        output$BoxPlotUI <- renderUI({
-            if(input$BoxPlot_showPlotSize){ 
-            plotHeight <- input$BoxPlot_Height
-            plotWidth <- input$BoxPlot_Width
-            
-            fluidRow( column(12, plotOutput(outputId = "BoxPlotly", height = plotHeight, width = plotWidth) %>% 
-                withSpinner(color = "#0dc5c1")))
-            } else { 
-            fluidRow( column(12, plotOutput(outputId = "BoxPlotly") %>% 
-                withSpinner(color = "#0dc5c1")))
-            }
-        })
      
       
       

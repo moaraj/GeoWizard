@@ -19,7 +19,7 @@ use <- function(package, version=0, ...) {
 #' @param GeoRepo File path to localGeoRepo MUST END WITH "/" - str length[1]
 #' @param RdsCache Save Geo Matrix files as RDS inside GeoRepo for faster loading - boolean lenght[1]
 #' 
-#'  @example GeoRepo <- "~/GeoWizard/GEORepo"
+#'  @example GeoRepo <- "~/GeoWizard/GEORepo/"
 #'  GSE <- "GSE69967"
 #'  GPL <- NULL
 #'  GSE <- "GSE60482"
@@ -30,7 +30,7 @@ use <- function(package, version=0, ...) {
 #setInternet2(use=FALSE)
 
 LoadGEOFiles <- function(GSE, GPL, GeoRepo){
-     GeoRepoFiles <- list.files(path = GeoRepo, all.files = T)
+     GeoRepoFiles <- list.files(path = "~/GeoWizard/GEORepo/")
 
     if(missing(GPL)) { 
         stop("Must supply GPL even if there is only one in the GSE")
@@ -43,7 +43,7 @@ LoadGEOFiles <- function(GSE, GPL, GeoRepo){
     
     if (isTRUE(file.exists(RDSFilePath)) & length(RDSFile) != 0) {
         message("Loading Matrix File from RDS")
-        eset <- readRDS(RDSFilePath)
+        eset <- readRDS(file = RDSFilePath)
     
     } else {
         

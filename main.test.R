@@ -1,4 +1,5 @@
-GeoWizard <- "~/GeoWizard"
+GeoWizard <- "~/GeoWizard/"
+GeoRepo <- "~/GeoWizard/GEORepo/"
 setwd(GeoWizard)
 source("ShinyApp-Dashboard/global.R")
 
@@ -51,71 +52,17 @@ Step_6 <- DesignLabs(data.frame(Step_5))
 
 ######### Function to Download File
 GSE <- "GSE69967"
-GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepo = GeoRepo)
-GSEeset <- GSEeset[[1]]
+GPL <- "GPL570"
+source("GeoFileHandling.R")
+GSEeset <- LoadGEOFiles(GSE, GPL, GeoRepo)
 
 ExpressionMatrix <- exprs(GSEeset)
-FactorDF <- Step_6[1:2]
 FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
 FeatureData <- fData(GSEeset)
 
 ########## Convert to Gene Symbol
-source(file = "GeoFileHandling.R")
 ExpressionMatrix.GeneSymbol <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "Gene Symbol")
 FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix.GeneSymbol, FactorDF)
-
-sampledColumns <- sort(sample(x = ncol(FactorDF)+1:ncol(FactorGMT), size = 100))
-FactorGMT.Filtered <- FactorGMT[, c(1:(ncol(FactorDF)+1), sampledColumns)]
-newGeneNames <- make.names(colnames(FactorGMT.Filtered))
-FactorGMT.renamed <- FactorGMT.Filtered
-colnames(FactorGMT.renamed) <- newGeneNames
-FactorGMTMelt <- melt(FactorGMT.renamed)
-
-
-
-
-
-
-BoxPlot_PlotBy <- "Overall Distribution"
-
-    if (BoxPlot_PlotBy == "Overall Distribution") {
-        AesX <- FactorGMTMelt$GSM
-        AesY <- FactorGMTMelt$value
-        AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-        AesFill <- FactorGMTMelt$ExpVar3.Text
-        xlabtext <- "GSMs in Dataset"
-        legPos <- "top"
-        ggplot(data = FactorGMTMelt, aes_string(x = AesFill, y = AesY, fill = AesFill))  + geom_boxplot()
-    
-    } else if (BoxPlot_PlotBy == "Factor Distribution") {
-        AesX <- FactorGMTMelt[,input$BoxFactorSelectInput]
-        AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-        GroupVar <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-        xlabtext <- "Experimental Factors"
-        legPos <- "top"
-    }
-
-
-
-
-
-sampledColumns <- sort(sample(x = ncol(FactorDF)+1:ncol(FactorGMT), size = 100))
-FactorGMT.Filtered <- FactorGMT[, c(1:(ncol(FactorDF)+1), sampledColumns)]
-newGeneNames <- make.names(colnames(FactorGMT.Filtered))
-FactorGMT.renamed <- FactorGMT.Filtered
-colnames(FactorGMT.renamed) <- newGeneNames
-FactorGMTMelt <- melt(FactorGMT.renamed)
-ggplot(data = FactorGMTMelt, aes_string(x = AesX, y = AesY, fill = AesFill))  + geom_boxplot()
-
-
-
-FactorGMT.GeneFilt <- FactorGMT[, c( 1:(ncol(FactorDF)+1), sample((ncol(FactorDF)+2):ncol(FactorGMT), size = 10))]
-FactorGMTMelt.GeneFilt <- melt(FactorGMT.GeneFilt)
-AesX <- FactorGMTMelt.GeneFilt$variable
-AesY <- FactorGMTMelt.GeneFilt$value
-AesFill <- FactorGMTMelt.GeneFilt$ExpVar3.Text
-ggplot(data = FactorGMTMelt.GeneFilt, aes_string(x = AesX, y = AesY, fill = AesFill))  + geom_boxplot()
-
 
 
 GSM <- Step_1$gsm
