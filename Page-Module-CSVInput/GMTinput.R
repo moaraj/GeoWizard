@@ -255,7 +255,7 @@ ui <-
         column(12, plotOutput("BoxPlot_ggplot") %>% withSpinner(color = "#0dc5c1")),
         column(12, hr()),
         
-        column(2,actionButton(inputId = "RefreshBoxPlotSample", label = "Resample Genes",icon = icon('refresh'))),
+        column(2,actionButton(inputId = "RefreshBoxPlotSample", label = "Refresh Gene Selection",icon = icon('refresh'))),
         column(2,actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh'))),
         column(2,checkboxInput(inputId = "BoxPlot_ToggleLegend", label = "Show Legend")),
         column(4,checkboxInput(inputId = "BoxPlot_ToggleInteractive", label = "Render Interactive Plot"))
@@ -696,9 +696,15 @@ server <- shinyServer(function(input, output) {
         
         GSEdata$FactorGMTMelt.Sampled <- reactive({
             message("Generating FactorGMTMelt reactive values for BoxPlot Input")
+            message(paste("Adding custom input:", input$BoxPlot_GeneSelect))
+            input$RefreshBoxPlotSample
+            
+            GeneInput <- isolate(input$BoxPlot_GeneSelect)
+            if(!nchar(GeneInput) > 3){ GeneInput <- ""}
+            
             FactorGMT.sampled <- sampleFactorGMT(FactorGMT = GSEdata$FactorGMT(),
                 nFactors = ncol(ExperimentalDesign$ControlFactorDF()),
-                SpecificGenes = input$BoxPlot_GeneSelect,
+                SpecificGenes = GeneInput,
                 nGenes = input$BoxPlot_nGenes)
             FactorGMTMelt.sampled <- melt(FactorGMT.sampled)
             FactorGMTMelt.sampled

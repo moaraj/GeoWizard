@@ -8,8 +8,8 @@ sampleFactorGMT <- function(FactorGMT, nFactors, SpecificGenes = NULL, nGenes){
     FactorCols <- 1:(nFactors + 1)
     SpecificGeneIndex <- NULL
     
-    if (!missing(SpecificGenes) & length(SpecificGenes) > 1) {
-        message("Generating sampled Factor GMT - Specific gene query detected")
+    if (!missing(SpecificGenes) & nchar(SpecificGenes) > 3) {  # Find different way other than nchar
+    message("Generating sampled Factor GMT - Specific gene query detected")
     Regexinput <- paste("\\b", SpecificGenes, "\\b", sep = "") # Define and beginning of the search word
     SpecificGeneRegEx <- paste(SpecificGenes, collapse = "|") # collapse all regex pattern with and statement
     SpecificGeneIndex <- grep(pattern = SpecificGeneRegEx, x = colnames(FactorGMT))
@@ -112,10 +112,6 @@ BoxPlotGSE <- function(
     
     p <- ggplot(data = FactorGMTMelt, aes_string(y = AesY, x = AesX, group = GroupVar, fill = AesFill))
     
-    if (BoxPlot_Type == "BoxPlot") { p <- p + geom_boxplot(varwidth = F)
-    } else if (BoxPlot_Type == "Violin Plot") { p <- p + geom_violin()
-    } else if (BoxPlot_Type == "Line Plot") { p <- p }
-    
     if (BoxPlot_showColor) {
         if (BoxPlot_ThemeSelect == "default") { p <- p }
         else if (BoxPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
@@ -138,7 +134,9 @@ BoxPlotGSE <- function(
         theme(axis.title = element_text(size = 14)) +
         theme(legend.text=element_text(size=14))
     
-    
+    if (BoxPlot_Type == "BoxPlot") { p <- p + geom_boxplot(varwidth = F)
+    } else if (BoxPlot_Type == "Violin Plot") { p <- p + geom_violin()
+    } else if (BoxPlot_Type == "Line Plot") { p <- p }
 
     if (BoxPlot_showData==1) {
        if (BoxPlot_showDataOption == "jitter") { p <- p + geom_jitter(width = BoxPlot_JitterWidth, alpha = BoxPlot_JitterAlpha, fill =  BoxPlot_JitterFill)
@@ -158,6 +156,9 @@ BoxPlotGSE <- function(
     
     if (BoxPlot_showMargins==1) {
         p <-p + theme(plot.margin = margin( BoxPlot_margin_top, BoxPlot_margin_right, BoxPlot_margin_bottom, BoxPlot_margin_left,"cm"))}
+    
+    
+   
     
     return(p)
 }
