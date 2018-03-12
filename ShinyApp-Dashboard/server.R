@@ -387,7 +387,7 @@ server <- function(input, output, session) {
     #' @output Render Datatable that shows Description, Title and Characteristics of the GSM withing a given GSE
     output$GseGsmTable <- DT::renderDataTable({
         message("Rendering GseGSMTable")
-        shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect, input$GplTableSelect)
+        #shiny::req(input$PickFactorColumns)
         
         SqlQueryResDF <- SQLSearchData$FilteredResultDF()
         SqlQueryResDF <- SqlQueryResDF %>% select(-one_of(c("series_id","taxon","keyword","gpl","gsm")))
@@ -418,8 +418,7 @@ server <- function(input, output, session) {
     ########################{ Useful Factor Classification
     
     output$PickFactorColumns <- renderUI({
-    shiny::req(input$GseGsmTable_rows_all, input$KeepForExpVarAsign, input$GsmTableSelect, input$GplTableSelect)
-        input$GsmTableSelect
+    shiny::req(input$GseGsmTable_rows_all)
         ExpFactorDF <- ExperimentalDesign$ExpFactorDF()
         message("Importing ClassListDF")
         ClassResList <- ClassGsmText(ExpFactorDF)
@@ -433,13 +432,14 @@ server <- function(input, output, session) {
         
         RecVars <- c(UsefulFactorList, TimeFactorList, TitrationFactorList)
         message("Rendering checkbox input for selecting which Factors to use")
-        checkboxOptions <- checkboxGroupInput(
+        checkboxOutput <- checkboxGroupInput(
             inputId = "UsefulColumnsCheckbox",
             label = "Factors that describe detected experimental design cohorts",
             choices = colnames(ExpFactorDF),
             selected = names(RecVars),
             inline = T)
-        fluidRow(column(12,checkboxOptions))
+        
+        fluidRow(column(12,checkboxOutput))
         })
     
     ########################{ View Current Factor Col Selection
@@ -542,10 +542,14 @@ server <- function(input, output, session) {
     #   })
       
     ##### Full Factor Table
+    
+    #' @req input$UsefulColumnsCheckbox - Rendered Input that selected Useful Variables
+    #' @input RefreshFullFactorTable Button under the table to refresh incase shiny hangs
+    #'
     output$FullFactorTable <- DT::renderDataTable({
         message("Rendering Factor Data Table")
-        input$WhereVarData
-        input$UsefulColumnsCheckbox
+        shiny::req(input$UsefulColumnsCheckbox)
+        
         input$RefreshFullFactorTable
         FactorDF <- ExperimentalDesign$RowFilteredFactorDF()
         
@@ -558,9 +562,6 @@ server <- function(input, output, session) {
     ##### Excluded Factor Table
         output$ExcludedFactorTable <- DT::renderDataTable({
         message("Rendering Excluded Factor Data Table")
-        input$WhereVarData
-        input$UsefulColumnsCheckbox
-        input$RefreshExcludedFactorTable
         
         FactorDF <- ExperimentalDesign$RowFilteredFactorDF()
         ExcludedFactorDF <- FactorDF %>% select(-one_of(input$UsefulColumnsCheckbox))
@@ -761,9 +762,27 @@ server <- function(input, output, session) {
         
         #ControlFactorLevels <- 
         ContrastInput <- ConTextInput(DesignMatrix)
-        
         ContrastInput <- gsub(" ", "", ContrastInput)
         ContrastMatrix <- makeContrasts(contrasts = ContrastInput, levels = DesignMatrix)
+        
+        InputFormula <- input$formulaInputDesign
+        InputFormula <- gsub("\\s", "", InputFormula)
+        InputFormula <- gsub("~", "", InputFormula)
+        InputFormula <- unlist(strsplit(InputFormula, split = "\\*"))
+        InputFormula <- unlist(strsplit(InputFormula, split = "\\+"))
+        InputFormula <- unlist(strsplit(InputFormula, split = ":"))
+        message(paste("Input Formula: ", paste(InputFormula, collapse = ", ")))
+        
+        if (InputFormula[1] != 0) {
+        message("Intercept Detected")
+        ContrastMatrix <- apply(ContrastMatrix, 2, function(x){
+            if (x[1] == 1) {
+            x <- abs(x)  
+            } else (x)
+            })
+        ContrastMatrix[1,] <- 0
+        }
+        
         ContrastMatrix
     })  
     
@@ -796,679 +815,755 @@ server <- function(input, output, session) {
       })
     
 
-    ######################## Expression Analysis
+    ######################## Data QC and Download Analysis
     
-    ###### Download the Data
-    GSEdata <- reactiveValues()
-    
-    # output$GMTtoDownloadorUpload_UI <- renderUI(
-    #     shiny::req(input$GsmTableSelect)
-    #     GSE <- input$GsmTableSelect
-    #     radioButtons("DataSourceSelection", inputId = paste("Retreive GMT file", GSE), selected = 1, inline = T, choiceNames = c("Download from GEO", "Upload CSV") , choiceValues = c(1,2))
-    # )
-      
-    GSEdata$GSEeset <- eventReactive(input$DownloadGEOData, {
-        shiny::req(input$GsmTableSelect, input$DownloadGEOData)
-        shinyjs::show("GMTTableDiv")
-        
-        GSE <- input$GsmTableSelect
-        GPL <- input$GplTableSelect
-        message(paste("Downloading", GSE, "Data from GEO"))
-        GSEeset <- LoadGEOFiles(GSE, GPL, GeoRepoPath = "~/GeoWizard/GEORepo")
-        GSEeset
-    })
-      
-    output$GeneAnnotationTypeUI <- renderUI({
-        GSEeset <- GSEdata$GSEeset()
-        FeatureData <- fData(GSEeset)
-        if (length(FeatureData) == 0) {
-        wellPanel(
-            h4(icon("exclamation-triangle"),"no feature data included in eset"),
-            "You can retart the application or download the raw files and process them locally")
-        } else {
-        selectInput(
-            inputId = "GeneAnnotationType",
-            label = "Gene Annotations",
-            choices = colnames(FeatureData),
-            selected = colnames(FeatureData)[1],
-            multiple = F,
-            selectize = T)
-        }
-    })
-      
-      
-      GSEdata$ExpressionMatrix <- reactive({
-        shiny::req(input$GsmTableSelect)
-        GSEeset <- GSEdata$GSEeset()
-        FeatureData <- try(fData(GSEeset))
-        message("Loading ExpressionMatrix")
-        ExpressionMatrix <- exprs(GSEeset)
-        
-        if (length(FeatureData) == 0 | class(FeatureData) == "try-error") {
-        return(ExpressionMatrix)
-        } else {
-        rownames(ExpressionMatrix) <- make.names(FeatureData[,input$GeneAnnotationType])
-        return(ExpressionMatrix)
-        }
-      })
-      
-     
-      #### Column 1 - GMT File Tab
-      output$GMTFileTable <- DT::renderDataTable({
-          ExpressionMatrix <- GSEdata$ExpressionMatrix()
-          ExpressionMatrix <- as.data.frame(ExpressionMatrix)
-          DT::datatable(
-              data = ExpressionMatrix,
-              rownames = TRUE,
-              class = 'compact',
-              extensions = 'Buttons',
-              options = list(
-                  scrollX = T,
-                  scrollY = '300px',
-                  paging = T,
-                  dom = 'Bfrtip',
-                  buttons = c('copy', 'csv', 'excel')
-              )
-          )
-      })
-      
-      
-      GSEdata$FactorGMT <- reactive({
-          ControlFactorDF <- ExperimentalDesign$ControlFactorDF()
-          ExpressionMatrix <- GSEdata$ExpressionMatrix()
-          message("Generating FactorGMT")
-          FactorGMT <-
-              GenFactorGMT(ExpressionMatrix = ExpressionMatrix, FactorDF = ControlFactorDF)
-          FactorGMT
-      })
-     
-      GSEdata$FactorGMTMelt <- reactive({
-          shiny::req(input$GsmTableSelect)
-          FactorGMT <- GSEdata$FactorGMT()
-          #FactorGMT <- FactorGMT[input$GMTFileTable_rows_all,]
-          if (is.data.frame(FactorGMT)) {
-              message("Melting FactorGMT for plotting")
-              FactorGMTMelt <- melt(FactorGMT)
-          } else {
-              stop("Factor GMT File not loaded properly")
-          }
-          FactorGMTMelt
-      })
-      
-      output$RawDataQC <- renderDataTable({
-          if (input$RawDataTableMelt == "GMT") {
-              TableData <- GSEdata$ExpressionMatrix()
-          } else if (input$RawDataTableMelt == "FactorGMTMelt") {
-              TableData <- GSEdata$FactorGMTMelt()
-          } else {
-              stop("Data not loaded properly")
-          }
-          
-          DT::datatable(
-              data = as.data.frame(TableData),
-              rownames = TRUE,
-              class = 'compact',
-              extensions = 'Buttons',
-              options = list(
-                  scrollX = F,
-                  scrollY = '300px',
-                  paging = T,
-                  dom = 'Bfrtip',
-                  buttons = c('copy', 'csv', 'excel')
-              )
-          )
-      })
-
-      ######### Box Plot
-      output$BoxFactorSelect <- renderUI({
-          shiny::req(shiny::req(input$GsmTableSelect))
-          
-          FactorGMTMelt <- GSEdata$FactorGMTMelt()
-          FactorOptions <-
-              grep(pattern = "ExpVar",
-                   x = colnames(FactorGMTMelt),
-                   value = T)
-          selectInput(
-              inputId = "BoxFactorSelectInput",
-              label = "Fill by Factor",
-              choices = FactorOptions,
-              selected = FactorOptions[1]
-          )
-      })
-     
-      output$BoxPlotly <- renderPlotly({
-        shiny::req(input$BoxFactorSelectInput)
-        
-        FactorGMTMelt = GSEdata$FactorGMTMelt()
-     
-        if (input$BoxPlot_IndpVar == "Sample") { 
-          if (input$BoxPlot_PlotBy == "Overall Distribution") { 
-            GeneSample <- sample(x = FactorGMTMelt$GSM, size = input$BoxPlot_nGenes)
-            FactorGMTMelt <- FactorGMTMelt %>% filter(GSM %in% GeneSample)
-            AesX <- FactorGMTMelt$GSM
-            AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-            xlabtext <- "GSMs in Dataset"
-            legPos <- "top"
-            
-          } else if (input$BoxPlot_PlotBy == "Factor Distribution") {;message("Factor")
-            AesX <- FactorGMTMelt[,input$BoxFactorSelectInput]
-            AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-            xlabtext <- "Experimental Factors"
-            legPos <- "top"
-          }
-          
-        } else if (input$BoxPlot_IndpVar == "Gene") {
-          GeneSample <- sample(x = FactorGMTMelt$variable, size = input$BoxPlot_nGenes)
-          FactorGMTMelt <- FactorGMTMelt %>% filter(variable %in% GeneSample)
-          
-          if (input$BoxPlot_PlotBy == "Overall Distribution") {
-            AesX <- FactorGMTMelt$variable
-            FactorGMTMelt <- FactorGMTMelt
-            AesFill <- "red"
-            xlabtext <- "Assayed Genes"
-            legPos <- "none"
-            
-          } else if (input$BoxPlot_PlotBy == "Factor Distribution") {
-            AesX <- FactorGMTMelt$variable
-            AesFill <- factor(FactorGMTMelt[,input$BoxFactorSelectInput])
-            xlabtext <- "Assayed Genes"
-            legPos <- "top"
-          }
-        }
-        
-        p <- ggplot(data = FactorGMTMelt, aes(y = FactorGMTMelt$value, x = AesX, fill = AesFill)) +
-             theme(legend.position = legPos) +  
-             ylab(label = "Expression Level") +
-             xlab(label = xlabtext) +
-             guides(fill=guide_legend(title="Experimental Factor Groups")) +
-             theme(axis.text.x = element_text(angle = 90)) + 
-             theme(axis.text = element_text(size = 14)) +
-             theme(axis.title = element_text(size = 14)) 
-        
-        if (input$BoxPlot_Type == "Boxplot") { p <- p + geom_boxplot()
-        } else if (input$BoxPlot_Type == "Violin Plot") {p <- p + geom_violin()
-        } else if (input$BoxPlot_Type == "Line Plot") { p <- p # bean plot code
-        }
-        
-        if (input$BoxPlot_showData==1) {
-          JitterWidth <- input$BoxPlot_JitterWidth
-          if (input$BoxPlot_showDataOption == "jitter") { p <- p + geom_jitter(width = JitterWidth) 
-          } else if(input$BoxPlot_showDataOption == "quasirandom"){ p <- p + geom_quasirandom(width = JitterWidth)
-          } else if(input$BoxPlot_showDataOption == "beeswarm"){ p <- p + geom_beeswarm(width = JitterWidth)
-          } else if(input$BoxPlot_showDataOption == "tukey"){ p <- p + geom_quasirandom(width = JitterWidth, method = "tukey")
-          } else if(input$BoxPlot_showDataOption == "frowney"){ p <- p + geom_quasirandom(width = JitterWidth, method = "frowney")
-          } else if(input$BoxPlot_showDataOption == "smiley"){ p <- p + geom_quasirandom(width = JitterWidth, method = "smiley")
-          } else { NULL }
-        }
-        
-        
-        if (input$BoxPlot_PlotAxisFlip==1) { p <- p + coord_flip()}
-        if (length(input$BoxPlot_main) > 0) { p <- p + labs(title = input$BoxPlot_main)}
-        if (length(input$BoxPlot_xlab) > 0) { p <- p + labs(x = input$BoxPlot_xlab)}
-        if (length(input$BoxPlot_ylab) > 0) { p <- p + labs(y = input$BoxPlot_ylab)}
-        
-        #sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180)
-        #sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
-        
-        p <- ggplotly(p)
-        p
-      })
-      
-      output$BoxPlotUI <- renderUI({
-        if(input$BoxPlot_showPlotSize){ 
-          plotHeight <- input$BoxPlot_Height
-          plotWidth <- input$BoxPlot_Width
-        } else { 
-          plotHeight <- 600
-          plotWidth <- 800
-        }
-        plotlyOutput(outputId = "BoxPlotly",height = plotHeight, width = plotWidth) %>% withSpinner(color = "#0dc5c1")
+                ##################### Data QC and Download Analysis
+                ###### Download the Data
+                #'
+        #'
+        GSEdata <- reactiveValues()
+                        #'
+        #'
+        #'
+        #'
+        #'
+        #'
+        output$InputSourceGMT <- renderUI({
+        radioButtons(inputId = "DataSourceSelection",
+            label = paste("Retreive Gene Matrix file for", "GSE"),
+            selected = 1,
+            inline = F,
+            choiceNames = c("Download from GEO", "Upload GMT as CSV or TSV"),
+            choiceValues = c(1,2))
         })
-     
-      ## *** Download EPS file ***
-      output$downloadPlotEPS <- downloadHandler(
-        filename <- function() { paste('Boxplot.eps') },
-        content <- function(file) {
-          postscript(file, horizontal = FALSE, onefile = FALSE, paper = "special", width = input$myWidth/72, height = input$myHeight/72)
-          ## ---------------
-          generateBoxPlot(dataM())
-          ## ---------------
-          dev.off()
-        },
-        contentType = 'application/postscript'
-      )
-      ## *** Download PDF file ***
-      output$downloadPlotPDF <- downloadHandler(
-        filename <- function() { paste('Boxplot.pdf') },
-        content <- function(file) {
-          pdf(file, width = input$myWidth/72, height = input$myHeight/72)
-          ## ---------------
-          generateBoxPlot(dataM())
-          ## ---------------
-          dev.off()
-        },
-        contentType = 'application/pdf' # MIME type of the image
-      )
-      ## *** Download SVG file ***
-      output$downloadPlotSVG <- downloadHandler(
-        filename <- function() { paste('Boxplot.svg') },
-        content <- function(file) {
-          svg(file, width = input$myWidth/72, height = input$myHeight/72)
-          ## ---------------
-          generateBoxPlot(dataM())
-          ## ---------------
-          dev.off()
-        },
-        contentType = 'image/svg'
-      )
-
-     
-
-     
-     ######### Hist
-
-     # output$HistFactorSelect <- renderUI({
-     #   shiny::req(input$GsmTableSelect, input$DownloadGEOData)
-     #   MeltedDF <- GSEdata$FactorGMTMelt()
-     #   FactorOptions <- grep(pattern = "ExpVar[0-9]", x = colnames(MeltedDF), value = T)
-     #   selectInput(inputId = "HistFactorSelectInput",
-     #    label = "Fill by Factor",
-     #    choices = FactorOptions,
-     #    selected = FactorOptions[1])
-     # })
-     # 
-     # output$HistPlotGMT <- renderPlot({
-     #   GMTHistPlot(GSEgmtDF = GSEdata$FactorGMTMelt(),
-     #   HistPlotType = input$HistPlotType,
-     #   PlotFactor = input$HistFactorSelectInput,
-     #   SampleSize = input$HistSampleSize)
-     # })
-
-
-    # BioQC Analysis
-    observeEvent(input$PerformBioQCAnalysis, {
-    output$BioQCPlot <- renderPlot({
-          message("Loading Expression Set for BioQC")
-          GeneSymbolGSEeset <- GSEdata$GSEeset()
-          GeneSymbolGSEeset <- ConvertGSEAnnotations(GSEeset = GeneSymbolGSEeset, AnnotationType = input$GeneAnnotationType)
-          RunBioQC(GeneSymbolGSEeset)
+                        #'
+        #'
+        #'
+        #'
+        #'
+        #'
+        GSEdata$GMTinput_GEO <- eventReactive(input$DownloadGEOData, {
+            shinyjs::show("GMTTableGEO")
+            GSE <- input$GsmTableSelect
+            GPL <- input$GplTableSelect
+            message(paste("Downloading", GSE, "Data from GEO"))
+            GSEeset <- LoadGEOFiles(GSE, GPL, GeoRepo = "~/GeoWizard/GEORepo")
+            return(GSEeset)
+        })
+                #'
+        #'
+        #'
+        #'
+        #'
+        GSEdata$GMTinput_CSV <- reactive({
+            req(input$GMTcsv)
+            message("Reading in data from CSV")
+            DF <- read.csv(input$GMTcsv$datapath, header = input$CSVheader, sep = input$CSVsep, quote = input$CSVquote, row.names = 1)
+            DF
+        })
+                        #'
+        #'
+        #'
+        #'
+        #'
+        output$GeneAnnotationTypeUI <- renderUI({
+            shiny::req(input$GsmTableSelect, input$DownloadGEOData)
+            GSEeset <- GSEdata$GMTinput_GEO()
+            FeatureData <- fData(GSEeset)
+            if (length(FeatureData) == 0) {
+            wellPanel(
+                h4(icon("exclamation-triangle"),"no feature data included in eset"),
+                paste(
+                "You can restart the application and try once more, but most likely the author",
+                "did not include a data matrix in this gene series.",
+                "Unfortunately, you will have to download the raw files and process them locally.",
+                "Then input them as a CSV or TSV"))
+            } else {
+            selectInput(
+                inputId = "GeneAnnotationType",
+                label = "Gene Annotations",
+                choices = colnames(FeatureData),
+                selected = colnames(FeatureData)[1],
+                multiple = F,
+                selectize = T)
+            }
+        })
+                #'
+        #'
+        #'
+        #'
+        #'
+        #'
+        GSEdata$MatrixAnnotated <- reactive({
+            shiny::req(input$GeneAnnotationType)
+            if(input$DataSourceSelection == 1) {
+            message("Annotating ExpressionMatrix")
+            GSEeset <- GSEdata$GMTinput_GEO()
+            FeatureData <- try(fData(GSEeset))
+            ExpressionMatrix <- exprs(GSEeset)
+                    if (length(FeatureData) == 0 | class(FeatureData) == "try-error") { stop("No Feature Data included in Expression Set")
+            } else {
+            rownames(ExpressionMatrix) <- make.names(FeatureData[,input$GeneAnnotationType])
+            return(ExpressionMatrix)
+            }
+            } else { return(NULL)}
+        })
+        
+        GSEdata$ExpressionMatrix <- reactive({
+            shiny::req(input$GeneAnnotationType)
+            if(input$DataSourceSelection == 1) {
+                message("Annotated GMT Matrix asigned to reactive value: GSEdata$ExpressionMatrix")
+                ExpressionMatrix <- GSEdata$MatrixAnnotated()
+            } else if(input$DataSourceSelection == 2) {
+                message("GMTinput_CSV asigned to reactive value: GSEdata$ExpressionMatrix")
+                if (isTruthy(input$GMTcsv)) {
+                ExpressionMatrix <- GSEdata$GMTinput_CSV()
+                }
+            }
+            return(ExpressionMatrix)
           })
-     })
+                        #'
+        #'
+        #'
+        #'
+        
+        # ExperimentalDesign <- reactiveValues()
+        # ExperimentalDesign$ControlFactorDF <- reactive({
+        #     ControlFactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+        #     ControlFactorDF
+        # })
+        
+        GSEdata$FactorGMT <- reactive({
+            ControlFactorDF <- ExperimentalDesign$ControlFactorDF()
+            message("Loading Expression Matrix fro Factor GMT input")
+            ExpressionMatrix <- GSEdata$ExpressionMatrix()
+            message("line 657: Generating FactorGMT")
+            FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix, FactorDF = ControlFactorDF)
+            return(FactorGMT)
+          })
+                #'
+        #'
+        #'
+        #'
+        output$RawDataQC <- renderDataTable({
+            if (input$RawDataTableMelt == "GMT") {
+                message("Expression Matrix loaded for RawDataQC Table ")
+                TableData <- GSEdata$ExpressionMatrix()
+            } else if (input$RawDataTableMelt == "FactorGMTMelt") {
+                message("FactorGMTMelt loaded for RawDataQC Table ")
+                TableData <- melt(GSEdata$FactorGMT())
+            } else { stop("Data not loaded properly") }
+                    DT::datatable(data = as.data.frame(TableData), rownames = TRUE, class = 'compact', extensions = 'Buttons',
+                options = list( scrollX = F, scrollY = '300px', paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
+          })
+                        #################### BoxPlot Tab
+                    output$BoxPlot_GeneSelect_UI <- renderUI({
+                message("Rendering BoxPlot Gene Select Input")
+                return(textInput( inputId = "BoxPlot_GeneSelect", label = "Plot Specific Gene"))
+            })
+                            GSEdata$FactorGMTMelt.Sampled <- reactive({
+                message("Generating FactorGMTMelt reactive values for BoxPlot Input")
+                message(paste("Adding custom input:", input$BoxPlot_GeneSelect))
+                input$RefreshBoxPlotSample
+                        GeneInput <- isolate(input$BoxPlot_GeneSelect)
+                if(!nchar(GeneInput) > 3){ GeneInput <- ""}
+                        FactorGMT.sampled <- sampleFactorGMT(FactorGMT = GSEdata$FactorGMT(),
+                    nFactors = ncol(ExperimentalDesign$ControlFactorDF()),
+                    SpecificGenes = GeneInput,
+                    nGenes = input$BoxPlot_nGenes)
+                FactorGMTMelt.sampled <- melt(FactorGMT.sampled)
+                FactorGMTMelt.sampled
+            })
+                    output$BoxPlot_FactorSelect_UI <- renderUI({
+                shiny::req(input$BoxPlot_PlotBy)
+                message("Rendering BoxPlot Factor Select Input")
+                        if(input$BoxPlot_PlotBy == "o"){ FactorOptions <- c("GSM",colnames(ExperimentalDesign$ControlFactorDF()))
+                } else { FactorOptions <- c(colnames(ExperimentalDesign$ControlFactorDF())) }
+                selectInput( inputId = "BoxPlot_FactorSelect", label = "Fill by Factor", choices = FactorOptions)
+            })
+                            output$BoxPlot_ggplot <- renderPlot({
+                shiny::req(input$BoxPlot_PlotBy, input$BoxPlot_FactorSelect)
+                message("Rednering BoxPlot")
+                FactorGMTMelt <- GSEdata$FactorGMTMelt.Sampled()
+                        BoxPlot_JitterFill <- "red"
+                        p <-BoxPlotGSE(
+                    # Data
+                    FactorGMTMelt = FactorGMTMelt,
+                    BoxPlot_IndpVar = input$BoxPlot_IndpVar,
+                    BoxPlot_PlotBy = input$BoxPlot_PlotBy,
+                    BoxFactorSelectInput = input$BoxPlot_FactorSelect,
+                            # Colors and Aesthetics
+                    BoxPlot_Type =  input$BoxPlot_Type,
+                    BoxPlot_showColor = input$BoxPlot_showColor,
+                    BoxPlot_ThemeSelect = input$BoxPlot_ThemeSelect,
+                    BoxPlot_ToggleLegend = input$BoxPlot_ToggleLegend,
+                            # Jitter Settings
+                    BoxPlot_showData = input$BoxPlot_showData,
+                    BoxPlot_showDataOption = input$BoxPlot_showDataOption,
+                    BoxPlot_JitterWidth = input$BoxPlot_JitterWidth,
+                    BoxPlot_JitterAlpha = input$BoxPlot_JitterAlpha,
+                    BoxPlot_JitterFill = BoxPlot_JitterFill,
+                            # Margin Settings // Important for Plotly, ggplot doesnt really have trouble with Marigs
+                    BoxPlot_showMargins = input$BoxPlot_showMargins,
+                    BoxPlot_margin_top = input$BoxPlot_margin_top,
+                    BoxPlot_margin_right = input$BoxPlot_margin_right,
+                    BoxPlot_margin_bottom = input$BoxPlot_margin_bottom,
+                    BoxPlot_margin_left = input$BoxPlot_margin_left,
+                            # Axis Flip
+                    BoxPlot_PlotAxisFlip = input$BoxPlot_PlotAxisFlip,
+                            # Labels
+                    BoxPlot_main = input$BoxPlot_main,
+                    BoxPlot_xlab = input$BoxPlot_xlab,
+                    BoxPlot_ylab = input$BoxPlot_ylab,
+                    BoxPlot_xlab_angle = input$BoxPlot_xlab_angle)
+                p
+          })
+                                ########## PCA
+        FactorGMTCast <- reactive({
+                FactorGMTCast <- GSEdata$FactorGMT()
+                DataDF <- GSEdata$ExpressionMatrix()
+                FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+                return(list("FactorGMTCast" = FactorGMTCast, "DataDF" = DataDF,"FactorDF" = FactorDF))
+                })
+                        #' @param  DataDF gene expression matrix with samples in the columns and genes in the rows
+                #' @return list of Prcomp_res and PCA_ResDF
+                #' Prcomp_res principle components object genertated from perfoemd PCA on gene expression data
+                #' PCA_ResDF Data frame with the Prcomp_res object and Prcomp_res input matrix (x) coloumn bound
+                PCA_Data <- reactive({
+                PCA_DataInput <- FactorGMTCast()$DataDF
+                Prcomp_res <- prcomp(na.omit(t(PCA_DataInput)), center = as.logical(input$PCA_center), scale = as.logical(input$PCA_scale))
+                #Prcomp_res <- prcomp(na.omit(t(ArrayData)),center = T, scale = T)
+                PCA_ResDF <- cbind(t(PCA_DataInput), Prcomp_res$x)
+                return(list("Prcomp_res" = Prcomp_res, "PCA_ResDF" = PCA_ResDF))
+                })
+                        #' Render Input that allows user to select PCA grouping
+                #' @param FactorDF
+                output$PCA_GroupUI <- renderUI({
+                FactorDF <- FactorGMTCast()$FactorDF
+                FactorGrouping <- c("None", colnames(FactorDF))
+                selectInput(inputId = "PCA_Group", label = "Group by Factor", choices = FactorGrouping, selected = "None", multiple = F)
+                })
+                        #' Render Input that allows user to select PCA labeling factor
+                output$PCA_LabelUI <- renderUI({
+                FactorDF <- FactorGMTCast()$FactorDF
+                FactorGrouping <- c("Sample Number", colnames(FactorDF))
+                selectInput(inputId = "PCA_Label", label = "Label by Factor", choices = FactorGrouping, selected = "Sample Number", multiple = F)
+                })
+                        #' Render input that allows user to select X axis of PCA Biplot
+                output$PCA_xcomp_UI <- renderUI({
+                Prcomp_res <- PCA_Data()$Prcomp_res$x
+                CompOptions <- colnames(Prcomp_res)
+                selectInput(inputId = "PCA_xcomp", label = "X Axis component", choices = CompOptions, selected = CompOptions[1])
+                })
+                        #' Render input that allows user to select Y axis of PCA Biplot
+                output$PCA_ycomp_UI <- renderUI({
+                Prcomp_res <- PCA_Data()$Prcomp_res$x
+                CompOptions <- colnames(Prcomp_res)
+                selectInput(inputId = "PCA_ycomp", label = "Y Axis component", choices = CompOptions, selected = CompOptions[2])
+                })
+                        #' Render PCA Biplot
+                output$PCA_BiPlot <- renderPlotly({
+                shiny::req(input$PCA_Group, input$PCA_Label, input$PCA_xcomp, input$PCA_ycomp)
+                        PCA_ResDF <- PCA_Data()$PCA_ResDF
+                PCA_ResDF <- data.frame(PCA_ResDF)
+                Prcomp_res <-  PCA_Data()$Prcomp_res
+                FactorDF <- FactorGMTCast()$FactorDF
+                        var_expl_x <- round(100 * Prcomp_res$sdev[as.numeric(gsub("[^0-9]", "", input$PCA_xcomp))]^2/sum(Prcomp_res$sdev^2), 1)
+                var_expl_y <- round(100 * Prcomp_res$sdev[as.numeric(gsub("[^0-9]", "", input$PCA_ycomp))]^2/sum(Prcomp_res$sdev^2), 1)
+                        labeltype <- input$PCA_Label
+                if (labeltype != "Sample Number") {labels <- FactorDF[, labeltype]
+                 } else { labels <- c(1:nrow(Prcomp_res$x))}
+                        grouping <- input$PCA_Group
+                        if(grouping == 'None'){
+                    # plot without grouping variable
+                    pc_plot_no_groups  <- ggplot(PCA_ResDF, aes_string(input$PCA_xcomp, input$PCA_ycomp)) +
+                      geom_text(aes(label = labels),  size = 5) +
+                      coord_equal() +
+                      xlab(paste0(input$PCA_xcomp, " (", var_expl_x, "% explained variance)")) +
+                      ylab(paste0(input$PCA_ycomp, " (", var_expl_y, "% explained variance)"))
+                    pc_plot_no_groups
+                          }  else {
+                    #plot with grouping variable
+                    PCA_ResDF$ExpVar <-  as.factor(FactorDF[, grouping])
+                    pc_plot_groups  <- ggplot(PCA_ResDF, aes_string(input$PCA_xcomp, input$PCA_ycomp, fill = 'ExpVar', colour = 'ExpVar')) +
+                      stat_ellipse(geom = "polygon", alpha = 0.1) +
+                      geom_text(aes(label = labels),  size = 5) +
+                      scale_colour_discrete(guide = FALSE) +
+                      guides(fill = guide_legend(title = "groups")) +
+                      theme(legend.position="top") +
+                      coord_equal() +
+                      xlab(paste0(input$PCA_xcomp, " (", var_expl_x, "% explained variance)")) +
+                      ylab(paste0(input$PCA_ycomp, " (", var_expl_y, "% explained variance)"))
+                    # the plot
+                    #pc_plot_groups <- ggplotly(pc_plot_groups)
+                    pc_plot_groups
+                  }
+                })
+                        output$PCA_ScreePlot <- renderPlot({
+                  type <- input$ScreePlotType
+                  Prcomp_res <- PCA_Data()$Prcomp_res
+                  ScreeData <- Prcomp_res$sdev^2
+                          yvar <- switch(type, pev = ScreeData / sum(ScreeData), cev = cumsum(ScreeData) / sum(ScreeData))
+                  yvar.lab <- switch(type, pev = 'proportion of explained variance', cev = 'cumulative proportion of explained variance')
+                          ScreeDataDF <- data.frame(PC = 1:length(ScreeData), yvar = yvar)
+                  ScreeDataDFLine <- ScreeDataDF
+                          p <- ggplot(data = ScreeDataDF, aes(x = PC, y = yvar)) + xlab('principal component number') +
+                    ylim(c(0,input$ScreeYMax)) + xlim(c(0,(input$nCompScree + 1))) +
+                    ylab(yvar.lab) +  theme(text = element_text(size=12)) +
+                    geom_bar(stat="identity", fill="steelblue") + geom_point() + geom_line()
+                  p
+                })
+                    
+                output$LoadingSelect_UI <- renderUI({
+                Prcomp_res <- PCA_Data()$Prcomp_res$rotation
+                CompOptions <- colnames(Prcomp_res)
+                selectInput(inputId = "LoadingSelect", label = "Component to show Loadings for", choices = CompOptions, selected = CompOptions[1])
+                })
+                
+                output$ShowNLoading_UI <- renderUI({
+                Prcomp_res <- PCA_Data()$Prcomp_res$rotation
+                nVars <- nrow(Prcomp_res)
+                sliderInput(inputId = "ShowNloading", label = "Number of Loading Variables to Show", min = 1, max = 200, value = 5, step = 1)
+                })
+                        PCA_LoadingData <- reactive({
+                shiny::req(input$ShowNloading, input$ShowNloading)
+                        Prcomp_res <-  PCA_Data()$Prcomp_res
+                aload <- abs(Prcomp_res$rotation)
+                loadings <- sweep(aload, 2, colSums(aload), "/")
+                        SelectedPC <- input$LoadingSelect
+                PCLoading <- loadings[,SelectedPC]
+                PCLoading <- sort(PCLoading, decreasing = T)
+                        loadingsDF <- data.frame(PCLoading)
+                loadingsDF$Var <- rownames(loadingsDF)
+                loadingsDF
+                })
+                        output$PCA_LoadingPlot <- renderPlot({
+                shiny::req(input$ShowNloading, input$ShowNloading)
+                DF <- PCA_LoadingData()
+                DF <- DF[1:(input$ShowNloading),]
+                                p <- ggplot(data = DF, aes(x = reorder(Var, -PCLoading), y = PCLoading)) + xlab('Variable') +
+                geom_bar(stat = "identity", fill="steelblue") +
+                theme(text = element_text(size=12)) + theme(axis.text.x = element_text(angle = 90))
+                p
+                })
+            
+            # BioQC Analysis
+            BioQCData <- eventReactive(input$PerformBioQCAnalysis, {
+                message("Loading Expression Set for BioQC")
+                #ExpressionMatrix <- GSEdata$ExpressionMatrix()
+                ExpressionMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ExpressionMatrix.rds")
+                BioQCData <- RunBioQC(ExpressionMatrix)
+                message("BioQC Analysis Finished")
+                BioQCData
+            })
+                            output$BioQCPlotInput_UI <- renderUI({
+                #FactorDF <- ExperimentalDesign$ControlFactorDF()
+                FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+                FactorNames <- colnames(FactorDF)
+                selectInput(inputId = "BioQCPlotInput" , label = "Cluster by Factor:", choices = FactorNames)
+            })
+                            output$BioQCPlot <- renderPlotly({
+            message("Loading Heatmap Data for Plotting")
+            BioQCData <- BioQCData()
+            message("Filter Number of signature to show by use input")
+            BioQCDataFiltered <- tail(BioQCData, n = input$NumberOfHeatmapSignatures)
+                    # Load Factor DF
+            #FactorDF <- ExperimentalDesign$ControlFactorDF()
+            FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+            SelectedFactor <- factor(FactorDF[,input$BioQCPlotInput]) ; message("User selected factor for H.Clustering")
+            nFactorLevels <- length(levels(SelectedFactor))
+                    # Make HeatMap
+            HeatMapBioQC <- try(
+                heatmaply(
+                x = BioQCDataFiltered,
+                dendrogram = "column",
+                k_col = nFactorLevels,
+                col_side_colors = SelectedFactor))
+                    if (class(HeatMapBioQC) == 'try-error') {
+                stop("Please ensure you selected GeneSymbol Annotations on the previous tab and click Perform BioQC Analysis button again")
+            } else { return(HeatMapBioQC)}
+            })
+                    output$BioQProfileInput_UI <- renderUI({
+                req(input$PerformBioQCAnalysis)
+                BioQCData <- BioQCData()
+                TissueProfile <- rownames(BioQCData)
+                selectInput(inputId = "BioQProfileInput" , label = "Sample Profiles", choices = TissueProfile, selected = TissueProfile[1:3], multiple = T)
+            })
+            
+            output$BioQCProfilePlot <- renderPlotly({
+            req(input$BioQProfileInput)
+            BioQCRes <- BioQCData()
+            TissueInput <- input$BioQProfileInput
+            p <- BioQCProfile(BioQCRes = BioQCRes, TissueSelection = TissueInput)
+            ggplotly(p) %>% layout(legend = list(orientation = "h", y = 1.2, yanchor = "top"))
+                    })
+                    #'
+            #'
+            #'
+            #'
+            #'
+            output$DownloadDataInfoBox <- renderValueBox({
+            shiny::req( input$GsmTableSelect,input$GplTableSelect)
+            GSE <- input$GsmTableSelect
+            GPL  <- input$GplTableSelect
+            valueBox(value = GSE, subtitle = paste("Design and Contrast Matrix for", GPL),icon = icon('check-circle'),color = "blue")
+            })
+                    #'
+            #'
+            #'
+            output$nGSESamples <- renderValueBox({
+            shiny::req(input$GeneAnnotationType)
+            message("rendering nSamples Info Box")
+            ExpressionMatrix <- GSEdata$ExpressionMatrix()
+            nSamples <- ncol(ExpressionMatrix)
+            valueBox( nSamples, "Number of Samples in GSE", icon = icon("list"), color = "purple")
+            })
+                            #'
+            #'
+            #'
+            #'
+            output$nGSEGenes <- renderValueBox({
+            shiny::req(input$GeneAnnotationType)
+            message("rendering nGenes Info Box")
+            ExpressionMatrix <- GSEdata$ExpressionMatrix()
+            nGenes <- nrow(ExpressionMatrix)
+            valueBox( nGenes, "Number of Genes in GSE", icon = icon("dna"), color = "yellow")
+            })
+                                    ##################################################################################################################################### Expression Analysis
+            
+            ExpressionAnalysis <- reactiveValues()
+                output$DiffExMethod_UI <- renderUI({
+                DataSetType <- input$ExpressionDataType
+                if (DataSetType == "RNAseq" | DataSetType == "ssRNAseq") { selectedMethod <- "DESeq2"
+                } else { selectedMethod <- "Limma" }
+                selectInput(inputId = "DiffExMethod", label = "Difference Expression Analysis Method",choices = c("EdgeR", "Limma", "DESeq2"), selected = selectedMethod)
+            })
+        
+            ExpressionAnalysis$LimmaResults <- eventReactive(input$SubmitDEA, {
+                message("Loading Objects from for limma analysis")
+                #ExpressionMatrix <- GSEdata$ExpressionMatrix()
+                #DesignMatrix <- ExperimentalDesign$DesignMatrix()
+                #ContrastMatrix <- ExperimentalDesign$Contrast()
+                ExpressionMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ExpressionMatrix.rds")
+                DesignMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_DesignMatrix.rds")
+                ContrastMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ContrastMatrix.rds")
+                
+                    if(!is.null(ExpressionMatrix) & !is.null(DesignMatrix) &!is.null(ContrastMatrix)){
+                message("Performing Limma DEA")
+                res <- LimmaOutput(ExpressionMatrix,DesignMatrix,ContrastMatrix)}
+                return(res)
+           })
+                 ############ Volcano Plot
+                    output$PValThres <- renderUI({
+            numericInput(inputId = "PValThresInput", label = "pValue Threshold", value = 15, min = 1, step = 0.5)
+            })
+                    output$LogFCThres <- renderUI({
+            numericInput(inputId = "LogFCThresInput", label = "LogFC Threshold", value = 1, min = 0, max = 5, step = 0.5)
+            })
+            
+            output$SelectContrast_UI <- renderUI({
+                shiny::req(input$DiffExMethod)
+                LimmaTable <- ExpressionAnalysis$LimmaResults()
+                selectInput(inputId = "Volcanoplot_SelectContrast", label = "Select Contrast", choices = unique(LimmaTable$Contrast))
+            })
+            
+            output$VolcanoPlot <- renderPlot({
+                pValueThresHold <- input$PValThresInput
+                logFCThresHold <- input$LogFCThresInput
+                LimmaTable <- ExpressionAnalysis$LimmaResults()
+                LimmaTable <- as.data.frame(LimmaTable)
+                selectedContrast <- input$Volcanoplot_SelectContrast
+                LimmaTable <- LimmaTable %>% dplyr::filter(Contrast == selectedContrast) %>%
+                mutate(adj.P.Val = p.adjust(P.Value, method = input$MultiTestCorr))
+                    LimmaTable <- LimmaTable %>%
+                mutate(LogThreshold = abs(logFC) > logFCThresHold) %>%
+                mutate(PThreshold = as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold)) %>%
+                mutate(Threshold = paste(LogThreshold, PThreshold))
+                    p <- ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold))) + geom_point() + theme_grey()
+                    if (input$VolcanoPlot_showColor) {
+                if (input$VolcanoPlot_ThemeSelect == "default") { p <- p }
+                else if (input$VolcanoPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
+                else if (input$VolcanoPlot_ThemeSelect == "theme_bw") {p <- p + theme_bw()}
+                else if (input$VolcanoPlot_ThemeSelect == "theme_light") {p <- p + theme_light()}
+                else if (input$VolcanoPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
+                else if (input$VolcanoPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
+                else if (input$VolcanoPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
+            }
+                    if(input$VolacanoPlot_LogLine) {p <- p + geom_vline(xintercept = c(logFCThresHold, -logFCThresHold), linetype="dashed", color="red", size=1.2)}
+            if(input$VolacanoPlot_PvalLine) {p <- p + geom_hline(yintercept = pValueThresHold, linetype="dashed", color="red", size=1.2)}
+                    p <- p + theme(axis.text = element_text(size = 14, hjust = 1)) +
+                theme(axis.title = element_text(size = 14)) +
+                theme(legend.text=element_text(size=14))
+                    if (length(input$VolcanoPlot_HighlightGene) > 1) {
+                SelectedGenes <- input$VolcanoPlot_HighlightGene
+                HighlightData <- LimmaTable %>% filter(gene %in% SelectedGenes)
+            p <- p +
+                geom_point(data = HighlightData, aes(x = logFC, y = -log(adj.P.Val)), colour="red", size=5) +
+                geom_label(data=HighlightData,aes(x = logFC, y = -log(adj.P.Val), label=gene, size=14, vjust=1, colour = "black"))
+            } else {p <- p}
+                            p <- p + scale_x_continuous(limits = c(-3, 3))
+            p <- p + theme(legend.position = "bottom")
+            p
+           })
+            
+            output$VolcanoPlot_HighlightGene_UI <- renderUI({
+            LimmaTable <- ExpressionAnalysis$LimmaResults()
+            selectInput(inputId = "VolcanoPlot_HighlightGene", label = "Highlight Gene", choices = LimmaTable$gene, multiple = T)
+            })
+            
+            output$VolcanoPlot_TopTable <- renderDataTable({
+            LimmaTable <- ExpressionAnalysis$LimmaResults()
+            datatable(data = LimmaTable)
+            
+            DT::datatable(data = LimmaTable, rownames = TRUE,
+                        class = 'compact', extensions = 'Buttons', 
+                        options = list(scrollY = '500px', paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
+            })
+        
+            ######### Hist
+                 # output$HistFactorSelect <- renderUI({
+         #   shiny::req(input$GsmTableSelect, input$DownloadGEOData)
+         #   MeltedDF <- GSEdata$FactorGMTMelt()
+         #   FactorOptions <- grep(pattern = "ExpVar[0-9]", x = colnames(MeltedDF), value = T)
+         #   selectInput(inputId = "HistFactorSelectInput",
+         #    label = "Fill by Factor",
+         #    choices = FactorOptions,
+         #    selected = FactorOptions[1])
+         # })
+         #
+         # output$HistPlotGMT <- renderPlot({
+         #   GMTHistPlot(GSEgmtDF = GSEdata$FactorGMTMelt(),
+         #   HistPlotType = input$HistPlotType,
+         #   PlotFactor = input$HistFactorSelectInput,
+         #   SampleSize = input$HistSampleSize)
+         # })
+        
 
-    # PCA Plot
-     DataPCA <- reactive({
-       GSEeset <- GSEdata$GSEeset()
-       ArrayData <- exprs(GSEeset)
-       pca_output <- prcomp(na.omit(the_data), center = T, scale. = T)
-       
-       FactorGMTCast <- FactorGMTCast()$FactorGMTCast
-       PCA_ResDF <- cbind(FactorGMTCast, Prcomp_res$x)
-       return(list("Prcomp_res" = Prcomp_res, "PCA_ResDF" = PCA_ResDF))
-     })
-     
-     #' Render Input that allows user to select PCA grouping
-     #' @param FactorDF
-     output$PCA_GroupUI <- renderUI({
-       FactorDF <- FactorGMTCast()$FactorDF
-       FactorGrouping <- c("None", colnames(FactorDF))
-       selectInput(inputId = "PCA_Group", label = "Group by Factor", choices = FactorGrouping, selected = "None", multiple = F)
-     })
-     
-     #' Render Input that allows user to select PCA labeling factor
-     output$PCA_LabelUI <- renderUI({
-       FactorDF <- FactorGMTCast()$FactorDF
-       FactorGrouping <- c("Sample Number", colnames(FactorDF))
-       selectInput(inputId = "PCA_Label", label = "Label by Factor", choices = FactorGrouping, selected = "Sample Number", multiple = F)
-     })
-     
-     #' Render input that allows user to select X axis of PCA Biplot
-     output$PCA_xcomp_UI <- renderUI({
-       Prcomp_res <- PCA_Data()$Prcomp_res$x
-       CompOptions <- colnames(Prcomp_res)
-       selectInput(inputId = "PCA_xcomp", label = "X Axis component", choices = CompOptions, selected = CompOptions[1])
-     })
-     
-     #' Render input that allows user to select Y axis of PCA Biplot
-     output$PCA_ycomp_UI <- renderUI({
-       Prcomp_res <- PCA_Data()$Prcomp_res$x
-       CompOptions <- colnames(Prcomp_res)
-       selectInput(inputId = "PCA_ycomp", label = "Y Axis component", choices = CompOptions, selected = CompOptions[2])
-     })
-     
-     #' Render PCA Biplot
-     output$PCA_BiPlot <- renderPlotly({
-       shiny::req(input$PCA_Group, input$PCA_Label, input$PCA_xcomp, input$PCA_ycomp)  
-       
-       PCA_ResDF <- PCA_Data()$PCA_ResDF
-       Prcomp_res <-  PCA_Data()$Prcomp_res
-       FactorDF <- FactorGMTCast()$FactorDF
-       
-       var_expl_x <- round(100 * Prcomp_res$sdev[as.numeric(gsub("[^0-9]", "", input$PCA_xcomp))]^2/sum(Prcomp_res$sdev^2), 1)
-       var_expl_y <- round(100 * Prcomp_res$sdev[as.numeric(gsub("[^0-9]", "", input$PCA_ycomp))]^2/sum(Prcomp_res$sdev^2), 1)
-       
-       labeltype <- input$PCA_Label
-       if (labeltype != "Sample Number") {labels <- FactorDF[, labeltype]
-       } else { labels <- rownames(Prcomp_res$x)}
-       
-       grouping <- input$PCA_Group
-       
-       if(grouping == 'None'){
-         # plot without grouping variable
-         pc_plot_no_groups  <- ggplot(PCA_ResDF, aes_string(input$PCA_xcomp, input$PCA_ycomp)) +
-           geom_text(aes(label = labels),  size = input$PCA_LabelSize) +
-           coord_equal() +
-           xlab(paste0(input$PCA_xcomp, " (", var_expl_x, "% explained variance)")) +
-           ylab(paste0(input$PCA_ycomp, " (", var_expl_y, "% explained variance)"))
-         # the plot
-         #pc_plot_no_groups <- ggplotly(pc_plot_no_groups)
-         pc_plot_no_groups
-         
-       }  else {
-         #plot with grouping variable
-         PCA_ResDF$ExpVar <-  as.factor(FactorDF[, grouping])
-         pc_plot_groups  <- ggplot(PCA_ResDF, aes_string(input$PCA_xcomp, input$PCA_ycomp, fill = 'ExpVar', colour = 'ExpVar')) +
-           stat_ellipse(geom = "polygon", alpha = 0.1) +
-           geom_text(aes(label = labels),  size = input$PCA_LabelSize) +
-           scale_colour_discrete(guide = FALSE) +
-           guides(fill = guide_legend(title = "groups")) +
-           theme(legend.position="bottom") +
-           coord_equal() +
-           xlab(paste0(input$PCA_xcomp, " (", var_expl_x, "% explained variance)")) +
-           ylab(paste0(input$PCA_ycomp, " (", var_expl_y, "% explained variance)"))
-         # the plot
-         #pc_plot_groups <- ggplotly(pc_plot_groups)
-         pc_plot_groups
-       }
-     })
-
-        output$PCA <- renderPlot({
-        GSEeset <- GSEdata$GSEeset()
-        ListPlotPCA <- PlotPCA(ArrayData = ArrayData)
-
-        DataPCA$CA <- ListPlotPCA$CA
-        DataPCA$Scree <- ListPlotPCA$Scree
-        DataPCA$Cont <- ListPlotPCA$Cont
-
-        ListPlotPCA$PCA
-       })
-
-     output$CA <- renderPlot({ DataPCA$CA })
-     output$Scree <- renderPlot({ DataPCA$Scree })
-     output$Cont <- renderPlot({ DataPCA$Cont })
+                         ############ MA Plot
+        output$MALogFCThres <- renderUI({
+              numericInput(inputId = "MALogFCThresInput",
+                           label = "LogFC Threshold",
+                           value = 1,
+                           min = 0,
+                           max = 5,
+                           step = 0.5)
+         })
+        
+        output$MAPlot <- renderPlot({
+            logFCThresHold <- input$MALogFCThresInput
+            LimmaTable <- ExpressionAnalysis$LimmaResults()
+            LimmaTable <- as.data.frame(LimmaTable)
+            LimmaTable <- LimmaTable %>% mutate(Threshold = abs(logFC) > logFCThresHold)
+            ggplot(LimmaTable, aes(x = AveExpr, y = logFC, color = factor(Threshold))) + geom_point() + theme_grey()
+        })
+    
+    
+    
+    
 
 
-     ###################################################################### Expression Analysis
-     ExpressionAnalysis <- reactiveValues()
+     ##################################################################################### Clustering
 
-     ExpressionAnalysis$LimmaResults <- reactive({
-       GSEeset <- GSEdata$GSEeset() #Expression Set
-       DesignMatrix <- ExperimentalDesign$DesignMatrix() #Matrix
+        
+        output$HeatMapSelectContrast_UI <- renderUI({
+                shiny::req(input$DiffExMethod)
+                LimmaTable <- ExpressionAnalysis$LimmaResults()
+                selectInput(inputId = "HeatMap_SelectContrast", label = "Select Contrast", choices = unique(LimmaTable$Contrast))
+        })
+        
+        
+        # #Import/Select Data ----
+        HeatMapData <- reactiveValues()
+                 
 
-       if(!is.null(GSEeset) & !is.null(DesignMatrix)){
-         ArrayData <- exprs(GSEeset) #Matrix
-         DesignMatrix <- DesignMatrix
-         LimmaOutput(ArrayData,DesignMatrix)
-         message("Performing Limma DEA")
-       } else {
-         message("GSEeset not Loaded")
-         NULL
-         }
-       })
 
-     ############ Volcano Plot
-
-     output$PValThres <- renderUI({
-          numericInput(inputId = "PValThresInput",
-                       label = "pValue Threshold",
-                       value = 2,
-                       min = 1,
-                       step = 0.5)
-     })
-
-     output$LogFCThres <- renderUI({
-          numericInput(inputId = "LogFCThresInput",
-                       label = "LogFC Threshold",
-                       value = 1,
-                       min = 0,
-                       max = 5,
-                       step = 0.5)
-     })
-
-     output$VolcanoPlot <- renderPlot({
-       shiny::req(input$SubmitFormula)
-
-       pValueThresHold <- input$PValThresInput
-       logFCThresHold <- input$LogFCThresInput
+        HeatMapData$FactorGMT <- reactive({
+        shiny::req(input$formulaInputDesign, input$SubmitFormula)
 
        LimmaTable <- ExpressionAnalysis$LimmaResults()
-       LimmaTable <- as.data.frame(LimmaTable)
+       LimmaTable <- LimmaTable %>% arrange_(input$TopTableFilter)
 
-       LimmaTable <- LimmaTable %>%
-        mutate(Threshold = abs(logFC) > logFCThresHold) %>%
-          mutate(Threshold = as.numeric(Threshold)) %>%
-            mutate(Threshold = Threshold + as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold))
+       nGenes <- input$nGenes
 
-       ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold > 1))) + geom_point() + theme_grey() + facet_wrap(~ExpVar)
+       TopGenes <- LimmaTable[1:nGenes,1]
+       TopGenes[TopGenes == ""] <- NA
+       TopGenes <- na.omit(TopGenes)
 
+       FactorDF <- ExperimentalDesign$ControlFactorDF()
+       FactorDF <- as.data.frame(FactorDF)
+
+       GSEeset <- GSEdata$GSEeset()
+       FactorGMT <- GenFactorGMT(GSEeset, FactorDF)
+       colnames(FactorGMT) <- make.names(colnames(FactorGMT), unique=TRUE)
+
+       ColumnsToKeep <- colnames(FactorGMT)
+       ColumnsToKeep <- grep(pattern = "GSM|ExpVar",x = ColumnsToKeep, value = T)
+       ColumnsToKeep <- c(ColumnsToKeep, TopGenes)
+
+       FactorGMT <- FactorGMT %>% select(one_of(ColumnsToKeep))
+
+    })
+
+
+
+     #Color Pallete UI ----
+     output$colUI<-renderUI({
+
+       colSel='Vidiris'
+       if(input$transform_fun=='cor') colSel='RdBu'
+       if(input$transform_fun=='is.na10') colSel='grey.colors'
+
+       selectizeInput(inputId ="pal", label ="Select Color Palette",
+                      choices = c('Vidiris (Sequential)'="viridis",
+                                  'Magma (Sequential)'="magma",
+                                  'Plasma (Sequential)'="plasma",
+                                  'Inferno (Sequential)'="inferno",
+                                  'Magma (Sequential)'="magma",
+                                  'Magma (Sequential)'="magma",
+
+                                  'RdBu (Diverging)'="RdBu",
+                                  'RdYlBu (Diverging)'="RdYlBu",
+                                  'RdYlGn (Diverging)'="RdYlGn",
+                                  'BrBG (Diverging)'="BrBG",
+                                  'Spectral (Diverging)'="Spectral",
+
+                                  'BuGn (Sequential)'='BuGn',
+                                  'PuBuGn (Sequential)'='PuBuGn',
+                                  'YlOrRd (Sequential)'='YlOrRd',
+                                  'Heat (Sequential)'='heat.colors',
+                                  'Grey (Sequential)'='grey.colors'),
+                      selected=colSel)
+
+     })
+
+     #Manual Color Range UI ----
+     output$colRng=renderUI({
+       if(!is.null(HeatMapData$FactorGMT())) {
+         rng=range(HeatMapData$FactorGMT(),na.rm = TRUE)
+       }else{
+         rng=range(mtcars) # TODO: this should probably be changed
+       }
+       # sliderInput("colorRng", "Set Color Range", min = round(rng[1],1), max = round(rng[2],1), step = .1, value = rng)
+       n_data = nrow(HeatMapData$FactorGMT())
+
+       min_min_range = ifelse(input$transform_fun=='cor',-1,-Inf)
+       min_max_range = ifelse(input$transform_fun=='cor',1,rng[1])
+       min_value = ifelse(input$transform_fun=='cor',-1,rng[1])
+
+       max_min_range = ifelse(input$transform_fun=='cor',-1,rng[2])
+       max_max_range = ifelse(input$transform_fun=='cor',1,Inf)
+       max_value = ifelse(input$transform_fun=='cor',1,rng[2])
+
+       a_good_step = 0.1 # (max_range-min_range) / n_data
+
+       list(
+         numericInput("colorRng_min", "Set Color Range (min)", value = min_value, min = min_min_range, max = min_max_range, step = a_good_step),
+         numericInput("colorRng_max", "Set Color Range (max)", value = max_value, min = max_min_range, max = max_max_range, step = a_good_step)
+       )
+
+     })
+
+
+     #Building heatmaply ----
+     interactiveHeatmap <-observeEvent(input$SubmitDEA, {
+
+       HeatMapData$FactorGMT <- HeatMapData$FactorGMT()
+       ss_num =  sapply(HeatMapData$FactorGMT, is.numeric) # in order to only transform the numeric values
+
+       if(input$transpose) HeatMapData$FactorGMT=t(HeatMapData$FactorGMT)
+       if(input$transform_fun!='.'){
+         if(input$transform_fun=='is.na10'){
+           updateCheckboxInput(session = session,inputId = 'showColor',value = T)
+           HeatMapData$FactorGMT[, ss_num]=is.na10(HeatMapData$FactorGMT[, ss_num])
+         }
+         if(input$transform_fun=='cor'){
+           updateCheckboxInput(session = session,inputId = 'showColor',value = T)
+           updateCheckboxInput(session = session,inputId = 'colRngAuto',value = F)
+           HeatMapData$FactorGMT=cor(HeatMapData$FactorGMT[, ss_num],use = "pairwise.complete.obs")
+         }
+         if(input$transform_fun=='log') HeatMapData$FactorGMT[, ss_num]= apply(HeatMapData$FactorGMT[, ss_num],2,log)
+         if(input$transform_fun=='sqrt') HeatMapData$FactorGMT[, ss_num]= apply(HeatMapData$FactorGMT[, ss_num],2,sqrt)
+         if(input$transform_fun=='normalize') HeatMapData$FactorGMT=heatmaply::normalize(HeatMapData$FactorGMT)
+         if(input$transform_fun=='scale') HeatMapData$FactorGMT[, ss_num] = scale(HeatMapData$FactorGMT[, ss_num])
+         if(input$transform_fun=='percentize') HeatMapData$FactorGMT=heatmaply::percentize(HeatMapData$FactorGMT)
+       }
+
+
+       # if(!is.null(input$TopTable_true_search_columns))
+       #   data.in=data.in[activeRows(input$TopTable_true_search_columns,data.in),]
+       # if(input$colRngAuto){
+       #   ColLimits=NULL
+       # }else{
+       #   ColLimits=c(input$colorRng_min, input$colorRng_max)
+       # }
+
+       distfun_row = function(x) dist(x, method = input$distFun_row)
+       distfun_col =  function(x) dist(x, method = input$distFun_col)
+
+       hclustfun_row = function(x) hclust(x, method = input$hclustFun_row)
+       hclustfun_col = function(x) hclust(x, method = input$hclustFun_col)
+
+
+       p <- heatmaply(HeatMapData$FactorGMT,
+                      main = input$main,xlab = input$xlab,ylab = input$ylab,
+                      row_text_angle = input$row_text_angle,
+                      column_text_angle = input$column_text_angle,
+                      dendrogram = input$dendrogram,
+                      branches_lwd = input$branches_lwd,
+                      seriate = input$seriation,
+                      colors=eval(parse(text=paste0(input$pal,'(',input$ncol,')'))),
+                      distfun_row =  distfun_row,
+                      hclustfun_row = hclustfun_row,
+                      distfun_col = distfun_col,
+                      hclustfun_col = hclustfun_col,
+                      k_col = input$c,
+                      k_row = input$r,
+                      limits = ColLimits) %>%
+         layout(margin = list(l = input$l, b = input$b, r='0px'))
+
+       p$elementId <- NULL
+
+       p
+
+     })
+
+     #Render Plot ----
+     output$heatout <- renderPlotly({
+       if(!is.null(ExpressionAnalysis$LimmaResults)){
+         interactiveHeatmap()
+       } else { NULL }
 
        })
 
 
-     ############ MA Plot
 
-     output$MALogFCThres <- renderUI({
-          numericInput(inputId = "MALogFCThresInput",
-                       label = "LogFC Threshold",
-                       value = 1,
-                       min = 0,
-                       max = 5,
-                       step = 0.5)
+
+     #Render Data Table ----
+     output$RenderTopTable <- renderUI({
+       if(is.null(ExpressionAnalysis$LimmaResults()) == 0){
+       return("No data to show")
+       } else {
+       tableOutput("TopTable")
+       }
+       })
+
+     output$TopTable <- renderDataTable({
+       datatable(ExpressionAnalysis$LimmaResults(), server = T, filter='top',
+        extensions = c('Scroller','FixedHeader','FixedColumns','Buttons','ColReorder'),
+        options = list(
+        dom = 't',
+        buttons = c('copy', 'csv', 'excel', 'pdf', 'print','colvis'),
+        colReorder = TRUE,
+        scrollX = TRUE,
+        fixedColumns = TRUE,
+        fixedHeader = TRUE,
+        deferRender = TRUE,
+        scrollY = 500,
+        scroller = TRUE
+        ))
+
      })
 
-     output$MAPlot <- renderPlot({
-          logFCThresHold <- input$MALogFCThresInput
-
-          LimmaTable <- ExpressionAnalysis$LimmaResults()
-          LimmaTable <- as.data.frame(LimmaTable)
-          LimmaTable <- LimmaTable %>% mutate(Threshold = abs(logFC) > logFCThresHold)
-
-          ggplot(LimmaTable, aes(x = AveExpr, y = logFC, color = factor(Threshold))) +
-               geom_point() +
-               theme_grey()
-
-          })
-
-    #  ##################################################################################### Clustering
-    #  
-    # # #Import/Select Data ----
-    #  HeatMapData <- reactiveValues()
-    # 
-    #  HeatMapData$FactorGMT <- reactive({
-    #    shiny::req(input$formulaInputDesign, input$SubmitFormula)
-    # 
-    #    LimmaTable <- ExpressionAnalysis$LimmaResults()
-    #    LimmaTable <- LimmaTable %>% arrange_(input$TopTableFilter)
-    #    
-    #    nGenes <- input$nGenes
-    #    
-    #    TopGenes <- LimmaTable[1:nGenes,1]
-    #    TopGenes[TopGenes == ""] <- NA
-    #    TopGenes <- na.omit(TopGenes)
-    #    
-    #    FactorDF <- ExperimentalDesign$ControlFactorDF()
-    #    FactorDF <- as.data.frame(FactorDF)
-    #    
-    #    GSEeset <- GSEdata$GSEeset()
-    #    FactorGMT <- GenFactorGMT(GSEeset, FactorDF)
-    #    colnames(FactorGMT) <- make.names(colnames(FactorGMT), unique=TRUE)
-    #    
-    #    ColumnsToKeep <- colnames(FactorGMT)
-    #    ColumnsToKeep <- grep(pattern = "GSM|ExpVar",x = ColumnsToKeep, value = T)
-    #    ColumnsToKeep <- c(ColumnsToKeep, TopGenes)
-    #    
-    #    FactorGMT <- FactorGMT %>% select(one_of(ColumnsToKeep))
-    #    
-    # })
-    # 
-    #  
-    #  
-    #  #Color Pallete UI ----
-    #  output$colUI<-renderUI({
-    #    
-    #    colSel='Vidiris'
-    #    if(input$transform_fun=='cor') colSel='RdBu'
-    #    if(input$transform_fun=='is.na10') colSel='grey.colors'
-    #    
-    #    selectizeInput(inputId ="pal", label ="Select Color Palette",
-    #                   choices = c('Vidiris (Sequential)'="viridis",
-    #                               'Magma (Sequential)'="magma",
-    #                               'Plasma (Sequential)'="plasma",
-    #                               'Inferno (Sequential)'="inferno",
-    #                               'Magma (Sequential)'="magma",
-    #                               'Magma (Sequential)'="magma",
-    #                               
-    #                               'RdBu (Diverging)'="RdBu",
-    #                               'RdYlBu (Diverging)'="RdYlBu",
-    #                               'RdYlGn (Diverging)'="RdYlGn",
-    #                               'BrBG (Diverging)'="BrBG",
-    #                               'Spectral (Diverging)'="Spectral",
-    #                               
-    #                               'BuGn (Sequential)'='BuGn',
-    #                               'PuBuGn (Sequential)'='PuBuGn',
-    #                               'YlOrRd (Sequential)'='YlOrRd',
-    #                               'Heat (Sequential)'='heat.colors',
-    #                               'Grey (Sequential)'='grey.colors'),
-    #                   selected=colSel)
-    #    
-    #  })
-    #  
-    #  #Manual Color Range UI ----
-    #  output$colRng=renderUI({
-    #    if(!is.null(HeatMapData$FactorGMT())) {
-    #      rng=range(HeatMapData$FactorGMT(),na.rm = TRUE)
-    #    }else{
-    #      rng=range(mtcars) # TODO: this should probably be changed
-    #    }
-    #    # sliderInput("colorRng", "Set Color Range", min = round(rng[1],1), max = round(rng[2],1), step = .1, value = rng)  
-    #    n_data = nrow(HeatMapData$FactorGMT())
-    #    
-    #    min_min_range = ifelse(input$transform_fun=='cor',-1,-Inf)
-    #    min_max_range = ifelse(input$transform_fun=='cor',1,rng[1])
-    #    min_value = ifelse(input$transform_fun=='cor',-1,rng[1])
-    #    
-    #    max_min_range = ifelse(input$transform_fun=='cor',-1,rng[2])
-    #    max_max_range = ifelse(input$transform_fun=='cor',1,Inf)
-    #    max_value = ifelse(input$transform_fun=='cor',1,rng[2])
-    #    
-    #    a_good_step = 0.1 # (max_range-min_range) / n_data
-    #    
-    #    list(
-    #      numericInput("colorRng_min", "Set Color Range (min)", value = min_value, min = min_min_range, max = min_max_range, step = a_good_step),
-    #      numericInput("colorRng_max", "Set Color Range (max)", value = max_value, min = max_min_range, max = max_max_range, step = a_good_step)
-    #    )
-    #    
-    #  })
-    #  
-    #  
-    #  #Building heatmaply ----
-    #  interactiveHeatmap<-observeEvent(input$SubmitDEA, {
-    #    
-    #    HeatMapData$FactorGMT <- HeatMapData$FactorGMT()
-    #    ss_num =  sapply(HeatMapData$FactorGMT, is.numeric) # in order to only transform the numeric values
-    #    
-    #    if(input$transpose) HeatMapData$FactorGMT=t(HeatMapData$FactorGMT)
-    #    if(input$transform_fun!='.'){
-    #      if(input$transform_fun=='is.na10'){
-    #        updateCheckboxInput(session = session,inputId = 'showColor',value = T)
-    #        HeatMapData$FactorGMT[, ss_num]=is.na10(HeatMapData$FactorGMT[, ss_num])
-    #      } 
-    #      if(input$transform_fun=='cor'){
-    #        updateCheckboxInput(session = session,inputId = 'showColor',value = T)
-    #        updateCheckboxInput(session = session,inputId = 'colRngAuto',value = F)
-    #        HeatMapData$FactorGMT=cor(HeatMapData$FactorGMT[, ss_num],use = "pairwise.complete.obs")
-    #      }
-    #      if(input$transform_fun=='log') HeatMapData$FactorGMT[, ss_num]= apply(HeatMapData$FactorGMT[, ss_num],2,log)
-    #      if(input$transform_fun=='sqrt') HeatMapData$FactorGMT[, ss_num]= apply(HeatMapData$FactorGMT[, ss_num],2,sqrt) 
-    #      if(input$transform_fun=='normalize') HeatMapData$FactorGMT=heatmaply::normalize(HeatMapData$FactorGMT)
-    #      if(input$transform_fun=='scale') HeatMapData$FactorGMT[, ss_num] = scale(HeatMapData$FactorGMT[, ss_num])
-    #      if(input$transform_fun=='percentize') HeatMapData$FactorGMT=heatmaply::percentize(HeatMapData$FactorGMT)
-    #    } 
-    #    
-    #    
-    #    # if(!is.null(input$TopTable_true_search_columns)) 
-    #    #   data.in=data.in[activeRows(input$TopTable_true_search_columns,data.in),]
-    #    # if(input$colRngAuto){
-    #    #   ColLimits=NULL 
-    #    # }else{
-    #    #   ColLimits=c(input$colorRng_min, input$colorRng_max)
-    #    # }
-    #    
-    #    distfun_row = function(x) dist(x, method = input$distFun_row)
-    #    distfun_col =  function(x) dist(x, method = input$distFun_col)
-    #    
-    #    hclustfun_row = function(x) hclust(x, method = input$hclustFun_row)
-    #    hclustfun_col = function(x) hclust(x, method = input$hclustFun_col)
-    #    
-    #    
-    #    p <- heatmaply(HeatMapData$FactorGMT,
-    #                   main = input$main,xlab = input$xlab,ylab = input$ylab,
-    #                   row_text_angle = input$row_text_angle,
-    #                   column_text_angle = input$column_text_angle,
-    #                   dendrogram = input$dendrogram,
-    #                   branches_lwd = input$branches_lwd,
-    #                   seriate = input$seriation,
-    #                   colors=eval(parse(text=paste0(input$pal,'(',input$ncol,')'))),
-    #                   distfun_row =  distfun_row,
-    #                   hclustfun_row = hclustfun_row,
-    #                   distfun_col = distfun_col,
-    #                   hclustfun_col = hclustfun_col,
-    #                   k_col = input$c, 
-    #                   k_row = input$r,
-    #                   limits = ColLimits) %>% 
-    #      layout(margin = list(l = input$l, b = input$b, r='0px'))
-    #    
-    #    p$elementId <- NULL
-    #    
-    #    p
-    #    
-    #  })
-    #  
-    #  #Render Plot ----
-    #  output$heatout <- renderPlotly({
-    #    if(!is.null(ExpressionAnalysis$LimmaResults)){
-    #      interactiveHeatmap()    
-    #    } else { NULL }
-    #    
-    #    })
-    #  
-    #  
-    #  
-    #  
-    #  #Render Data Table ----
-    #  output$RenderTopTable <- renderUI({
-    #    if(is.null(ExpressionAnalysis$LimmaResults()) == 0){
-    #    return("No data to show")
-    #    } else {
-    #    tableOutput("TopTable")
-    #    }
-    #    })
-    #  
-    #  output$TopTable <- renderDataTable({
-    #    datatable(ExpressionAnalysis$LimmaResults(), server = T, filter='top',
-    #     extensions = c('Scroller','FixedHeader','FixedColumns','Buttons','ColReorder'),
-    #     options = list(
-    #     dom = 't',
-    #     buttons = c('copy', 'csv', 'excel', 'pdf', 'print','colvis'),
-    #     colReorder = TRUE,
-    #     scrollX = TRUE,
-    #     fixedColumns = TRUE,
-    #     fixedHeader = TRUE,
-    #     deferRender = TRUE,
-    #     scrollY = 500,
-    #     scroller = TRUE
-    #     ))
-    #  
-    #  })
     #    
     #  
     # 

@@ -160,7 +160,7 @@ ui <- dashboardPage(
         menuItem("Design and Contrast Matrix", icon = icon("th"), tabName = "DesignMatrix"),
         menuItem("Download and QC", tabName = "DataQC", icon = icon("download")),
         menuItem("Expression Analysis", tabName = "DifferentialAnalysis", icon = icon("bar-chart")),
-        menuItem("Export and Save", tabName = "ReverseSerach", icon = icon("database")),
+        menuItem("Export and Save", tabName = "ExportSave", icon = icon("database")),
         menuItem("Contact and Citations", tabName = "Contact", icon = icon("phone"))
         )
      ),
@@ -187,7 +187,7 @@ ui <- dashboardPage(
         selectInput(
         inputId = "MolSelectFilter",
         label = "GEO Query Type",
-        choices = c("GEO Series Accession" = "Accession", "Inflammation Molecules" = "DAVID", "Text Input" = "TextInput",  "FDA approved Drugs" = "FDA", "SPARK" = "SPARK Library"),
+        choices = c("GEO Series Accession" = "Accession", "Test Molecules" = "DAVID", "Text Input" = "TextInput",  "FDA approved Drugs" = "FDA", "SPARK" = "SPARK Library"),
         selected = "DAVID")), #selectInput
         
         column(6),
@@ -541,7 +541,8 @@ ui <- dashboardPage(
         
         
         
-                tabItem( tabName = "DataQC",
+tabItem(
+        tabName = "DataQC",
         fluidRow(
         column(10,
         #column(12, div( id = "GSMMetadataWarning_Down", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
@@ -558,8 +559,6 @@ ui <- dashboardPage(
         fluidRow(
         column(12,
         
-        column(12,uiOutput("DownloadDataInfoBox")),
-        #column(12, uiOutput("DownloadInputAcession")
         h4("Data Source"),
         column(12, uiOutput("InputSourceGMT")),
         column(12, tags$hr()),
@@ -567,9 +566,9 @@ ui <- dashboardPage(
         conditionalPanel('input.DataSourceSelection==1',
         h4("GEO Accession"),
         column(12,
-        column(6,textInput(inputId = "GsmTableSelect",label = "GSE input", value = "GSE69967")),
-        column(6,textInput(inputId = "GplTableSelect",label = "GPL input", value = "GPL")),
-        column(12,actionButton( inputId = "DownloadGEOData", label = "Download", icon = icon("download"), block = T)),
+        #column(6,textInput(inputId = "GsmTableSelect",label = "GSE input", value = "GSE69967")), # Only For Modular Testing
+        #column(6,textInput(inputId = "GplTableSelect",label = "GPL input", value = "GPL")), # Only For Modular Testing
+        column(12,actionButton( inputId = "DownloadGEOData", label = "Download Data from GEO", icon = icon("download"), block = T)),
         column(12, hr()),
         uiOutput("GeneAnnotationTypeUI"),hr())),
         
@@ -621,7 +620,7 @@ ui <- dashboardPage(
         column(4, actionButton(inputId = "RefreshRawDataQCTable", label = "Refresh Table",icon = icon('refresh')))),
         fluidRow(
         column(12, hr()),
-        column(12,valueBoxOutput("nGSESamples"),valueBoxOutput("nGSEGenes")))
+        column(12,valueBoxOutput("DownloadDataInfoBox"),valueBoxOutput("nGSESamples"),valueBoxOutput("nGSEGenes")))
         
         ))) # Table Column
         
@@ -661,8 +660,10 @@ ui <- dashboardPage(
         wellPanel(
         fluidRow(
         h4("BioQC Heatmap"),
-        plotlyOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")
-        )
+        column(12,
+        fluidRow(
+        plotlyOutput(outputId = "BioQCPlot") %>% withSpinner(color = "#0dc5c1")    
+        )))
         ),
         
         wellPanel(
@@ -677,7 +678,7 @@ ui <- dashboardPage(
         )  # Page Fluid Row
         ),  # tabPanel BioQC"
     
-        tabPanel(title = "Boxplots",
+        tabPanel(title = "BoxPlots",
         fluidRow(
         column(4,
                  
@@ -686,16 +687,16 @@ ui <- dashboardPage(
         column(12,
                         
         h4('Plot Selection'), 
-        column(12, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample" = "s", "Gene" = "g"), selected = "")),
-        column(12, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution" = "1", "Factor Distribution" = "2"), selected = "1")),
-        column(12, uiOutput("GeneFactorSelect_UI")),
-        column(12, uiOutput("BoxFactorSelect_UI")),
+        column(6, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample" = "s", "Gene" = "g"), selected = "g")),
+        column(6, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution" = "o", "Factor Distribution" = "f"), selected = "")),
+        column(6, uiOutput("BoxPlot_GeneSelect_UI")),
+        column(6, uiOutput("BoxPlot_FactorSelect_UI")),
         
         ##########################################################################
 
         
-        column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("Boxplot", "Violin Plot", "Histogram"), selected = "Boxplot")),
-        column(12, sliderInput("BoxPlot_nGenes", "Portion of Genes to Sample", min = 1, max = 1000, value = 100, step = 100)),
+        column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("BoxPlot", "Violin Plot", "Histogram"), selected = "BoxPlot")),
+        column(12, sliderInput("BoxPlot_nGenes", "Portion of Genes to Sample", min = 1, max = 100, value = 10, step = 10)),
                         
         h4('Plot Options'), 
         column(4,checkboxInput('BoxPlot_showData','Show Data')),
@@ -707,7 +708,8 @@ ui <- dashboardPage(
                         
         conditionalPanel('input.BoxPlot_showData==1', 
         column(12, br(),hr(),h4("Data Point Plotting Options")),
-        radioButtons(inputId = "BoxPlot_showDataOption", label = "", choices = c("jitter", "quasirandom", "beeswarm", "tukey", "frowney", "smiley"), selected = "jitter",inline = T),
+        radioButtons(inputId = "BoxPlot_showDataOption", label = "", choices = c("jitter", "quasirandom", "beeswarm", "tukey"), selected = "jitter",inline = T),
+        sliderInput(inputId = "BoxPlot_JitterAlpha", label = "Data Point alpha", min = 0,max = 1,step = 0.1,value = 1),
         sliderInput(inputId = "BoxPlot_JitterWidth", label = "Data Point Plot Area Width", min = 0,max = 2,step = 0.05,value = 0.1)
         )),
                    
@@ -731,7 +733,7 @@ ui <- dashboardPage(
         column(3,checkboxInput('BoxPlot_showColor','Color')),
         column(3,checkboxInput('BoxPlot_showLabs','Labels & Title')),
         column(3,checkboxInput('BoxPlot_showPlotSize','Plot Size')),
-        column(3,checkboxInput('BoxPlot_showMargins','Margins', value = 1)),
+        column(3,checkboxInput('BoxPlot_showMargins','Margins')),
         hr(),
                    
         column(12,
@@ -749,8 +751,8 @@ ui <- dashboardPage(
         hr(),
         h5('Widget Layout'),
         column(4,textInput('BoxPlot_main','Title','')),
-        column(4,textInput('BoxPlot_xlab','X Title','')),
-        column(4,textInput('BoxPlot_ylab','Y Title','')),
+        column(4,textInput('BoxPlot_xlab','X Title','Experimental Group')),
+        column(4,textInput('BoxPlot_ylab','Y Title','Expression Levels')),
         sliderInput('BoxPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180),
         sliderInput('BoxPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
         )),
@@ -772,19 +774,24 @@ ui <- dashboardPage(
         column(3, numericInput("BoxPlot_margin_right", "Right:", value=1, step = 0.1)),
         column(3, numericInput("BoxPlot_margin_left", "Left:", value=1, step = 0.1))
         ))))
-        ), # Boxplots tabPanel Input Column
+        ), # BoxPlots tabPanel Input Column
 
         column(8,
         wellPanel(
         fluidRow(
-        column(12, h4("Boxplot")),
-        column(12, uiOutput("BoxPlotUI") %>% withSpinner(color = "#0dc5c1")),
+        column(12, h4("BoxPlot")),
+        column(12, plotOutput("BoxPlot_ggplot") %>% withSpinner(color = "#0dc5c1")),
         column(12, hr()),
-        column(4, actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh'))),
-        column(4, checkboxInput(inputId = "BoxPlot_ToggleInteractive", label = "Render Interactive Plot"))
-        ))))
-        ), # tabPanel(title = "Boxplots"
-    
+        
+        column(2,actionButton(inputId = "RefreshBoxPlotSample", label = "Refresh Gene Selection",icon = icon('refresh'))),
+        column(2,actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh'))),
+        column(2,checkboxInput(inputId = "BoxPlot_ToggleLegend", label = "Show Legend")),
+        column(4,checkboxInput(inputId = "BoxPlot_ToggleInteractive", label = "Render Interactive Plot"))
+        )
+        )  # Well Panel for Plots
+        )  # Second Column of Page
+        )  # tabPanel Fluid Row
+        ), # tabPanel(title = "BoxPlots"
         
         tabPanel(title = "PCA",
         fluidRow(
@@ -843,19 +850,234 @@ ui <- dashboardPage(
         )  # DataQC tab Fluid Row
         ), # DataQC Tab Item
         
+                tabItem(
+        tabName = "DifferentialAnalysis",
+        fluidRow(
+            
+        column(12, div( id = "GSMMetadataWarning_Exp", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
+        fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))),
+        
+        column(12,
+        tabBox(title = "Expression Analysis",
+        width = 12,
+        
+        tabPanel(title = "Volcano Plot",
+        
+        fluidRow(
+        column(4,
+        wellPanel(
+        fluidRow(
+        
+        h4("Expression Analysis Options"),
+        column(12, uiOutput("DiffExMethod_UI")),
+        column(12, actionButton("SubmitDEA","Perform Differntial Expression Analysis")),
+        column(12, hr()),
+        
+        h4("Significance Threshold"),                                                   #choices = list("Tukey"=0, "Spear"=1, "Altman"=2)
+        column(6, uiOutput("PValThres")),
+        column(6, uiOutput("LogFCThres")),
+        column(12, selectInput(inputId = "MultiTestCorr", label = "Multiple Testing Correction", 
+        choices = c("None" = "none", "Holm" = "holm", "Hochberg" = "hochberg","Bonferroni" = "bonferroni", "Benjamini–Hochberg" = "BH", "Benjamini-Hochberg-Yekutieli" = "BY"))),  
+        column(12, hr()),
+        
+        h4("Volcano Plot Options"),
+        column(12, uiOutput("SelectContrast_UI")),
+        column(4, checkboxInput(inputId = "VolacanoPlot_PvalLine", label = "p-value line", value = T)),
+        column(4, checkboxInput(inputId = "VolacanoPlot_LogLine", label = "logFC line", value = T)),
+        column(4, checkboxInput(inputId = "VolacanoPlot_labelhitt", label = "label hits")),
+        
+        column(12,hr(),h4('Additional Parameters')),
+        column(3,checkboxInput('VolcanoPlot_showColor','Color')),
+        column(3,checkboxInput('VolcanoPlot_showLabs','Labels & Title')),
+        column(3,checkboxInput('VolcanoPlot_showPlotSize','Plot Size')),
+        column(3,checkboxInput('VolcanoPlot_showMargins','Margins')),
+                           
+        column(12,
+        conditionalPanel('input.VolcanoPlot_showColor==1',
+        hr(),
+        h4('Color Manipulation'),
+        selectInput(inputId = "VolcanoPlot_ThemeSelect", label = "Select Theme:", choices = c("default","theme_gray", "theme_bw", "theme_light", "theme_dark", "theme_minimal", "theme_classic")),
+        sliderInput("VolcanoPlot_ncol", "Set Number of Colors", min = 1, max = 256, value = 256),
+        checkboxInput('VolcanoPlot_colRngAuto','Auto Color Range',value = T)
+        )),
+                   
+        column(12,
+        conditionalPanel('input.VolcanoPlot_showLabs==1',
+        hr(),
+        h4('Labels & Title'),
+        column(4,textInput('VolcanoPlot_main','Title','')),
+        column(4,textInput('VolcanoPlot_xlab','X Title','')),
+        column(4,textInput('VolcanoPlot_ylab','Y Title','')),
+        sliderInput('VolcanoPlot_row_text_angle','Row Text Angle',value = 0,min=0,max=180),
+        sliderInput('VolcanoPlot_column_text_angle','Column Text Angle',value = 45,min=0,max=180)
+        )),
+                   
+        column(12,
+        conditionalPanel('input.VolcanoPlot_showPlotSize==1',
+        hr(),
+        h4('Plot Size Options'),
+        numericInput("VolcanoPlot_Height", "Plot height:", value=550),
+        numericInput("VolcanoPlot_Width", "Plot width:", value=750)
+        )),
+        
+        column(12,
+        conditionalPanel('input.VolcanoPlot_showMargins==1',
+        hr(),
+        h4('Plot Margin Options'),
+        column(3, numericInput("VolcanoPlot_margin_top", "Top:", value=0.1, step = 0.1)),
+        column(3, numericInput("VolcanoPlot_margin_bottom", "Bottom:", value=0.4, step = 0.1)),
+        column(3, numericInput("VolcanoPlot_margin_right", "Right:", value=1, step = 0.1)),
+        column(3, numericInput("VolcanoPlot_margin_left", "Left:", value=1, step = 0.1))
+        ))
+               
+        
+        )  # Fluid Row inside well panel
+        )  # Input Well Panel
+        ),  # Input Column
+        
+        column(8,
+        wellPanel(
+        fluidRow(
+        column(11, h4("Volcano Plot")),
+        column(12, hr()),
+        column(12, plotOutput("VolcanoPlot")),
+        column(12, hr()),
+        column(6, uiOutput("VolcanoPlot_HighlightGene_UI"))
+        
+        )  # Volcano Plot Fluid Row
+        ),  # Volcano Plot Well Panel
+                      
+        wellPanel(
+        fluidRow(
+        column(8,h4("Toptable from Differential Expression Analysis")),
+        column(12, hr()),
+        column(12,dataTableOutput("VolcanoPlot_TopTable")),
+        plotOutput("Volcano_BoxPlot")
+        ) # Box Plot Fluid Row
+        ) # Box plot Well Panel       
+        ) # Plot Panel Column
+        )
+        ),
+        
+        tabPanel(title = "Clustering",
+        fluidRow(
+        column(4,
+        wellPanel(
+        
+        h4('Gene Selection'), 
+        column(width=12,sliderInput("nGenes", "Number of Differentially Expressed Genes to Show", min = 1, max = 100, value = 10)),
+        column(width=12,selectizeInput("TopTableFilter", "Sort genes by", c("ID","logFC","AveExpr","t","P.Value"),"logFC")),
+        h4('Data Preprocessing'),
+        
+        column(width=4,selectizeInput('transpose','Transpose',choices = c('No'=FALSE,'Yes'=TRUE),selected = FALSE)),
+        column(width=4,selectizeInput("transform_fun", "Transform", c(Identity=".",Sqrt='sqrt',log='log',Scale='scale',Normalize='normalize',Percentize='percentize',"Missing values"='is.na10', Correlation='cor'),selected = '.')),
+        uiOutput('annoVars'),
+        column(12, h4('Row dendrogram')),
+        column(width=6,selectizeInput("distFun_row", "Distance method", c(Euclidean="euclidean",Maximum='maximum',Manhattan='manhattan',Canberra='canberra',Binary='binary',Minkowski='minkowski'),selected = 'euclidean')),
+        column(width=6,selectizeInput("hclustFun_row", "Clustering linkage", c(Complete= "complete",Single= "single",Average= "average",Mcquitty= "mcquitty",Median= "median",Centroid= "centroid",Ward.D= "ward.D",Ward.D2= "ward.D2"),selected = 'complete')),
+        column(width=12,sliderInput("r", "Number of Clusters", min = 1, max = 15, value = 2)),    
+
+        br(),hr(),h4('Column dendrogram'),
+        column(width=6,selectizeInput("distFun_col", "Distance method", c(Euclidean="euclidean",Maximum='maximum',Manhattan='manhattan',Canberra='canberra',Binary='binary',Minkowski='minkowski'),selected = 'euclidean')),
+        column(width=6,selectizeInput("hclustFun_col", "Clustering linkage", c(Complete= "complete",Single= "single",Average= "average",Mcquitty= "mcquitty",Median= "median",Centroid= "centroid",Ward.D= "ward.D",Ward.D2= "ward.D2"),selected = 'complete')),
+        column(width=12,sliderInput("c", "Number of Clusters", min = 1, max = 15, value = 2)),
+                                                 
+        br(),hr(),  h4('Additional Parameters'),
+                                                 
+        column(3,checkboxInput('showColor','Color', value = T)),
+        column(3,checkboxInput('showMargin','Layout')),
+        column(3,checkboxInput('showDendo','Dendrogram')),
+        hr(),
+        conditionalPanel('input.showColor==1',
+        hr(),
+        h4('Color Manipulation'),
+        uiOutput('colUI'),
+        sliderInput("ncol", "Set Number of Colors", min = 1, max = 256, value = 256),
+        checkboxInput('colRngAuto','Auto Color Range',value = T),
+        conditionalPanel('!input.colRngAuto',uiOutput('colRng'))
+        ),
+                                                 
+        conditionalPanel('input.showDendo==1',
+        hr(),
+        h4('Dendrogram Manipulation'),
+        selectInput('dendrogram','Dendrogram Type',choices = c("both", "row", "column", "none"),selected = 'both'),
+        selectizeInput("seriation", "Seriation", c(OLO="OLO",GW="GW",Mean="mean",None="none"),selected = 'OLO'),
+        sliderInput('branches_lwd','Dendrogram Branch Width',value = 0.6,min=0,max=5,step = 0.1)
+        ),         
+                                                 
+        conditionalPanel('input.showMargin==1',
+        hr(),
+        h4('Widget Layout'),
+        column(4,textInput('main','Title','')),
+        column(4,textInput('xlab','X Title','')),
+        column(4,textInput('ylab','Y Title','')),
+        sliderInput('row_text_angle','Row Text Angle',value = 0,min=0,max=180),
+        sliderInput('column_text_angle','Column Text Angle',value = 45,min=0,max=180),
+        sliderInput("l", "Set Margin Width", min = 0, max = 200, value = 130),
+        sliderInput("b", "Set Margin Height", min = 0, max = 200, value = 40)
+        )
+        )
+        ),
+                                        
+        column(8,
+        wellPanel(
+        tags$a(id = 'downloadData', class = paste("btn btn-default shiny-download-link",'mybutton'), href = "", target = "_blank", download = NA, icon("clone"), 'Download Heatmap as HTML'),
+        tags$head(tags$style(".mybutton{color:white;background-color:blue;} .skin-black .sidebar .mybutton{color: green;}") ),
+        plotlyOutput("heatout",height='600px')
+        )
+        )
+        )
+        ) #tabPanel
         
         
         
+        ) # Expression Analysis
+        ) # Second Column of the Page
+        ) # Fluid Row that Makes up the page
+        ), # Differential Analysis Tabitem
+
         
+        tabItem(tabName = "ExportSave",
+                
+        box(title = "Raw Data",
+        status = "warning",
+        solidHeader = T,
+        width = 4,
+        h4("Download Raw Data"),
+        column(12, hr()),
+        column(12, actionButton(inputId = "DownloadExpressionMatrix",label = "Expression Matrix")),
+        column(12, actionButton(inputId = "DownloadFactorExpressionMatrix",label = "Factor Expression Matrix")),
+        column(12, actionButton(inputId = "DownloadFactorDF",label = "Factor Dataframe")),
+        column(12, actionButton(inputId = "DownloadEsetRDS",label = "eset as RData")),
+        column(12, hr()),
+        column(12, actionButton(inputId = "DownloadDesignMatrix",label = "Design Matrix")),
+        column(12, actionButton(inputId = "DownloadContrastMatrix",label = "Contrast Matrix")),
+        column(12, hr()),
+        column(12, actionButton(inputId = "DownloadPlots",label = "Download all Plots in current state")),
+        column(12, actionButton(inputId = "DownloadAll",label = "Download as compressed CSV zip file")),
+        column(12, actionButton(inputId = "DownloadAll",label = "Download All data RData"))
+        ),
+                                
+        box(title = "Filtered Data",
+        status = "warning",
+        solidHeader = T,
+        width = 4,
+        h4("Download Raw Filtered Data"),
+        column(12, hr()),
+        column(12, actionButton(inputId = "DownloadExpressionMatrix",label = "Expression Matrix")),
+        column(12, actionButton(inputId = "DownloadFilteredFactorExpressionMatrix",label = "Factor Expression Matrix")),
+        column(12, actionButton(inputId = "DownloadFilteredFactorDF",label = "Factor Dataframe")),
+        column(12, actionButton(inputId = "DownloadFilteredEsetRDS",label = "eset as RData")),
+        column(12, hr()),
+        column(12, actionButton(inputId = "DownloadFilteredDesignMatrix",label = "Design Matrix")),
+        column(12, actionButton(inputId = "DownloadFilteredContrastMatrix",label = "Contrast Matrix")),
+        column(12, hr()),
+        column(12, actionButton(inputId = "DownloadFilteredPlots",label = "Download all Plots in current state")),
+        column(12, actionButton(inputId = "DownloadFilteredAll",label = "Download as compressed CSV zip file")),
+        column(12, actionButton(inputId = "DownloadFilteredAll",label = "Download All data RData"))
+        )
         
-        
-        
-        
-        
-        
-        
-        
-        
+        ),
         
         
         

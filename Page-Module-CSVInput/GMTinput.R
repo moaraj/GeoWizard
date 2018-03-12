@@ -13,6 +13,7 @@ ui <-
         
         
     tabItems(
+        
         tabItem(
         tabName = "DataQC",
         fluidRow(
@@ -410,7 +411,7 @@ ui <-
         column(8,
         wellPanel(
         fluidRow(
-        h4("Volcano Plot"),
+        column(12, h3("Volcano Plot")),
         column(12, plotOutput("VolcanoPlot")),
         column(12, hr()),
         column(6, uiOutput("VolcanoPlot_HighlightGene_UI"))
@@ -420,7 +421,8 @@ ui <-
                       
         wellPanel(
         fluidRow(
-        h4("Factor BoxPlot for selected gene"),
+        column(8, h4("Top Table")),
+        column(8, dataTableOutput("VolcanoPlot_TopTable")),
         plotOutput("Volcano_BoxPlot")
         ) # Box Plot Fluid Row
         ) # Box plot Well Panel       
@@ -1121,7 +1123,10 @@ server <- shinyServer(function(input, output) {
         selectInput(inputId = "VolcanoPlot_HighlightGene", label = "Highlight Gene", choices = LimmaTable$gene, multiple = T)
         })
         
-        
+        output$VolcanoPlot_TopTable <- renderDataTable({
+        LimmaTable <- ExpressionAnalysis$LimmaResults()
+        datatable(data = LimmaTable)
+        })
         
 
 
