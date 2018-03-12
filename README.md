@@ -1,5 +1,6 @@
 # GeoWizard
-
+User Manual - https://moaraj.github.io/GeoWizard/
+Shiny UI and Server Documentatation https://moaraj.github.io/GeoWizard-ShinyApp/
 
 #Introduction
 
