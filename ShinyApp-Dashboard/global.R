@@ -43,15 +43,15 @@ library(ggbeeswarm)
 library(plotly)
 library(heatmaply)
 
-source(file = file.path(GeoWizard, "GeoParse.R"))
-source(file = file.path(GeoWizard, "GSMAnnotation.R"))
-source(file = file.path(GeoWizard, "GeoFileHandling.R"))
-source(file = file.path(GeoWizard, "QCAnalysis.R"))
-source(file = file.path(GeoWizard, "ExpressionAnalysis.R"))
+source(file = file.path(GeoWizard, "GeoParse.R")) # Eutils to find GSE sample information
+source(file = file.path(GeoWizard, "GSMAnnotation.R")) 
+source(file = file.path(GeoWizard, "GeoFileHandling.R")) # All funtions for downloading GEO files and turning them into a matrix
+source(file = file.path(GeoWizard, "QCAnalysis.R")) # All functions for Downlaod and QC tab
+source(file = file.path(GeoWizard, "ExpressionAnalysis.R")) 
 
-source(file = file.path(GeoWizard, "Ontologies/MoleculeLibraries.R"))
-source(file = file.path(GeoWizard, "GeoTrainingSets/keywords.R"))
-source(file = file.path(GeoWizard, "helpers.R"))
+source(file = file.path(GeoWizard, "Ontologies/MoleculeLibraries.R")) # Cell line and Disease matching
+source(file = file.path(GeoWizard, "GeoTrainingSets/keywords.R")) # Training Sets/ Not used
+source(file = file.path(GeoWizard, "helpers.R"))  # ShinyJS 
 source(file = file.path(GeoWizard, "SeriesHanding.R"))
 source(file = file.path(GeoWizard, "GenContrast.R"))
 source(file = file.path(GeoWizard, "GeneBoxPlot.R"))

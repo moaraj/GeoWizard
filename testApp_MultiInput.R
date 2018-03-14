@@ -1,39 +1,69 @@
+library(shiny)
 ui <- fluidPage(
     fluidRow(
     column(4,
-    uiOutput("UI")
+        actionButton("addContrast", "Add custom contrast"),
+        actionButton("removeContrast", "Remove custom contrast"),
+        uiOutput("CustomContrasts"),
+        tableOutput("ContrastMatrix"),
+        htmlOutput("text"),
+        actionButton("GenerateCustomContrast", "Add Custom Contrasts to Contrast Matrix")
     )
     )
-    
+  
 )
 
-server <- function(input, output) {
-    ExperimentalDesign <- reactiveValues()
-    ExperimentalDesign$DesignMatrixInput <- reactive({
-        colnames(mtcars)[1]<- c("moaraj is a foucce")
-        mtcars})
-    
-    output$UI <- renderUI({
-        DesignMatrix <- ExperimentalDesign$DesignMatrixInput()
-        colnamesIndex <- 1:length(colnames(DesignMatrix))
-        
-        lapply(colnamesIndex, function(FactorNameIndex){
-            origtext <- colnames(DesignMatrix)[FactorNameIndex]
-            checkinputID <- paste("RenameDesign", FactorNameIndex, sep = "")
-            checkinpuLabel <- paste("Rename column",FactorNameIndex, "-", substr(origtext, start=1, stop=20))
-
-            textInputID <- paste("RenameDesignText", FactorNameIndex, sep = "")
-            textInputLabel <- paste("new column", FactorNameIndex)
-            textInputplaceholder = str_split(origtext, pattern = " ", simplify = T)
-            
-            if(length(textInputplaceholder)>=3) {textInputplaceholder <- paste(textInputplaceholder[1,2:3], collapse = "_")}
-            textInputplaceholder
-            
-            fluidRow(
-            column(6, style = "margin-top: 25px;", checkboxInput(checkinputID, checkinpuLabel)),
-            conditionalPanel(paste("input.",checkinputID,"==1", sep = ""), 
-            column(6, textInput(textInputID ,"",textInputplaceholder))))
+server <- function(session, input, output) {
+  nUserContrasts <- reactiveValues(count = 1)
+  observeEvent(input$addContrast, nUserContrasts$count <- nUserContrasts$count + 1)
+  observeEvent(input$removeContrast, nUserContrasts$count <- nUserContrasts$count - 1)
+  
+    output$CustomContrasts <- renderUI({
+        nInputs <- nUserContrasts$count
+        if (nInputs <= 0) { stop("cannot remove anymore contrasts")}
+        lapply(1:nInputs, function(i){
+            ContrastTitleId = paste("ContrastTitle", i, sep = "_")
+            ContrastTitlelabel = paste("Contrast", i, "title:")
+            ContrastFormulaId = paste("ContrastFormula", i, sep = "_")
+            ContrastFormulaLabel = paste("Contrast", i, "formula input:")
+            # Try to change inputs to render the inputs without compeltly wiping them any time a new contast is added
+            fluidRow(column(6, textInput(ContrastTitleId, ContrastTitlelabel)),
+            column(6, textInput(ContrastFormulaId, ContrastFormulaLabel)))
         })
+    })
+    
+    ContrastMatrixData <- eventReactive(input$GenerateCustomContrast,{
+        nInputs <- nUserContrasts$count
+        CustomContrasts <- lapply(1:nInputs, function(i){
+            ContrastTitleId = paste("ContrastTitle", i, sep = "_")
+            ContrastTitle <- input[[ContrastTitleId]]
+            message(paste("Contrast Title",ContrastTitle))
+            ContrastFormulaId = paste("ContrastFormula", i, sep = "_")
+            ContrastFormula <- input[[ContrastFormulaId]]
+            message(paste("Contrast Title",ContrastFormulaId))
+            
+            ContrastInputDF <- data.frame(ContrastTitle,ContrastFormula)
+            MakeContrastInputString = apply(ContrastInputDF, MARGIN = 1, paste, collapse = "=")
+            
+            astr=paste(MakeContrastInputString, collapse=",")
+            prestr="makeContrasts("
+            poststr=",levels=c('A','B','C'))"
+            commandstr=paste(prestr,astr,poststr,sep="")
+            message(commandstr)
+            MatrixColumn <- eval(parse(text=commandstr))
+            
+        })    
+    })
+    
+    
+    output$ContrastMatrix <- renderTable({
+        ContrastMatrixData()
+    })
+    
+    
+  
+output$text <- renderUI({
+    HTML(paste(sprintf("You have chosen: %s</br>", nUserContrasts$count)))
     })
 }
 

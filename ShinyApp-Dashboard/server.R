@@ -316,9 +316,19 @@ server <- function(input, output, session) {
     })
     
     output$GseTabletoAnalyze_UI <- renderUI({
+        
+        SelectedGSENames <- SQLSearchData$SelectedGSENames()
+        # message("Initializing input for filtering GSE/GSM data to show")
+        # CheckBoxOptions <- list(inputId = "KeepForExpVarAsign", 
+        #     label = "Datasets", 
+        #     choices = SelectedGSENames, 
+        #     selected = SelectedGSENames, 
+        #     inline = F)
+        # do.call(checkboxGroupInput, CheckBoxOptions)
+        
         #shiny::req(input$KeepForExpVarAsign)
-        GSEChoices <- input$KeepForExpVarAsign
-        selectInput(inputId = "GsmTableSelect", label = "Select Dataset", choices = GSEChoices)
+        #GSEChoices <- input$KeepForExpVarAsign
+        selectInput(inputId = "GsmTableSelect", label = "Select Dataset", choices = SelectedGSENames)
     })
     
     #' @input KeepForExpVarAsign - GSE datasets to keep selection
@@ -362,8 +372,12 @@ server <- function(input, output, session) {
     ####################################{ Table Showing Metadata Tables Containing ExpVars}
 
     
+    #' Render information text with the Species, nSamples and experiment type
+    #'
+    #'
+    #'
     output$infobox_selectedGSE <- renderUI({
-        shiny::req(input$KeepForExpVarAsign, input$GsmTableSelect, input$GplTableSelect)
+        shiny::req(input$GsmTableSelect, input$GplTableSelect)
         FilteredTable <-SQLSearchData$SelectedGSETable()
         
         SpeciesInfo <- FilteredTable %>% select(taxon) %>% as.character
@@ -371,9 +385,9 @@ server <- function(input, output, session) {
         GdsInfo <- FilteredTable <- FilteredTable %>% select(gdsType) %>% as.character
         
         fluidRow(
-        column(4, h4(strong("n samples:")), h5(SamplesInfo)),
-        column(4, h4(strong("species:")), h5(SpeciesInfo)),
-        column(4, h4(strong("gdsType:")), h5(GdsInfo))
+        column(3, h4(strong("n samples:")), h5(SamplesInfo)),
+        column(3, h4(strong("species:")), h5(SpeciesInfo)),
+        column(6, h4(strong("gdsType:")), h5(GdsInfo))
         )
     })
     
@@ -399,7 +413,12 @@ server <- function(input, output, session) {
 
     #################{ Classify ExpVars
     ExperimentalDesign <- reactiveValues()
-     
+    
+    #' 
+    #'
+    #'
+    #'
+    #'
     ExperimentalDesign$ExpFactorDF <- reactive({
         message("Processing SQL Table Output")
         ExpFactorDF <- SQLSearchData$FilteredResultDF()
@@ -416,6 +435,7 @@ server <- function(input, output, session) {
      })
 
     ########################{ Useful Factor Classification
+    
     
     output$PickFactorColumns <- renderUI({
     shiny::req(input$GseGsmTable_rows_all)
@@ -442,12 +462,14 @@ server <- function(input, output, session) {
         fluidRow(column(12,checkboxOutput))
         })
     
-    ########################{ View Current Factor Col Selection
-    #'
-    #'
-    #'
-    
     ########################{ Render Inputs to Filter Factors
+    
+    #'
+    #'
+    #' @req UsefulColumnsCheckbox need to know what variables the user picked to make a filter of the levels within
+    #' @req GseGsmTable_rows_all using the table as a req valraible more an insurance that if 
+    #' wherevars inputs changes it will effect the factor filters and not just UsefulColumnsCheckbox
+    #'
     output$FilterGSMbyFactor <- renderUI({
         shiny::req(input$UsefulColumnsCheckbox, input$GseGsmTable_rows_all)
         message("Rendering Selectize Inputs for filtering factor levels")
@@ -755,24 +777,77 @@ server <- function(input, output, session) {
               )
           })
       })
-     
+      
+      
+        nUserContrasts <- reactiveValues(count = 1)
+        observeEvent(input$addContrast, nUserContrasts$count <- nUserContrasts$count + 1)
+        observeEvent(input$removeContrast, nUserContrasts$count <- nUserContrasts$count - 1)
+  
+        
+        output$CustomContrasts <- renderUI({
+            nInputs <- nUserContrasts$count
+            if (nInputs <= 0) { stop("cannot remove anymore contrasts")}
+            lapply(1:nInputs, function(i){
+                ContrastTitleId = paste("ContrastTitle", i, sep = "_")
+                ContrastTitlelabel = paste("Contrast", i, "title:")
+                ContrastFormulaId = paste("ContrastFormula", i, sep = "_")
+                ContrastFormulaLabel = paste("Contrast", i, "formula input:")
+                # Try to change inputs to render the inputs without compeltly wiping them any time a new contast is added
+                fluidRow(column(6, textInput(ContrastTitleId, ContrastTitlelabel)),
+                column(6, textInput(ContrastFormulaId, ContrastFormulaLabel)))
+            })
+        })
+    
+        UserContrastMatrixData <- eventReactive(input$GenerateCustomContrast,{
+            nInputs <- nUserContrasts$count
+            DesignMatrix <- ExperimentalDesign$DesignMatrix()
+            
+            # Use Lapply to loop through the User contrast inputs and collect thier values
+            CustomContrasts <- lapply(1:nInputs, function(i){
+            ContrastTitleId = paste("ContrastTitle", i, sep = "_")
+            ContrastTitle <- input[[ContrastTitleId]]
+            
+            message(paste("Contrast Title",ContrastTitle))
+            ContrastFormulaId = paste("ContrastFormula", i, sep = "_")
+            ContrastFormula <- input[[ContrastFormulaId]]
+            message(paste("Contrast Title",ContrastFormulaId))
+            
+            ContrastInputDF <- data.frame(ContrastTitle,ContrastFormula)
+            MakeContrastInputString = apply(ContrastInputDF, MARGIN = 1, paste, collapse = "=")
+            
+            astr=paste(MakeContrastInputString, collapse=",")
+            prestr="makeContrasts("
+            poststr=",levels=DesignMatrix)"
+            commandstr=paste(prestr,astr,poststr,sep="")
+            message(commandstr)
+            MatrixColumn <- eval(parse(text=commandstr))
+            MatrixColumn
+        })    
+    })
 
+    
+      
     ExperimentalDesign$ContrastMatrix <- reactive({
         DesignMatrix <- ExperimentalDesign$DesignMatrix()
         
-        #ControlFactorLevels <- 
+        #ControlFactorLevels 
         ContrastInput <- ConTextInput(DesignMatrix)
         ContrastInput <- gsub(" ", "", ContrastInput)
         ContrastMatrix <- makeContrasts(contrasts = ContrastInput, levels = DesignMatrix)
         
+        # add user contrasts to the contrasts matrix
+        UserContrasts <- UserContrastMatrixData()
+        if (!is.null(UserContrasts)) { ContrastMatrix <- cbind(CustomContrasts, ContrastMatrix)
+        } else {ContrastMatrix <- CustomContrasts}
+        
+        # Determine if there is an intercept in the formula input        
         InputFormula <- input$formulaInputDesign
         InputFormula <- gsub("\\s", "", InputFormula)
         InputFormula <- gsub("~", "", InputFormula)
         InputFormula <- unlist(strsplit(InputFormula, split = "\\*"))
         InputFormula <- unlist(strsplit(InputFormula, split = "\\+"))
         InputFormula <- unlist(strsplit(InputFormula, split = ":"))
-        message(paste("Input Formula: ", paste(InputFormula, collapse = ", ")))
-        
+
         if (InputFormula[1] != 0) {
         message("Intercept Detected")
         ContrastMatrix <- apply(ContrastMatrix, 2, function(x){
@@ -927,12 +1002,6 @@ server <- function(input, output, session) {
         #'
         #'
         
-        # ExperimentalDesign <- reactiveValues()
-        # ExperimentalDesign$ControlFactorDF <- reactive({
-        #     ControlFactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
-        #     ControlFactorDF
-        # })
-        
         GSEdata$FactorGMT <- reactive({
             ControlFactorDF <- ExperimentalDesign$ControlFactorDF()
             message("Loading Expression Matrix fro Factor GMT input")
@@ -1022,7 +1091,10 @@ server <- function(input, output, session) {
         FactorGMTCast <- reactive({
                 FactorGMTCast <- GSEdata$FactorGMT()
                 DataDF <- GSEdata$ExpressionMatrix()
-                FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+                FactorDF <- ExperimentalDesign$ControlFactorDF()
+                #FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+                
+                
                 return(list("FactorGMTCast" = FactorGMTCast, "DataDF" = DataDF,"FactorDF" = FactorDF))
                 })
                         #' @param  DataDF gene expression matrix with samples in the columns and genes in the rows
@@ -1150,15 +1222,16 @@ server <- function(input, output, session) {
             # BioQC Analysis
             BioQCData <- eventReactive(input$PerformBioQCAnalysis, {
                 message("Loading Expression Set for BioQC")
-                #ExpressionMatrix <- GSEdata$ExpressionMatrix()
-                ExpressionMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ExpressionMatrix.rds")
+                #ExpressionMatrix <- readRDS("~/GeoWizard/TestObjects/ExpressionMatrix.GeneSymbol.rds")
+                ExpressionMatrix <- GSEdata$ExpressionMatrix()
                 BioQCData <- RunBioQC(ExpressionMatrix)
                 message("BioQC Analysis Finished")
                 BioQCData
             })
-                            output$BioQCPlotInput_UI <- renderUI({
-                #FactorDF <- ExperimentalDesign$ControlFactorDF()
-                FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+            
+            output$BioQCPlotInput_UI <- renderUI({
+                FactorDF <- ExperimentalDesign$ControlFactorDF()
+                #FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
                 FactorNames <- colnames(FactorDF)
                 selectInput(inputId = "BioQCPlotInput" , label = "Cluster by Factor:", choices = FactorNames)
             })
@@ -1173,6 +1246,7 @@ server <- function(input, output, session) {
             SelectedFactor <- factor(FactorDF[,input$BioQCPlotInput]) ; message("User selected factor for H.Clustering")
             nFactorLevels <- length(levels(SelectedFactor))
                     # Make HeatMap
+            
             HeatMapBioQC <- try(
                 heatmaply(
                 x = BioQCDataFiltered,
@@ -1183,12 +1257,15 @@ server <- function(input, output, session) {
                 stop("Please ensure you selected GeneSymbol Annotations on the previous tab and click Perform BioQC Analysis button again")
             } else { return(HeatMapBioQC)}
             })
-                    output$BioQProfileInput_UI <- renderUI({
+            
+            
+            output$BioQProfileInput_UI <- renderUI({
                 req(input$PerformBioQCAnalysis)
                 BioQCData <- BioQCData()
                 TissueProfile <- rownames(BioQCData)
                 selectInput(inputId = "BioQProfileInput" , label = "Sample Profiles", choices = TissueProfile, selected = TissueProfile[1:3], multiple = T)
             })
+            
             
             output$BioQCProfilePlot <- renderPlotly({
             req(input$BioQProfileInput)
@@ -1196,8 +1273,8 @@ server <- function(input, output, session) {
             TissueInput <- input$BioQProfileInput
             p <- BioQCProfile(BioQCRes = BioQCRes, TissueSelection = TissueInput)
             ggplotly(p) %>% layout(legend = list(orientation = "h", y = 1.2, yanchor = "top"))
-                    })
-                    #'
+            })
+              
             #'
             #'
             #'
@@ -1206,9 +1283,10 @@ server <- function(input, output, session) {
             shiny::req( input$GsmTableSelect,input$GplTableSelect)
             GSE <- input$GsmTableSelect
             GPL  <- input$GplTableSelect
-            valueBox(value = GSE, subtitle = paste("Design and Contrast Matrix for", GPL),icon = icon('check-circle'),color = "blue")
+            valueBox(value = GSE, subtitle = GPL, icon = icon('check-circle'),color = "blue")
             })
-                    #'
+
+            #'
             #'
             #'
             output$nGSESamples <- renderValueBox({
@@ -1218,7 +1296,8 @@ server <- function(input, output, session) {
             nSamples <- ncol(ExpressionMatrix)
             valueBox( nSamples, "Number of Samples in GSE", icon = icon("list"), color = "purple")
             })
-                            #'
+
+            
             #'
             #'
             #'
@@ -1227,38 +1306,49 @@ server <- function(input, output, session) {
             message("rendering nGenes Info Box")
             ExpressionMatrix <- GSEdata$ExpressionMatrix()
             nGenes <- nrow(ExpressionMatrix)
-            valueBox( nGenes, "Number of Genes in GSE", icon = icon("dna"), color = "yellow")
+            valueBox(value=nGenes, subtitle="Number of Genes in GSE", icon=icon("vial"), color="yellow")
             })
-                                    ##################################################################################################################################### Expression Analysis
+
+############################################################### Expression Analysis
             
             ExpressionAnalysis <- reactiveValues()
-                output$DiffExMethod_UI <- renderUI({
+            
+            output$DiffExMethod_UI <- renderUI({
                 DataSetType <- input$ExpressionDataType
                 if (DataSetType == "RNAseq" | DataSetType == "ssRNAseq") { selectedMethod <- "DESeq2"
                 } else { selectedMethod <- "Limma" }
                 selectInput(inputId = "DiffExMethod", label = "Difference Expression Analysis Method",choices = c("EdgeR", "Limma", "DESeq2"), selected = selectedMethod)
             })
-        
+
+
             ExpressionAnalysis$LimmaResults <- eventReactive(input$SubmitDEA, {
+                # Functional Testing
+                #ExpressionMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ExpressionMatrix.rds")
+                #DesignMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_DesignMatrix.rds")
+                #ContrastMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ContrastMatrix.rds")
+            
                 message("Loading Objects from for limma analysis")
-                #ExpressionMatrix <- GSEdata$ExpressionMatrix()
-                #DesignMatrix <- ExperimentalDesign$DesignMatrix()
-                #ContrastMatrix <- ExperimentalDesign$Contrast()
-                ExpressionMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ExpressionMatrix.rds")
-                DesignMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_DesignMatrix.rds")
-                ContrastMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ContrastMatrix.rds")
+                ExpressionMatrix <- GSEdata$ExpressionMatrix()
+                DesignMatrix <- ExperimentalDesign$DesignMatrix()
+                ContrastMatrix <- ExperimentalDesign$Contrast()
                 
-                    if(!is.null(ExpressionMatrix) & !is.null(DesignMatrix) &!is.null(ContrastMatrix)){
+                if(!is.null(ExpressionMatrix) & !is.null(DesignMatrix) &!is.null(ContrastMatrix)){
                 message("Performing Limma DEA")
                 res <- LimmaOutput(ExpressionMatrix,DesignMatrix,ContrastMatrix)}
                 return(res)
            })
-                 ############ Volcano Plot
-                    output$PValThres <- renderUI({
-            numericInput(inputId = "PValThresInput", label = "pValue Threshold", value = 15, min = 1, step = 0.5)
+            
+            
+            ############ Volcano Plot
+            
+            #' Render the Pvalue threshold box for the volcano Plot
+            #' 
+            #' @todo Determine method for suggesting P value
+            output$PValThres <- renderUI({
+            numericInput(inputId = "PValThresInput", label = "Adjusted -log(pValue) Threshold", value = 15, min = 1, step = 0.5)
             })
                     output$LogFCThres <- renderUI({
-            numericInput(inputId = "LogFCThresInput", label = "LogFC Threshold", value = 1, min = 0, max = 5, step = 0.5)
+            numericInput(inputId = "LogFCThresInput", label = "Log2FC Threshold", value = 1, min = 0, max = 5, step = 0.5)
             })
             
             output$SelectContrast_UI <- renderUI({
@@ -1267,19 +1357,35 @@ server <- function(input, output, session) {
                 selectInput(inputId = "Volcanoplot_SelectContrast", label = "Select Contrast", choices = unique(LimmaTable$Contrast))
             })
             
-            output$VolcanoPlot <- renderPlot({
-                pValueThresHold <- input$PValThresInput
-                logFCThresHold <- input$LogFCThresInput
+            
+            #' Filtere Data by Use selected Contrast
+            #' Then Filter Data according to Pvalue and Log input cutoff
+            #' 
+            #' @input PValThresInput
+            #' @input LogFCThresInput
+            #' @output Limma Table with new threshold factor column for coloring
+            #' data points greater/lower than certain thresholds different colours
+            ExpressionAnalysis$VolcanoPlotData <- reactive({
                 LimmaTable <- ExpressionAnalysis$LimmaResults()
                 LimmaTable <- as.data.frame(LimmaTable)
+                
                 selectedContrast <- input$Volcanoplot_SelectContrast
                 LimmaTable <- LimmaTable %>% dplyr::filter(Contrast == selectedContrast) %>%
                 mutate(adj.P.Val = p.adjust(P.Value, method = input$MultiTestCorr))
-                    LimmaTable <- LimmaTable %>%
-                mutate(LogThreshold = abs(logFC) > logFCThresHold) %>%
-                mutate(PThreshold = as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold)) %>%
-                mutate(Threshold = paste(LogThreshold, PThreshold))
-                    p <- ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold))) + geom_point() + theme_grey()
+                
+                pValueThresHold <- input$PValThresInput
+                logFCThresHold <- input$LogFCThresInput
+                LimmaTable <- LimmaTable %>%
+                    mutate(LogThreshold = abs(logFC) > logFCThresHold) %>%
+                    mutate(PThreshold = as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold)) %>%
+                    mutate(Threshold = paste(LogThreshold, PThreshold))
+                LimmaTable
+            })
+            
+            ExpressionAnalysis$VolcanoPlotData <- reactive({
+                LimmaTable <- ExpressionAnalysis$VolcanoPlotData()
+                
+                p <- ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold))) + geom_point() + theme_grey()
                     if (input$VolcanoPlot_showColor) {
                 if (input$VolcanoPlot_ThemeSelect == "default") { p <- p }
                 else if (input$VolcanoPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
@@ -1288,37 +1394,73 @@ server <- function(input, output, session) {
                 else if (input$VolcanoPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
                 else if (input$VolcanoPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
                 else if (input$VolcanoPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
-            }
-                    if(input$VolacanoPlot_LogLine) {p <- p + geom_vline(xintercept = c(logFCThresHold, -logFCThresHold), linetype="dashed", color="red", size=1.2)}
-            if(input$VolacanoPlot_PvalLine) {p <- p + geom_hline(yintercept = pValueThresHold, linetype="dashed", color="red", size=1.2)}
-                    p <- p + theme(axis.text = element_text(size = 14, hjust = 1)) +
-                theme(axis.title = element_text(size = 14)) +
-                theme(legend.text=element_text(size=14))
-                    if (length(input$VolcanoPlot_HighlightGene) > 1) {
-                SelectedGenes <- input$VolcanoPlot_HighlightGene
-                HighlightData <- LimmaTable %>% filter(gene %in% SelectedGenes)
-            p <- p +
-                geom_point(data = HighlightData, aes(x = logFC, y = -log(adj.P.Val)), colour="red", size=5) +
-                geom_label(data=HighlightData,aes(x = logFC, y = -log(adj.P.Val), label=gene, size=14, vjust=1, colour = "black"))
-            } else {p <- p}
-                            p <- p + scale_x_continuous(limits = c(-3, 3))
-            p <- p + theme(legend.position = "bottom")
-            p
-           })
+                }
+            
+                if (length(BoxPlot_main) > 0) { p <- p + labs(title = VolcanoPlot_main)} else {p <- p + labs(title = "BoxPlot of Gene Series Data")}
+                if (length(BoxPlot_xlab) > 0) { p <- p + labs(x = VolcanoPlot_xlab)}
+                if (length(BoxPlot_ylab) > 0) { p <- p + labs(y = VolcanoPlot_ylab)}
+                
+                if(input$VolacanoPlot_LogLine) {p <- p + geom_vline(xintercept = c(logFCThresHold, -logFCThresHold), linetype="dashed", color="red", size=1.2)}
+                if(input$VolacanoPlot_PvalLine) {p <- p + geom_hline(yintercept = pValueThresHold, linetype="dashed", color="red", size=1.2)}
+            
+                p <- p + theme(axis.text = element_text(size = 14, hjust = 1)) +
+                    theme(axis.title = element_text(size = 14)) +
+                    theme(legend.text=element_text(size=14))
+            
+                if (length(input$VolcanoPlot_HighlightGene) > 1) {
+                    SelectedGenes <- input$VolcanoPlot_HighlightGene
+                    pValueThresHold <- input$PValThresInput
+                    logFCThresHold <- input$LogFCThresInput
+                    
+                    HighlightData <- LimmaTable %>% filter(gene %in% SelectedGenes)
+                    p <- p + 
+                        geom_point(data = HighlightData, aes(x = logFC, y = -log(adj.P.Val)), colour="red", size=5) +
+                        geom_label(data=HighlightData,aes(x = logFC, y = -log(adj.P.Val), label=gene, size=14, vjust=1, colour = "black"))
+                } else { p <- p }
+            
+                p <- p + scale_x_continuous(limits = c(-3, 3))
+                p <- p + theme(legend.position = "bottom")
+                p
+                
+            })
+            
+            output$VolcanoPlot <- renderPlot({
+                ExpressionAnalysis$VolcanoPlotData()
+            })
+            
+            output$VolcanoPlotly <- renderPlotly({
+                p <- ExpressionAnalysis$VolcanoPlotData
+                p <- ggplotly(p)
+                p
+            })
             
             output$VolcanoPlot_HighlightGene_UI <- renderUI({
             LimmaTable <- ExpressionAnalysis$LimmaResults()
-            selectInput(inputId = "VolcanoPlot_HighlightGene", label = "Highlight Gene", choices = LimmaTable$gene, multiple = T)
+            
+            fluidRow(
+            selectInput(inputId = "VolcanoPlot_HighlightGene", label = "Highlight Gene", choices = LimmaTable$gene, multiple = T),
+            checkboxInput(inputId = "VolcanoPlot_PlotInteractive", label = "Interactive Plot"))
             })
             
             output$VolcanoPlot_TopTable <- renderDataTable({
             LimmaTable <- ExpressionAnalysis$LimmaResults()
             datatable(data = LimmaTable)
-            
             DT::datatable(data = LimmaTable, rownames = TRUE,
                         class = 'compact', extensions = 'Buttons', 
-                        options = list(scrollY = '500px', paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
+                        options = list(scrollY = '500px', scrollX = T, paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
             })
+            
+            
+            #' The Plot output is not hgard coded to allow changes to the plot height and width
+            #' and to toggle the interactive plots
+            #'
+            #'
+            output$VolcanoPlot_Output <- renderUI({
+                plotOutput(outputId = "VolcanoPlot",height = input$VolcanoPlot_Height, width = input$VolcanoPlot_Width) %>% withSpinner(color = "#0dc5c1")
+                plotOutput(outputId = "VolcanoPlotly",height = input$VolcanoPlot_Height, width = input$VolcanoPlot_Width) %>% withSpinner(color = "#0dc5c1")
+                
+            })
+            
         
             ######### Hist
                  # output$HistFactorSelect <- renderUI({
@@ -1375,33 +1517,29 @@ server <- function(input, output, session) {
         # #Import/Select Data ----
         HeatMapData <- reactiveValues()
                  
-
-
         HeatMapData$FactorGMT <- reactive({
-        shiny::req(input$formulaInputDesign, input$SubmitFormula)
+            
+        message("Generating HeatMapData FactorGMT")
+        LimmaTable <- ExpressionAnalysis$LimmaResults()
+    
+        selectedContrast <- input$HeatMap_SelectContrast
+        LimmaTable <- LimmaTable %>% dplyr::filter(Contrast == selectedContrast)
+        nGenes <- input$HeatMap_nGenes
 
-       LimmaTable <- ExpressionAnalysis$LimmaResults()
-       LimmaTable <- LimmaTable %>% arrange_(input$TopTableFilter)
+        TopGenes <- LimmaTable[1:nGenes,1]
+        TopGenes[TopGenes == ""] <- NA
+        TopGenes <- na.omit(TopGenes)
 
-       nGenes <- input$nGenes
-
-       TopGenes <- LimmaTable[1:nGenes,1]
-       TopGenes[TopGenes == ""] <- NA
-       TopGenes <- na.omit(TopGenes)
-
-       FactorDF <- ExperimentalDesign$ControlFactorDF()
-       FactorDF <- as.data.frame(FactorDF)
-
-       GSEeset <- GSEdata$GSEeset()
-       FactorGMT <- GenFactorGMT(GSEeset, FactorDF)
-       colnames(FactorGMT) <- make.names(colnames(FactorGMT), unique=TRUE)
-
-       ColumnsToKeep <- colnames(FactorGMT)
-       ColumnsToKeep <- grep(pattern = "GSM|ExpVar",x = ColumnsToKeep, value = T)
-       ColumnsToKeep <- c(ColumnsToKeep, TopGenes)
-
-       FactorGMT <- FactorGMT %>% select(one_of(ColumnsToKeep))
-
+        #ExpressionMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ExpressionMatrix.rds")
+        #FactorDF <- readRDS("~/GeoWizard/TestObjects/GSE69967_FactorDF.rds")
+        FactorDF <- ExperimentalDesign$ControlFactorDF()
+        FactorDF <- as.data.frame(FactorDF)
+        
+        
+        FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix, FactorDF = ControlFactorDF)
+        View(FactorGMT)
+        colnames(FactorGMT) <- make.names(colnames(FactorGMT), unique=TRUE)
+        FactorGMT
     })
 
 
@@ -1439,33 +1577,32 @@ server <- function(input, output, session) {
      #Manual Color Range UI ----
      output$colRng=renderUI({
        if(!is.null(HeatMapData$FactorGMT())) {
-         rng=range(HeatMapData$FactorGMT(),na.rm = TRUE)
-       }else{
-         rng=range(mtcars) # TODO: this should probably be changed
-       }
-       # sliderInput("colorRng", "Set Color Range", min = round(rng[1],1), max = round(rng[2],1), step = .1, value = rng)
-       n_data = nrow(HeatMapData$FactorGMT())
+        rng=range(HeatMapData$FactorGMT(),na.rm = TRUE)
+        }else{
+            rng=range(mtcars) # TODO: this should probably be changed
+        }
+        # sliderInput("colorRng", "Set Color Range", min = round(rng[1],1), max = round(rng[2],1), step = .1, value = rng)
+        n_data = nrow(HeatMapData$FactorGMT())
 
-       min_min_range = ifelse(input$transform_fun=='cor',-1,-Inf)
-       min_max_range = ifelse(input$transform_fun=='cor',1,rng[1])
-       min_value = ifelse(input$transform_fun=='cor',-1,rng[1])
+        min_min_range = ifelse(input$transform_fun=='cor',-1,-Inf)
+        min_max_range = ifelse(input$transform_fun=='cor',1,rng[1])
+        min_value = ifelse(input$transform_fun=='cor',-1,rng[1])
 
-       max_min_range = ifelse(input$transform_fun=='cor',-1,rng[2])
-       max_max_range = ifelse(input$transform_fun=='cor',1,Inf)
-       max_value = ifelse(input$transform_fun=='cor',1,rng[2])
+        max_min_range = ifelse(input$transform_fun=='cor',-1,rng[2])
+        max_max_range = ifelse(input$transform_fun=='cor',1,Inf)
+        max_value = ifelse(input$transform_fun=='cor',1,rng[2])
+        a_good_step = 0.1 # (max_range-min_range) / n_data
 
-       a_good_step = 0.1 # (max_range-min_range) / n_data
-
-       list(
-         numericInput("colorRng_min", "Set Color Range (min)", value = min_value, min = min_min_range, max = min_max_range, step = a_good_step),
-         numericInput("colorRng_max", "Set Color Range (max)", value = max_value, min = max_min_range, max = max_max_range, step = a_good_step)
+        list(
+        numericInput("colorRng_min", "Set Color Range (min)", value = min_value, min = min_min_range, max = min_max_range, step = a_good_step),
+        numericInput("colorRng_max", "Set Color Range (max)", value = max_value, min = max_min_range, max = max_max_range, step = a_good_step)
        )
 
      })
 
 
      #Building heatmaply ----
-     interactiveHeatmap <-observeEvent(input$SubmitDEA, {
+     interactiveHeatmap <- eventReactive(input$RunHeatMaply, {
 
        HeatMapData$FactorGMT <- HeatMapData$FactorGMT()
        ss_num =  sapply(HeatMapData$FactorGMT, is.numeric) # in order to only transform the numeric values
@@ -1528,11 +1665,9 @@ server <- function(input, output, session) {
      })
 
      #Render Plot ----
-     output$heatout <- renderPlotly({
-       if(!is.null(ExpressionAnalysis$LimmaResults)){
+     output$HeatMapPlotly <- renderPlotly({
+         input$RunHeatMaply
          interactiveHeatmap()
-       } else { NULL }
-
        })
 
 
@@ -1563,34 +1698,6 @@ server <- function(input, output, session) {
         ))
 
      })
-
-    #    
-    #  
-    # 
-    # 
-    #  ############ BoxPlot
-    #  
-    #  
-    #  # ############ TopTable     
-    #  # 
-    #  # output$TopTable <- DT::renderDataTable({
-    #  #   
-    #  #      LimmaTable <- ExpressionAnalysis$LimmaResults()
-    #  #      LimmaTable <- as.data.frame(LimmaTable)
-    #  #      
-    #  #      DT::datatable(data = LimmaTable,
-    #  #                    rownames = TRUE,
-    #  #                    class = 'compact',
-    #  #                    extensions = 'Buttons', 
-    #  #                    options = list(
-    #  #                         scrollY = '500px',
-    #  #                         paging = T,
-    #  #                         dom = 'Bfrtip',
-    #  #                         buttons = c('copy', 'csv', 'excel')))
-    #  # })
-    #  # 
-    #  # 
-    #  
     
     
      

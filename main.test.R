@@ -56,16 +56,17 @@ GPL <- "GPL570"
 source("GeoFileHandling.R")
 GSEeset <- LoadGEOFiles(GSE, GPL, GeoRepo)
 GSEeset <- readRDS(file = "GeoWizard/GEORepo/GSE69967-GPL570.rds")
+GSEeset <- GSEeset[[1]]
 FactorDF <- readRDS(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.rds")
 
 
 colnames(FactorDF) <- c("GSM", "Treatment", "Tissue")
 
 ExpressionMatrix <- exprs(GSEeset)
-FeatureData <- fData(GSEeset)
 
 ########## Convert to Gene Symbol
 ExpressionMatrix.GeneSymbol <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "Gene Symbol")
+saveRDS(object = ExpressionMatrix.GeneSymbol, "~/GeoWizard/TestObjects/ExpressionMatrix.GeneSymbol.rds")
 FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix.GeneSymbol, FactorDF)
 
 DesignMatrix <- model.matrix( ~ Treatment + Tissue, FactorDF)

@@ -1,3 +1,4 @@
+enableBookmarking(store = "url")
 GeoWizard <- "~/GeoWizard"
 GeoRepo <- "~/GeoWizard/GeoRepo"
 setwd(GeoWizard)
@@ -323,7 +324,7 @@ ui <- dashboardPage(
         height = "50%",
         
         fluidRow(
-        column(2, uiOutput('GseTabletoKeep_UI')),
+        #column(2, uiOutput('GseTabletoKeep_UI')),
         column(2, uiOutput('GseTabletoAnalyze_UI')),
         column(2, uiOutput("GplTabletoAnalyze_UI")),
         #column(3, hr()),
@@ -343,7 +344,7 @@ ui <- dashboardPage(
         inputId = "WhereVarData",
         label = "Select columns useful experimental\nfactor levels can be found",
         choices =  c("gsm.title","description","characteristics_ch1"),
-        selected = c("characteristics_ch1","gsm.title"),
+        selected = c("characteristics_ch1"),
         inline = T
         ),
                           
@@ -419,7 +420,13 @@ ui <- dashboardPage(
         status = 'danger',
         background = 'red',
         width = 12,
-        actionButton("GoToDesignPage", "Use factors for analysis", width = "100%")
+        
+        fluidRow(
+        column(6, actionButton("GoToDesignPage", "Use factors for analysis", width = "100%")),
+        column(6, bookmarkButton())
+
+        )
+        
         )  # Box - GoToDesignPageBox
         )  # Column - Last third of the Page
         )  # Page Fluid Row containing the Column Layoutdat
@@ -476,11 +483,15 @@ ui <- dashboardPage(
         fluidRow(
         column(12,
         p("How should expression levels be compared between groups?"),
-        column(12, checkboxInput(inputId = "ContrastLevels", "Contrasts between experimental variable factor levels", width = "100%", value = T)),
-        column(12, checkboxInput(inputId = "ContrastInteractions", "Interaction term of differtial expression in bewteen two factor levels")),
+        #column(12, checkboxInput(inputId = "ContrastLevels", "Contrasts between experimental variable factor levels", width = "100%", value = T)),
+        #column(12, checkboxInput(inputId = "ContrastInteractions", "Interaction term of differtial expression in bewteen two factor levels")),
         column(12, checkboxInput(inputId = "ContrastCustom", "Add custom contrast input")),
-        conditionalPanel('input.ContrastCustom==1',
-        column(12, textInput(inputId = "CustomContrastInput",label = "Custom Contrast Input"))),
+        conditionalPanel('input.ContrastCustom==1', 
+        column(4, actionButton("addContrast", "Add custom contrast", width = "100%")),
+        column(8, actionButton("removeContrast", "Remove custom contrast", width = "100%")),        
+        column(12, br()),
+        column(12, uiOutput("CustomContrasts"))),
+        column(12, br()),
         column(12, actionButton(inputId = "SubmitContrasts", label = "Generate Contrast Matrix"))
         
         )  # Contrast Matrix Box Spanning Column
@@ -541,7 +552,7 @@ ui <- dashboardPage(
         
         
         
-tabItem(
+        tabItem(
         tabName = "DataQC",
         fluidRow(
         column(10,
@@ -780,7 +791,7 @@ tabItem(
         wellPanel(
         fluidRow(
         column(12, h4("BoxPlot")),
-        column(12, plotOutput("BoxPlot_ggplot") %>% withSpinner(color = "#0dc5c1")),
+        column(12, plotOutput("BoxPlot_ggplot", height = "600px") %>% withSpinner(color = "#0dc5c1")),
         column(12, hr()),
         
         column(2,actionButton(inputId = "RefreshBoxPlotSample", label = "Refresh Gene Selection",icon = icon('refresh'))),
@@ -801,10 +812,10 @@ tabItem(
         fluidRow(
 
         h4("PCA options"),
-        column(3, checkboxInput(inputId = "PCA_center",label = "Center Data")),
-        column(3, checkboxInput(inputId = "PCA_scale", label = "Scale Data", value = 1)),
-        column(3, checkboxInput(inputId = "MakeScree", label = "Scree Plot", value = 1)),
-        column(3, checkboxInput(inputId = "MakeLoading", label = "Loadings", value = 1)),
+        column(3, checkboxInput(inputId = "PCA_center",label = "Center Data", value =1)),
+        column(3, checkboxInput(inputId = "PCA_scale", label = "Scale Data", value=1)),
+        column(3, checkboxInput(inputId = "MakeScree", label = "Scree Plot", value=1)),
+        column(3, checkboxInput(inputId = "MakeLoading", label = "Loadings", value=1)),
         
         column(6, uiOutput("PCA_GroupUI")),
         column(6, uiOutput("PCA_LabelUI")),
@@ -850,7 +861,7 @@ tabItem(
         )  # DataQC tab Fluid Row
         ), # DataQC Tab Item
         
-                tabItem(
+        tabItem(
         tabName = "DifferentialAnalysis",
         fluidRow(
             
@@ -877,7 +888,7 @@ tabItem(
         column(6, uiOutput("PValThres")),
         column(6, uiOutput("LogFCThres")),
         column(12, selectInput(inputId = "MultiTestCorr", label = "Multiple Testing Correction", 
-        choices = c("None" = "none", "Holm" = "holm", "Hochberg" = "hochberg","Bonferroni" = "bonferroni", "Benjamini–Hochberg" = "BH", "Benjamini-Hochberg-Yekutieli" = "BY"))),  
+        choices = c("None" = "none", "Holm" = "holm", "Hochberg" = "hochberg","Bonferroni" = "bonferroni", "Benjamini–Hochberg" = "BH", "Benjamini-Hochberg-Yekutieli" = "BY"), selected = "BH")),  
         column(12, hr()),
         
         h4("Volcano Plot Options"),
@@ -936,25 +947,38 @@ tabItem(
         ),  # Input Column
         
         column(8,
-        wellPanel(
+        
+        #wellPanel(fluidRow(
+        tabBox(width = 12,
+        title = icon("graph"),
+        tabPanel("Plot",
+        
+        #wellPanel(
         fluidRow(
         column(11, h4("Volcano Plot")),
         column(12, hr()),
-        column(12, plotOutput("VolcanoPlot")),
+        column(12, uiOutput("VolcanoPlot_Output")),
         column(12, hr()),
         column(6, uiOutput("VolcanoPlot_HighlightGene_UI"))
         
         )  # Volcano Plot Fluid Row
-        ),  # Volcano Plot Well Panel
+        #)  # Volcano Plot Well Panel
+        ),  # Vaolvano Plot tabPanel
                       
-        wellPanel(
+        tabPanel("Raw Data",
+        #wellPanel(
         fluidRow(
         column(8,h4("Toptable from Differential Expression Analysis")),
         column(12, hr()),
-        column(12,dataTableOutput("VolcanoPlot_TopTable")),
+        column(12, dataTableOutput("VolcanoPlot_TopTable")),
         plotOutput("Volcano_BoxPlot")
-        ) # Box Plot Fluid Row
-        ) # Box plot Well Panel       
+        ) # Datatable -  Fluid Row
+        #) # Datatable - Well Panel       
+        ) # TopTable tabPanel
+        
+        ) # TabBox
+        #) # Plot Panel Column Fluid Row
+        #) # Plot Panel Column  Well Panel
         ) # Plot Panel Column
         )
         ),
@@ -965,7 +989,8 @@ tabItem(
         wellPanel(
         
         h4('Gene Selection'), 
-        column(width=12,sliderInput("nGenes", "Number of Differentially Expressed Genes to Show", min = 1, max = 100, value = 10)),
+        column(width=12, uiOutput("HeatMapSelectContrast_UI")),
+        column(width=12,sliderInput("HeatMap_nGenes", "Number of Differentially Expressed Genes to Show", min = 1, max = 100, value = 10)),
         column(width=12,selectizeInput("TopTableFilter", "Sort genes by", c("ID","logFC","AveExpr","t","P.Value"),"logFC")),
         h4('Data Preprocessing'),
         
@@ -1023,7 +1048,8 @@ tabItem(
         wellPanel(
         tags$a(id = 'downloadData', class = paste("btn btn-default shiny-download-link",'mybutton'), href = "", target = "_blank", download = NA, icon("clone"), 'Download Heatmap as HTML'),
         tags$head(tags$style(".mybutton{color:white;background-color:blue;} .skin-black .sidebar .mybutton{color: green;}") ),
-        plotlyOutput("heatout",height='600px')
+        plotlyOutput("HeatMapPlotly",height='600px'),
+        actionButton("RunHeatMaply", "Refresh Heatmap", icon = icon("refresh"))
         )
         )
         )
@@ -1086,51 +1112,81 @@ tabItem(
         fluidRow(
         
         column(4,
-        box(title = "Contact Information",
-            status = "warning",
-            solidHeader = T,
-            width = 12,
+        box(
+        title = "Contact Information",
+        status = "warning",
+        solidHeader = T,
+        width = 12,
             
         fluidRow(
-        column(12, h3("Moaraj Hasan")),
-        column(12, img(src='moaraj.jpg', align = "left", width = "75%")),
-        column(12, "Questions, concerns, coffee? Feel free to get in touch."),
-        column(12, p('Developer and Maintainer: Moaraj Hasan')),
-        column(12, p('GitRepo: https://github.com/moaraj/GeoWizard'))
+        column(12, img(src='roche.jpg', align = "left", width = "100%")),
+        column(12, strong("Questions, concerns, coffee? Feel free to get in touch.")),
+        column(12, p('Developers and Maintainers:')),
+        column(12, p('Moaraj Hasan: Moaraj [at] Moaraj.com')),
+        column(12, p('David Zhang: jitao_david.zhang [at] roche.com')))
+        ),
+        
+        box(
+        title = "Documentation",
+        status = "warning",
+        solidHeader = T,
+        width = 12,
+        column(6, 
+        shiny::actionButton(inputId='GithubHowTo', label="How-To & Docs", style='padding:4px; font-size:200%',
+        icon = icon("book"), width = '100%' , onclick ="window.open('https://moaraj.github.io/GeoWizard/', '_blank')")),
+        
+        column(6, 
+        shiny::actionButton(inputId='GithubDoc', label="ShinyApp Doc", style='padding:4px; font-size:200%',
+        icon = icon("book"), width = '100%' , onclick ="window.open('https://moaraj.github.io/GeoWizard-ShinyApp/', '_blank')"))
+        ),
+        
+        box(
+        title = "GitHub Links",
+        status = "warning",
+        solidHeader = T,
+        width = 12,
+            
+        column(6, 
+        shiny::actionButton(inputId='GithubLink', label="Github Repo", style='padding:4px; font-size:200%',
+        icon = icon("github"), width = '100%' , onclick ="window.open('https://github.com/moaraj/GeoWizard', '_blank')")),
+        column(6, shiny::actionButton(inputId='GithubIssue', label="Submit Issue", style='padding:4px; font-size:200%',
+        icon = icon("exclamation-triangle"), width = '100%' , onclick ="window.open('https://github.com/moaraj/GeoWizard/issues', '_blank')"))
         )
-        )
+        
         ), # First Column of Page
         
         column(4,
-        box(title = "Citations",
-            status = "warning",
-            solidHeader = T,
-            width = 12,
+        box(
+        title = "Citations",
+        status = "warning",
+        solidHeader = T,
+        width = 12,
+        height = "300px",
         fluidRow(
         column(12, h3("Citations")),
         column(12, h4("Filter GSM Meta Page")),
         column(12, h4("Design Matrix")),
         column(12, h4("Download and QC")),
         column(12, h4("Expression Analysis")),
-        column(12, h4("Export and Save"))
-        )
-        )
-        ),# Second Column of Page
-        
-        column(4,
-        box(title = "Acknowledgements",
-            status = "warning",
-            solidHeader = T,
-            width = 12,
+        column(12, h4("Export and Save")))
+        ),
+
+        box(
+        title = "Acknowledgements",
+        status = "warning",
+        solidHeader = T,
+        width = 12,
+        height = "300px",
         fluidRow(
         column(12, h3("Roche BEDA Team")),
-        column(12, h3("David")),
-        column(12, h3("Martin")),
-        column(12, h3("Nikos")),
-        column(12, h3("Tony")))
+        column(12, div(
+        strong("David"),"for the incredible guidance, his insight great vision for spotting the most important questions.",
+        strong("Martin"), "creating a great team cohesion and spirited conversations on everything from carpentry to metaphysics.",
+        strong("Laura"), "for her incredible pointedness and clear view of issues and pragmatic methods of resolution"
+        )))
         ) # Aknowledgements Box
-        ) # Third Column of Page
         
+        ) # Second Column of Page
         ) # Page Fluid Row
         ) # Contact Tab Item
         

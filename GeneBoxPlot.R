@@ -13,6 +13,7 @@ sampleFactorGMT <- function(FactorGMT, nFactors, SpecificGenes = NULL, nGenes){
     Regexinput <- paste("\\b", SpecificGenes, "\\b", sep = "") # Define and beginning of the search word
     SpecificGeneRegEx <- paste(SpecificGenes, collapse = "|") # collapse all regex pattern with and statement
     SpecificGeneIndex <- grep(pattern = SpecificGeneRegEx, x = colnames(FactorGMT))
+    if(length(SpecificGeneIndex) > 20 ){ SpecificGeneIndex <- SpecificGeneIndex[1:20]}
     }
     GeneIndex <- (nFactors + 2):ncol(FactorGMT)
     FactorGMT.sampled <- FactorGMT[, c(FactorCols, SpecificGeneIndex, sample(x = GeneIndex,size = nGenes)) ]
@@ -64,7 +65,6 @@ BoxPlotGSE <- function(
     
     message("Rendering BoxPlot")
     if (BoxPlot_IndpVar == "s") {
-        
         if (BoxPlot_PlotBy == "o") {
             message("Plotting Sample Overall Distribution")
             AesX <- FactorGMTMelt[,"GSM"]
@@ -73,7 +73,6 @@ BoxPlotGSE <- function(
             GroupVar <- NULL
             xlabtext <- "GSMs in Dataset"
             legPos <- "top"
-        
         } else if (BoxPlot_PlotBy == "f") {
             message("Plotting Sample Factor Distributions")
             AesX <- FactorGMTMelt[,BoxFactorSelectInput]
@@ -82,11 +81,8 @@ BoxPlotGSE <- function(
             GroupVar <- NULL
             xlabtext <- "Experimental Factors"
             legPos <- "top"
-        
     }
-
     } else if (BoxPlot_IndpVar == "g") {
-        
         if (BoxPlot_PlotBy == "o") {
             message("Plotting overall distribution for gene selection")
             AesX <- FactorGMTMelt[,"variable"]
@@ -95,7 +91,6 @@ BoxPlotGSE <- function(
             GroupVar <- FactorGMTMelt[,"variable"]
             xlabtext <- "Gene Names"
             legPos <- "top"
-        
         } else if (BoxPlot_PlotBy == "f") {
             message("Plotting factor distribution for gene selection")
             AesX <- FactorGMTMelt[,"variable"]
@@ -105,11 +100,9 @@ BoxPlotGSE <- function(
             xlabtext <- "Experimental Factors"
             legPos <- "top"
     }
-
     }
     
     if (!BoxPlot_ToggleLegend) { legPos <- 'none'}
-    
     p <- ggplot(data = FactorGMTMelt, aes_string(y = AesY, x = AesX, group = GroupVar, fill = AesFill))
     
     if (BoxPlot_showColor) {
@@ -121,7 +114,6 @@ BoxPlotGSE <- function(
         else if (BoxPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
         else if (BoxPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
     }
-    
     
     p <- 
         p + theme(legend.position = legPos) + 
@@ -149,17 +141,10 @@ BoxPlotGSE <- function(
     }
     
     if (BoxPlot_PlotAxisFlip == 1) { p <- p + coord_flip()}
-    
     if (length(BoxPlot_main) > 0) { p <- p + labs(title = BoxPlot_main)} else {p <- p + labs(title = "BoxPlot of Gene Series Data")}
     if (length(BoxPlot_xlab) > 0) { p <- p + labs(x = BoxPlot_xlab)}
     if (length(BoxPlot_ylab) > 0) { p <- p + labs(y = BoxPlot_ylab)}
-    
-    if (BoxPlot_showMargins==1) {
-        p <-p + theme(plot.margin = margin( BoxPlot_margin_top, BoxPlot_margin_right, BoxPlot_margin_bottom, BoxPlot_margin_left,"cm"))}
-    
-    
-   
-    
+    if (BoxPlot_showMargins==1) {p <-p + theme(plot.margin = margin( BoxPlot_margin_top, BoxPlot_margin_right, BoxPlot_margin_bottom, BoxPlot_margin_left,"cm"))}
     return(p)
 }
 
