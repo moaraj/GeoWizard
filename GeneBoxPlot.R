@@ -118,13 +118,14 @@ BoxPlotGSE <- function(
     p <- 
         p + theme(legend.position = legPos) + 
         ylab(label = "Expression Level") + 
-        xlab(label = xlabtext) +
+        xlab(label = xlabtext) + 
         scale_x_discrete(label=abbreviate) +
         theme(axis.text.x = element_text(angle = 90)) +
         guides(fill=guide_legend(title="Experimental Factor Groups")) +
         theme(axis.text = element_text(size = 14, hjust = 1)) +
         theme(axis.title = element_text(size = 14)) +
-        theme(legend.text=element_text(size=14))
+        theme(legend.text=element_text(size=14)) + 
+        guides(fill=guide_legend(ncol=2))
     
     if (BoxPlot_Type == "BoxPlot") { p <- p + geom_boxplot(varwidth = F)
     } else if (BoxPlot_Type == "Violin Plot") { p <- p + geom_violin()

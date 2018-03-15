@@ -423,11 +423,9 @@ ui <- dashboardPage(
         
         fluidRow(
         column(6, actionButton("GoToDesignPage", "Use factors for analysis", width = "100%")),
-        column(6, bookmarkButton())
-
-        )
-        
+        column(6, bookmarkButton()))
         )  # Box - GoToDesignPageBox
+        
         )  # Column - Last third of the Page
         )  # Page Fluid Row containing the Column Layoutdat
         )  # GSmMetaDataPage div
@@ -446,13 +444,19 @@ ui <- dashboardPage(
             status = "primary",
             width = 12,
             collapsible = T,
-        fluidRow(
-        column(12, dataTableOutput("DesignMat_SummaryTable")%>% withSpinner(color = "#0dc5c1")),
-        column(12, hr()),
-        column(12, h4("Rename Factor Columns")),
+        fluidRow(column(12, dataTableOutput("DesignMat_SummaryTable")%>% withSpinner(color = "#0dc5c1")))
+        ),  # Box
         
+        box(title = "Rename Factors",
+            solidHeader = T,
+            status = "primary",
+            width = 12,
+            collapsible = T,
+            height = "500px",
+        
+        fluidRow(
         column(12, wellPanel(fluidRow(column(12, uiOutput("RenameFactorDF_UI"))))))
-        )  # Box
+        )
         ), # First Page Column
                        
         column(4,  # Second Page Column
@@ -485,15 +489,21 @@ ui <- dashboardPage(
         p("How should expression levels be compared between groups?"),
         #column(12, checkboxInput(inputId = "ContrastLevels", "Contrasts between experimental variable factor levels", width = "100%", value = T)),
         #column(12, checkboxInput(inputId = "ContrastInteractions", "Interaction term of differtial expression in bewteen two factor levels")),
-        column(12, checkboxInput(inputId = "ContrastCustom", "Add custom contrast input")),
-        conditionalPanel('input.ContrastCustom==1', 
-        column(4, actionButton("addContrast", "Add custom contrast", width = "100%")),
-        column(8, actionButton("removeContrast", "Remove custom contrast", width = "100%")),        
-        column(12, br()),
-        column(12, uiOutput("CustomContrasts"))),
-        column(12, br()),
-        column(12, actionButton(inputId = "SubmitContrasts", label = "Generate Contrast Matrix"))
+        #column(12, checkboxInput(inputId = "ContrastCustom", "Add custom contrast input")),
         
+        #conditionalPanel('input.ContrastCustom==1',
+        #    column(12, br()),
+            column(6, actionButton("addContrast", "Add custom contrast", width = "100%")),
+            column(6, actionButton("removeContrast", "Remove custom contrast", width = "100%")),
+            column(12, br()),
+            column(12, helpText("Please do not use spaces, '+', '-', '*' or ':'in the input title below")),
+            column(12, uiOutput("UserContrasts")),
+            column(12, DT::dataTableOutput("UserContrastMatrix")),
+            column(12, hr()),
+            column(6, radioButtons( inputId = "UseContrastOption", "User Contrast Input", inline = F, choices = c("Append to Contrast Matrix"="appendtocont", "Use as Contrast Matrix"="cont"))),
+        #),  # Conditional Input Panel
+        
+        column(6, style = "margin-top: 5px;", actionButton("GenerateUserContrast", "Generate Contrast Matrix", style = "font-weight: bold;",width = "100%"))
         )  # Contrast Matrix Box Spanning Column
         )  # Contrast Matrix Box Fluid Row
         )  # Contrast Matrix Box
@@ -542,8 +552,19 @@ ui <- dashboardPage(
         h4("Contrast Matrix"),
         fluidRow(column(12,
         column(12, wellPanel(fluidRow(DT::dataTableOutput(outputId="ContrastMatrixTable") %>% withSpinner(color = "#0dc5c1")))))))
+        ),   # Design/Contrast/Blocks tab box
         
-        )   # Design/Contrast/Blocks tab box
+        box(title = "Use Matricies for Differential Expression Analysis",
+        solidHeader = T,
+        status = 'danger',
+        background = 'red',
+        width = 12,
+        fluidRow(
+        column(6, actionButton("GoToQCPage", "Use Design and Contrast Matrix", width = "100%")),
+        column(6, bookmarkButton()))
+        )  # Box - GoToDesignPageBox
+        
+        
         )   # Third Page Column
         )   # FluidRow that Structures page into 3 Columns
         ),  # Design Matix TabItem 
@@ -707,7 +728,7 @@ ui <- dashboardPage(
 
         
         column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("BoxPlot", "Violin Plot", "Histogram"), selected = "BoxPlot")),
-        column(12, sliderInput("BoxPlot_nGenes", "Portion of Genes to Sample", min = 1, max = 100, value = 10, step = 10)),
+        column(12, sliderInput("BoxPlot_nGenes", "Portion of Genes to Sample", min = 1, max = 100, value = 100, step = 10)),
                         
         h4('Plot Options'), 
         column(4,checkboxInput('BoxPlot_showData','Show Data')),
@@ -826,8 +847,8 @@ ui <- dashboardPage(
         conditionalPanel(condition = "input.MakeScree == 1",
         column(12,h4("Scree Plot Options")),
         column(12,
-        sliderInput(inputId = "nCompScree", label = "Number of Components in Scree plot", min = 1, max = 20, value = 5, step = 1),
-        sliderInput(inputId = "ScreeYMax", label = "Y Max for Screer Plot", min = 0, max = 1, value = 1, step = 0.1),
+        sliderInput(inputId = "nCompScree", label = "Number of Components in Scree plot", min = 1, max = 20, value = 10, step = 1),
+        sliderInput(inputId = "ScreeYMax", label = "Y Max for Screer Plot", min = 0, max = 1, value = 0.5, step = 0.1),
         selectInput(inputId = "ScreePlotType", label = "Scree Plot Type", choices = c("pev", "cev"), selected = "pev"),
         conditionalPanel(condition = "input.ScreePlotType == 'pev'",            
         "'pev' corresponds proportion of explained variance, i.e. the eigenvalues divided by the trace. "),

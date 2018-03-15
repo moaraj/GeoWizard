@@ -662,7 +662,8 @@ server <- function(input, output, session) {
         })
      
      
-    ########################{ Annotate the data table
+    ########################{ Set the Control Levels for each factor
+
      output$RearrangeLevels <- renderUI({
          FactorDF <- ExperimentalDesign$RenamedFactorDF()
          NamesIndex <- colnames(FactorDF)
@@ -696,12 +697,11 @@ server <- function(input, output, session) {
          
     ##################### Formula Input
      
-    ExperimentalDesign$DesignMatrixInput <- eventReactive(input$SubmitFormula, {
-        FactorDF <- ExperimentalDesign$ControlFactorDF()
-        
-        DFindex <- c(1:nrow(FactorDF))
-        FactorDF <- cbind.data.frame(DFindex, FactorDF)
-        
+    
+    #' Looks at the user formula input and parses out the factors that the user wants to include in the design matrix
+    #' @input Design Formula
+    #' @return string vectors with the factors that are in the design formula input
+    ExperimentalDesign$DesignformulaFactors <- reactive({
         Designformula <- input$formulaInputDesign
         Designformula_trimmed <- gsub("\\s", "", Designformula)
         
@@ -710,46 +710,99 @@ server <- function(input, output, session) {
         } else {
         Designformula_trimmed <- gsub("0", "", Designformula_trimmed)
         Designformula_trimmed <- gsub("~", "", Designformula_trimmed)
-        Designformula_Factors <- unlist(strsplit(Designformula_trimmed, split = "\\+"))
+        Designformula_trimmed <- gsub("*", "\\+", Designformula_trimmed)
+        Designformula_trimmed <- gsub(":", "\\+", Designformula_trimmed)
+        DesignformulaFactors <- unlist(strsplit(Designformula_trimmed, split = "\\+"))
         }
+        DesignformulaFactors <- unique(DesignformulaFactors)
+        DesignformulaFactors
+    })
+    
+    # From the factors found in the input formula, 
+    # the 
+    ExperimentalDesign$DesignMatrixInput <- eventReactive(input$SubmitFormula, {
+        FactorDF <- ExperimentalDesign$ControlFactorDF()
+        DFindex <- c(1:nrow(FactorDF))
+        FactorDF <- cbind.data.frame(DFindex, FactorDF)
+        
+        Designformula <- input$formulaInputDesign
+        DesignformulaFactors <- ExperimentalDesign$DesignformulaFactors()
         
         # use the design formula input to arrange the FactorDF, this will be reflected as changed in the design matrix
-        message(paste("Control level supplied for:", Designformula_Factors, "    "))
-        FormulaFactors <- grep(pattern = paste(Designformula_Factors, collapse = "|"), colnames(FactorDF), value = T)
+        message(paste("Control level supplied for:", DesignformulaFactors, "    "))
+        FormulaFactors <- grep(pattern = paste(DesignformulaFactors, collapse = "|"), colnames(FactorDF), value = T)
         RearrangeDF <- FactorDF %>% dplyr::arrange_(FormulaFactors)
         
+        # Genrate the MOdel matrix from the Data frame after it has been arranged according to the levels
         DesignExpression <- try(as.formula(Designformula))
         if (class(DesignExpression)[1] == "try-error") { stop("Caught an error trying to make Design Matrix")
         } else {DesignMatrix <- model.matrix(as.formula(DesignExpression), FactorDF)}
-        
         DesignMatrix
     })
     
-    
+    #' @input SubmitForumla Any time a new formula is submitted there should be a few matrix event
+    #' @input takes in the intial design matrix input 
     output$DesignMatrixRename_UI <- renderUI({
         input$SubmitFormula
         DesignMatrix <- ExperimentalDesign$DesignMatrixInput()
-        colnamesIndex <- 1:length(colnames(DesignMatrix))
+        colnamesIndexVector <- 1:length(colnames(DesignMatrix))
         
-        lapply(colnamesIndex, function(FactorNameIndex){
-            LevelText <- colnames(DesignMatrix)[FactorNameIndex]
-            checkinputID <- paste("RenameDesign", FactorNameIndex, sep = "")
-            checkinputLabel <- paste("Rename Design Column",FactorNameIndex, "-", substr(LevelText, start=1, stop=30))
+        # If there is a leading 0 in the formula input, just name the first column baseline
+        # # Determine if there is an intercept in the formula input        
+        InputFormula <- input$formulaInputDesign
+        InputFormula <- gsub("\\s", "", InputFormula)
+        InputFormula <- gsub("~", "", InputFormula)
+        InputFormula <- unlist(strsplit(InputFormula, split = "\\*"))
+        InputFormula <- unlist(strsplit(InputFormula, split = "\\+"))
+        InputFormula <- unlist(strsplit(InputFormula, split = ":"))
+        
+        # Go through and gererate the text inpouts for design columns names
+        lapply(colnamesIndexVector, function(colnamesIndex){
+            colNameText <- colnames(DesignMatrix)[colnamesIndex]
+            # Render Checkbox input to determine if use wants to renmae factor
+            checkinputID <- paste("RenameDesign", colnamesIndex, sep = "")
+            checkinputLabel <- paste("Rename Design Column",colnamesIndex, "-", colNameText)
+            # Render Textinput for the new variable names
+            textInputID <- paste("RenameDesignText", colnamesIndex, sep = "")
+            textInputLabel <- paste("new column", colnamesIndex, "name:")
             
-            textInputID <- paste("RenameDesignText", FactorNameIndex, sep = "")
-            textInputLabel <- paste("new column", FactorNameIndex, "name:")
+            # If there is no 0 in the formula input then the first column of the design
+            # matrix is automatically renamed, this is done by giving the RenameDesign
+            # checkbox input for the first level a 1 and the value of the rename level "baseline"
+            if (colnamesIndex == 1 & InputFormula[1] != 0) {
+                newNameCheckBox <- 1
+                newNameRec <- "baseline" 
+            } else if (colnamesIndex != 1 & grep(pattern = ":", x = colNameText)) {
+            # a lot of GSM are label Factor: Level formation, so if a colon
+            # is detected the string after the colon is reccomnded for the design matrix colname
+                newNameCheckBox <- 1 
+                newNameRec <- str_split(pattern =  ":", colNameText)
+                if (length(newNameRec)>0) {newNameRec <- newNameRec[[1]][[2]]} else {newNameRec <- newNameRec}
+                newNameRec <- gsub(pattern = "^\\s", replacement = "", x = newNameRec)
+                #newNameRec <- make.names(newNameRec)   
+            } else {
+                newNameCheckBox <- NULL
+                newNameRec <- NULL
+            }
+             
             
             wellPanel(fluidRow(
-            column(12, checkboxInput(checkinputID, checkinputLabel)),
+            column(12, checkboxInput(checkinputID, checkinputLabel, value = newNameCheckBox)),
             conditionalPanel(paste("input.",checkinputID,"==1", sep = ""),
-            column(12, textInput(inputId = textInputID , label = textInputLabel)))))
+            column(12, textInput(inputId = textInputID , label = textInputLabel, value = newNameRec)))))
         })
     })
     
+
+    #' Loop through all the user inputs for design column names and genrate matrix and 
+    #' reset the column names if the textinputID 
+    #' for that specific column is checked
     ExperimentalDesign$DesignMatrix <- reactive({
         DesignMatrix <- ExperimentalDesign$DesignMatrixInput()
         colnamesIndex <- 1:length(colnames(DesignMatrix))
         
+        # Loop through col names inputs and see if any have been supplied by the user
+        # by default all columns are renamed
         NewColNames <- 
         lapply(colnamesIndex, function(FactorNameIndex){
             colnameText <- colnames(DesignMatrix)[FactorNameIndex]
@@ -763,28 +816,35 @@ server <- function(input, output, session) {
             } else {colnameText}
         })
         colnames(DesignMatrix) <- make.names(unlist(NewColNames))
-        DesignMatrix
+        
+        return(DesignMatrix)
     })
      
-      observeEvent(input$SubmitFormula, {
-          shiny::req(input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData)
-          output$CustomExpressionTable <- DT::renderDataTable({
-              DesignMatrix <- ExperimentalDesign$DesignMatrix()
-              
-              DT::datatable(
-                  data = DesignMatrix, rownames = TRUE, class = 'compact',extensions = 'Buttons',
-                  options = list( scrollY = '300px', scrollX = TRUE, paging = FALSE, dom = 'Bt', buttons = c('copy', 'csv', 'excel'))
+        observeEvent(input$SubmitFormula, {
+            shiny::req(input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData)
+            output$CustomExpressionTable <- DT::renderDataTable({
+            DesignMatrix <- ExperimentalDesign$DesignMatrix()
+            DT::datatable( data = DesignMatrix, rownames = TRUE, class = 'compact',extensions = 'Buttons',
+                options = list( scrollY = '300px', scrollX = TRUE, paging = FALSE, dom = 'Bt', buttons = c('copy', 'csv', 'excel'))
               )
-          })
-      })
+            })
+        })
       
       
+        
+        ################### Custom Contrast Input
+        
+        #' @reactiveValues nUserContrasts is a ractive value that counts how many custom contrasts the user wants
+        #' @input addContrast when action button  addContrast is clicked it add one to the counter of custom contrasts requried
+        #' @input removeContrast when action button removeContrasts is clicked it removes one fron the nUseContrasts count
         nUserContrasts <- reactiveValues(count = 1)
         observeEvent(input$addContrast, nUserContrasts$count <- nUserContrasts$count + 1)
         observeEvent(input$removeContrast, nUserContrasts$count <- nUserContrasts$count - 1)
   
         
-        output$CustomContrasts <- renderUI({
+        #' This function loops from 1 to nUserContrasts$count, that the user has set and generated a title and forumula input textinput box
+        #' for the user
+        output$UserContrasts <- renderUI({
             nInputs <- nUserContrasts$count
             if (nInputs <= 0) { stop("cannot remove anymore contrasts")}
             lapply(1:nInputs, function(i){
@@ -797,48 +857,65 @@ server <- function(input, output, session) {
                 column(6, textInput(ContrastFormulaId, ContrastFormulaLabel)))
             })
         })
-    
-        UserContrastMatrixData <- eventReactive(input$GenerateCustomContrast,{
-            nInputs <- nUserContrasts$count
+        
+        #' When the generate contrasts button is click
+        #' generate user defined contrast matrix
+        ExperimentalDesign$UserContrastMatrixData <- eventReactive(input$GenerateUserContrast,{
+        nInputs <- nUserContrasts$count
+            
+        UserContrasts <- lapply(1:nInputs, function(i){
             DesignMatrix <- ExperimentalDesign$DesignMatrix()
             
-            # Use Lapply to loop through the User contrast inputs and collect thier values
-            CustomContrasts <- lapply(1:nInputs, function(i){
+            # Loop throught the contrast inputs and extract user inputs
             ContrastTitleId = paste("ContrastTitle", i, sep = "_")
             ContrastTitle <- input[[ContrastTitleId]]
-            
-            message(paste("Contrast Title",ContrastTitle))
             ContrastFormulaId = paste("ContrastFormula", i, sep = "_")
             ContrastFormula <- input[[ContrastFormulaId]]
-            message(paste("Contrast Title",ContrastFormulaId))
             
-            ContrastInputDF <- data.frame(ContrastTitle,ContrastFormula)
-            MakeContrastInputString = apply(ContrastInputDF, MARGIN = 1, paste, collapse = "=")
-            
-            astr=paste(MakeContrastInputString, collapse=",")
-            prestr="makeContrasts("
-            poststr=",levels=DesignMatrix)"
-            commandstr=paste(prestr,astr,poststr,sep="")
-            message(commandstr)
-            MatrixColumn <- eval(parse(text=commandstr))
-            MatrixColumn
-        })    
-    })
-
+            # See if both title and contrast formula as applied
+            # if they are generate a string input for the make contrast funciton
+            # if not return null
+            if (isTruthy(ContrastFormula) & isTruthy(ContrastTitle)) {
+                message(paste("Valid inputs for contrast", i, "found"))
+                ContrastInputDF <- data.frame(ContrastTitle,ContrastFormula)
+                MakeContrastInputString = apply(ContrastInputDF, MARGIN = 1, paste, collapse = "=")
+                
+                # Make the string command to call make contrast function
+                astr=paste(MakeContrastInputString, collapse=",")
+                prestr="makeContrasts("
+                poststr=",levels=DesignMatrix)"
+                commandstr=paste(prestr,astr,poststr,sep="")
+                
+                # Call Make contrast string
+                MatrixColumn <- eval(parse(text=commandstr))
+                return(MatrixColumn)
+            } else { return(NULL) }
+        })
+        
+        # Remove any inputs for which a valid title and contrast formula were not supplied
+        UserContrasts <- UserContrasts[!vapply(UserContrasts, is.null, logical(1))]
+        if (length(UserContrasts) == 0) { stop("Please enter valid contrast title(No Spaces) and formula") }
+        UserContrasts <- do.call(cbind.data.frame, UserContrasts)
+        UserContrasts
+        })
     
-      
-    ExperimentalDesign$ContrastMatrix <- reactive({
+        output$UserContrastMatrix <- DT::renderDataTable({
+            datatable(data = ExperimentalDesign$UserContrastMatrixData(),
+                      options = list(searching = FALSE, paging = F, scrollX = T))
+            })
+        
+        #' Generate Contrast Matrix 
+        #' and concatonate user design matrix
+        #' @param DesignMatrix requrired to determine the availible contrasts
+        #' @param FormulaInputDesign the formula requried to determine if there is an intercept 
+        #' and ensure first row of contrast matrix is always 0 when there is an intercept
+        ExperimentalDesign$ContrastMatrixInput <- reactive({
         DesignMatrix <- ExperimentalDesign$DesignMatrix()
         
         #ControlFactorLevels 
         ContrastInput <- ConTextInput(DesignMatrix)
         ContrastInput <- gsub(" ", "", ContrastInput)
         ContrastMatrix <- makeContrasts(contrasts = ContrastInput, levels = DesignMatrix)
-        
-        # add user contrasts to the contrasts matrix
-        UserContrasts <- UserContrastMatrixData()
-        if (!is.null(UserContrasts)) { ContrastMatrix <- cbind(CustomContrasts, ContrastMatrix)
-        } else {ContrastMatrix <- CustomContrasts}
         
         # Determine if there is an intercept in the formula input        
         InputFormula <- input$formulaInputDesign
@@ -857,27 +934,57 @@ server <- function(input, output, session) {
             })
         ContrastMatrix[1,] <- 0
         }
-        
         ContrastMatrix
-    })  
+        })  
+    
+    
+    #' 
+    #'
+    #'
+    #'
+    # ExperimentalDesign$ContrastMatrix <- reactive({
+    #     shiny::req( input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData, input$CustomExpressionTable_rows_all)
+    #     ContrastMatrix <- ExperimentalDesign$ContrastMatrixInput()
+    #     UserContrastMatrix <- ExperimentalDesign$UserContrastMatrixData()
+    #     
+    #     if (isTruthy(UserContrastMatrix)) {
+    #     UserContrastMatrix <- UserContrastMatrixData()
+    #     # the final contrast matrix will either be the concatination of the input and the use contrast input
+    #     ContrastMatrix <- cbind(ContrastMatrix,UserContrastMatrix)
+    #     }
+    #     ContrastMatrix
+    # })
+    #     
+
+    # Render the Contrast matrix
+    
+    ExperimentalDesign$ContrastMatrix <- reactive({
+        ContrastMatrix <- ExperimentalDesign$ContrastMatrixInput()
+        if(isTruthy(input$UserContrastMatrix_rows_all)){
+             UserContrastMAtrix <- ExperimentalDesign$UserContrastMatrixData()
+             ContrastMatrix <- cbind(ContrastMatrix, UserContrastMAtrix)
+         } else { ContrastMatrix <- ContrastMatrix}
+        return(ContrastMatrix)
+    })
     
     output$ContrastMatrixTable <- renderDataTable({
-        shiny::req( input$CustomExpressionTable_rows_all)
-        ContrastMatrix <- ExperimentalDesign$ContrastMatrix()
         DT::datatable(
-            data = ContrastMatrix, rownames = TRUE, class = 'compact', 
+            data = ExperimentalDesign$ContrastMatrix(), rownames = TRUE, class = 'compact', 
             extensions = 'Buttons', options = list( scrollY = '300px', scrollX = T, paging = FALSE, dom = 'Bt', buttons = c('copy', 'csv', 'excel')))
     })
-      
+     
+
+    # Render the experimental blocks
     output$ExperimentalBlocksPlot <- renderPlot({
         shiny::req(input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData)
         DesignDF <- ExperimentalDesign$ControlFactorDF()
         
         DesignExpression <- input$formulaInputDesign
         DesignExpression <- gsub(x = DesignExpression, pattern = ":",replacement = "\\+")
+        DesignExpression <- gsub(x = DesignExpression, pattern = "\\*",replacement = "\\+")
         DesignExpression <- try(as.formula(DesignExpression))
         
-          RenderMosaicPlot <- try(vcd::mosaic(DesignExpression, DesignDF))
+        RenderMosaicPlot <- try(vcd::mosaic(DesignExpression, DesignDF))
           
         if (class(RenderMosaicPlot)[1] == "try-error" |
         class(DesignExpression)[1] == "try-error") {
@@ -889,12 +996,14 @@ server <- function(input, output, session) {
         } else { RenderMosaicPlot }
       })
     
-
+    observeEvent( input[["GoToQCPage"]], { updateTabItems(session, "TabSet", "DataQC")})
+    
+    
     ######################## Data QC and Download Analysis
     
-                ##################### Data QC and Download Analysis
-                ###### Download the Data
-                #'
+        ##################### Data QC and Download Analysis
+        ##### Download the Data
+        #'
         #'
         GSEdata <- reactiveValues()
                         #'
@@ -1050,12 +1159,13 @@ server <- function(input, output, session) {
                 } else { FactorOptions <- c(colnames(ExperimentalDesign$ControlFactorDF())) }
                 selectInput( inputId = "BoxPlot_FactorSelect", label = "Fill by Factor", choices = FactorOptions)
             })
-                            output$BoxPlot_ggplot <- renderPlot({
-                shiny::req(input$BoxPlot_PlotBy, input$BoxPlot_FactorSelect)
-                message("Rednering BoxPlot")
-                FactorGMTMelt <- GSEdata$FactorGMTMelt.Sampled()
-                        BoxPlot_JitterFill <- "red"
-                        p <-BoxPlotGSE(
+            
+            output$BoxPlot_ggplot <- renderPlot({
+            shiny::req(input$BoxPlot_PlotBy, input$BoxPlot_FactorSelect)
+            message("Rednering BoxPlot")
+            FactorGMTMelt <- GSEdata$FactorGMTMelt.Sampled()
+            BoxPlot_JitterFill <- "red"
+            p <-BoxPlotGSE(
                     # Data
                     FactorGMTMelt = FactorGMTMelt,
                     BoxPlot_IndpVar = input$BoxPlot_IndpVar,
@@ -1088,7 +1198,7 @@ server <- function(input, output, session) {
                 p
           })
                                 ########## PCA
-        FactorGMTCast <- reactive({
+            FactorGMTCast <- reactive({
                 FactorGMTCast <- GSEdata$FactorGMT()
                 DataDF <- GSEdata$ExpressionMatrix()
                 FactorDF <- ExperimentalDesign$ControlFactorDF()
@@ -1235,14 +1345,17 @@ server <- function(input, output, session) {
                 FactorNames <- colnames(FactorDF)
                 selectInput(inputId = "BioQCPlotInput" , label = "Cluster by Factor:", choices = FactorNames)
             })
-                            output$BioQCPlot <- renderPlotly({
+            
+            output$BioQCPlot <- renderPlotly({
             message("Loading Heatmap Data for Plotting")
             BioQCData <- BioQCData()
             message("Filter Number of signature to show by use input")
             BioQCDataFiltered <- tail(BioQCData, n = input$NumberOfHeatmapSignatures)
-                    # Load Factor DF
-            #FactorDF <- ExperimentalDesign$ControlFactorDF()
-            FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+            
+            # Load Factor DF
+            #FactorDF <- read.csv(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.csv")
+            FactorDF <- ExperimentalDesign$ControlFactorDF()
+            
             SelectedFactor <- factor(FactorDF[,input$BioQCPlotInput]) ; message("User selected factor for H.Clustering")
             nFactorLevels <- length(levels(SelectedFactor))
                     # Make HeatMap
@@ -1309,7 +1422,7 @@ server <- function(input, output, session) {
             valueBox(value=nGenes, subtitle="Number of Genes in GSE", icon=icon("vial"), color="yellow")
             })
 
-############################################################### Expression Analysis
+            ############################################################### Expression Analysis
             
             ExpressionAnalysis <- reactiveValues()
             

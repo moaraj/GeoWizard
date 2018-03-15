@@ -40,12 +40,12 @@ server <- function(session, input, output) {
         })
     })
     
-    UserContrastMatrixData <- eventReactive(input$GenerateCustomContrast,{
+    UserContrastMatrixData <- eventReactive(input$GenerateContrast,{
+        shiny::req(input$ContrastCustom)
         nInputs <- nUserContrasts$count
         
         UserContrasts <- lapply(1:nInputs, function(i){
-            DesignMatrix <- c("A", "B", "C")
-            #DesignMatrix <- ############## requires Design MAtrix Input from Shiny APP or dummy input
+            DesignMatrix <- ############## requires Design MAtrix Input from Shiny APP or dummy input
             
             ContrastTitleId = paste("ContrastTitle", i, sep = "_")
             ContrastTitle <- input[[ContrastTitleId]]
