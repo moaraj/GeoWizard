@@ -232,7 +232,9 @@ ui <- dashboardPage(
         ),
         
         column(3, uiOutput("TaxonSelection")),
-        column(3, radioButtons( inputId = "FullSummaryCheck", label = "Show full Summary", choices = c("Full Text", "Truncated"), selected = "Truncated", inline = F))
+        column(2, radioButtons( inputId = "FullSummaryCheck", label = "Show full Summary", choices = c("Full Text", "Truncated"), selected = "Truncated", inline = F)),
+        column(1, shiny::actionButton(inputId='YouTube1', label="", style='padding:4px; font-size:200%;',
+        icon = icon("question-circle"), width = '100%' , onclick ="window.open('https://www.youtube.com/watch?v=bhjrIexvJW4&index=1&t=0s&list=PL5P7savB6d69_JokGNpwGm0mZX_6aXmes', '_blank')"))
         ), # Fluid Row - Box
         br()) # Filter Seacrh Results Box
         ), #First Fluid Row, Summary, Filter and Infor Box
@@ -324,11 +326,9 @@ ui <- dashboardPage(
         height = "50%",
         
         fluidRow(
-        #column(2, uiOutput('GseTabletoKeep_UI')),
         column(2, uiOutput('GseTabletoAnalyze_UI')),
         column(2, uiOutput("GplTabletoAnalyze_UI")),
-        #column(3, hr()),
-        column(6,uiOutput("infobox_selectedGSE")))
+        column(8,uiOutput("infobox_selectedGSE")))
         )
         ), # Top Row
         
@@ -423,7 +423,11 @@ ui <- dashboardPage(
         
         fluidRow(
         column(6, actionButton("GoToDesignPage", "Use factors for analysis", width = "100%")),
-        column(6, bookmarkButton()))
+        column(4, bookmarkButton()),
+        column(2, shiny::actionButton(inputId='YouTube2', label="", style='padding:4px; font-size:100%;',
+        icon = icon("question-circle"), width = '100%' , onclick ="https://www.youtube.com/watch?v=7DG7a4mei3o&list=PL5P7savB6d69_JokGNpwGm0mZX_6aXmes&index=2', '_blank')"))
+        
+        )
         )  # Box - GoToDesignPageBox
         
         )  # Column - Last third of the Page
@@ -473,7 +477,11 @@ ui <- dashboardPage(
         column(12,textInput( inputId = "formulaInputDesign", label = "Model Matrix Formula Input", placeholder = "~ Expvar1 + Expvar2")),
         column(12, p("The detected baseline or control level for each factor can be changed below")),
         column(12, uiOutput("RearrangeLevels")),
-        column(12, actionButton(inputId = "SubmitFormula", label = "Generate Design Matrix"))
+        column(6, actionButton(inputId = "SubmitFormula", label = "Generate Design Matrix")),
+        column(6, actionButton(inputId = "DesignMatrixHelp", 
+                                label = "Design Matrix Intro", 
+                                icon = icon("info-circle"),
+                                onclick = "window.open('https://www.youtube.com/watch?v=2UYx-qjJGSs', '_blank')"))
         )  # Design Matrix Box spanning Column
         )  # Design Matrix Box Fluid Row
         ), # Design Matrix Box
@@ -561,7 +569,13 @@ ui <- dashboardPage(
         width = 12,
         fluidRow(
         column(6, actionButton("GoToQCPage", "Use Design and Contrast Matrix", width = "100%")),
-        column(6, bookmarkButton()))
+        column(4, bookmarkButton()),
+        column(2, shiny::actionButton(inputId='YouTube3', label="", style='padding:4px; font-size:100%;',
+        icon = icon("question-circle"), width = '100%' , onclick ="window.open('https://www.youtube.com/watch?v=-LCxPyVXK5w&t=0s&list=PL5P7savB6d69_JokGNpwGm0mZX_6aXmes&index=3', '_blank')"))
+        
+        
+        
+        )
         )  # Box - GoToDesignPageBox
         
         
@@ -569,9 +583,7 @@ ui <- dashboardPage(
         )   # FluidRow that Structures page into 3 Columns
         ),  # Design Matix TabItem 
         
-        
-        
-        
+
         
         tabItem(
         tabName = "DataQC",
@@ -580,7 +592,9 @@ ui <- dashboardPage(
         #column(12, div( id = "GSMMetadataWarning_Down", box(title = "", height = "200px", solidHeader = T, width = 12, background = "red",
         #fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))), 
         
-        tabBox(title = "Raw Data Statistics",
+        tabBox(
+        title = "Raw Data Statistics",
+        id = "QCDataTabBox",
         width = 12,
         tabPanel("Download Data",
         
@@ -646,10 +660,13 @@ ui <- dashboardPage(
         wellPanel(
         fluidRow(
             
-        h4("Gene Expression Matrix"),hr(),
-        column(12,
-        DT::dataTableOutput("RawDataQC"),
-        column(4, actionButton(inputId = "RefreshRawDataQCTable", label = "Refresh Table",icon = icon('refresh')))),
+        column(12,h4("Gene Expression Matrix"),hr()),
+        column(12, DT::dataTableOutput("RawDataQC") %>% withSpinner(color = "#0dc5c1")),
+        column(12, hr()),
+        column(3, actionButton(inputId = "QCTableToDiffExp", width = "100%", label = "Differential Expression",icon = icon('table'))),
+        column(3, actionButton(inputId = "QCTableToBioQC", width = "100%", label = "BioQC Analysis",icon = icon('search'))),
+        column(3, actionButton(inputId = "QCTableToBoxplot", width = "100%", label = "Distribution Boxplots",icon = icon('bar-chart'))),
+        column(3, actionButton(inputId = "QCTableToPCA", width = "100%", label = "PCA Analysis",icon = icon('bar-chart'))),
         fluidRow(
         column(12, hr()),
         column(12,valueBoxOutput("DownloadDataInfoBox"),valueBoxOutput("nGSESamples"),valueBoxOutput("nGSEGenes")))
@@ -728,7 +745,7 @@ ui <- dashboardPage(
 
         
         column(12, selectizeInput(inputId = "BoxPlot_Type",label = "Plot Type",choices = c("BoxPlot", "Violin Plot", "Histogram"), selected = "BoxPlot")),
-        column(12, sliderInput("BoxPlot_nGenes", "Portion of Genes to Sample", min = 1, max = 100, value = 100, step = 10)),
+        column(12, sliderInput("BoxPlot_nGenes", "Portion of Genes to Sample", min = 1, max = 100, value = 50, step = 10)),
                         
         h4('Plot Options'), 
         column(4,checkboxInput('BoxPlot_showData','Show Data')),
@@ -815,8 +832,8 @@ ui <- dashboardPage(
         column(12, plotOutput("BoxPlot_ggplot", height = "600px") %>% withSpinner(color = "#0dc5c1")),
         column(12, hr()),
         
-        column(2,actionButton(inputId = "RefreshBoxPlotSample", label = "Refresh Gene Selection",icon = icon('refresh'))),
-        column(2,actionButton(inputId = "RefreshPlot", label = "Refresh Plot",icon = icon('refresh'))),
+        column(3,actionButton(inputId = "RefreshBoxPlotSample", width = "100%", label = "Refresh Gene Selection",icon = icon('refresh'))),
+        column(3,actionButton(inputId = "RefreshPlot", width = "100%", label = "Refresh Plot",icon = icon('refresh'))),
         column(2,checkboxInput(inputId = "BoxPlot_ToggleLegend", label = "Show Legend")),
         column(4,checkboxInput(inputId = "BoxPlot_ToggleInteractive", label = "Render Interactive Plot"))
         )
@@ -825,7 +842,7 @@ ui <- dashboardPage(
         )  # tabPanel Fluid Row
         ), # tabPanel(title = "BoxPlots"
         
-        tabPanel(title = "PCA",
+        tabPanel(title = "PCA", id = "PCA",
         fluidRow(
         column(4,
                  
@@ -890,7 +907,7 @@ ui <- dashboardPage(
         fluidRow( column(12, offset = 2, h1(icon("exclamation-triangle"),"Please download and select a dataset from the table on 'Query Datasets' page")))))),
         
         column(12,
-        tabBox(title = "Expression Analysis",
+        tabBox(title = "Expression Analysis", id = "ExpressionAnalysis",
         width = 12,
         
         tabPanel(title = "Volcano Plot",
@@ -916,7 +933,7 @@ ui <- dashboardPage(
         column(12, uiOutput("SelectContrast_UI")),
         column(4, checkboxInput(inputId = "VolacanoPlot_PvalLine", label = "p-value line", value = T)),
         column(4, checkboxInput(inputId = "VolacanoPlot_LogLine", label = "logFC line", value = T)),
-        column(4, checkboxInput(inputId = "VolacanoPlot_labelhitt", label = "label hits")),
+        column(4, checkboxInput(inputId = "VolacanoPlot_labelhits", label = "label hits")),
         
         column(12,hr(),h4('Additional Parameters')),
         column(3,checkboxInput('VolcanoPlot_showColor','Color')),
@@ -948,8 +965,8 @@ ui <- dashboardPage(
         conditionalPanel('input.VolcanoPlot_showPlotSize==1',
         hr(),
         h4('Plot Size Options'),
-        numericInput("VolcanoPlot_Height", "Plot height:", value=550),
-        numericInput("VolcanoPlot_Width", "Plot width:", value=750)
+        numericInput("VolcanoPlot_Height", "Plot height:", value=500),
+        numericInput("VolcanoPlot_Width", "Plot width:", value=800)
         )),
         
         column(12,
@@ -970,37 +987,27 @@ ui <- dashboardPage(
         column(8,
         
         #wellPanel(fluidRow(
-        tabBox(width = 12,
-        title = icon("graph"),
-        tabPanel("Plot",
-        
-        #wellPanel(
+        box(title = "Plot Output",
+        status = "warning",
+        solidHeader = T,
+        collapsible = T,
+        width = 12,
         fluidRow(
-        column(11, h4("Volcano Plot")),
+        column(12, uiOutput("VolcanoPlot_HighlightGene_UI")),
         column(12, hr()),
-        column(12, uiOutput("VolcanoPlot_Output")),
-        column(12, hr()),
-        column(6, uiOutput("VolcanoPlot_HighlightGene_UI"))
-        
-        )  # Volcano Plot Fluid Row
-        #)  # Volcano Plot Well Panel
-        ),  # Vaolvano Plot tabPanel
+        column(12, uiOutput("VolcanoPlot_Output"))
+        )
+        ),  # box(title = "Plot Output",
                       
-        tabPanel("Raw Data",
+        box(title = "Top Table",
+        status = "warning",
+        solidHeader = T,
+        width = 12,
+        collapsible = T,
         #wellPanel(
-        fluidRow(
-        column(8,h4("Toptable from Differential Expression Analysis")),
-        column(12, hr()),
-        column(12, dataTableOutput("VolcanoPlot_TopTable")),
-        plotOutput("Volcano_BoxPlot")
-        ) # Datatable -  Fluid Row
-        #) # Datatable - Well Panel       
-        ) # TopTable tabPanel
-        
-        ) # TabBox
-        #) # Plot Panel Column Fluid Row
-        #) # Plot Panel Column  Well Panel
-        ) # Plot Panel Column
+        fluidRow( column(12, dataTableOutput("VolcanoPlot_TopTable")))
+        ) # box(title = "Top Table",
+        )
         )
         ),
         

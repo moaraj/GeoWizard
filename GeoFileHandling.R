@@ -97,19 +97,12 @@ ConvertGSEAnnotations <- function(GSEeset, AnnotationType){
   if(class(GSEeset) == "list"){ GSEeset <- GSEeset[[1]]
   } else if(class(GSEeset) != "ExpressionSet") { stop("Error in Loading Expression Data for Annotation")}
   
-  ValidAnnotations <- c("Gene Title","ENTREZ_GENE_ID","Gene Symbol","RefSeq Transcript ID")
-  if (grep(pattern = AnnotationType, x = ValidAnnotations)) {
-    warning("Annotation type not recognized by ConvertGSEAnnotations funtion(), using 'Gene Symbol'")
-    AnnotationType <- "Gene Symbol"
-  }
-  
   message("Extracting Feature annotations")
   NewAnnotations <- GSEeset@featureData@data[,AnnotationType]
   
   GeneSymbolEset <- exprs(GSEeset)
-  rownames(GeneSymbolEset) <- NewAnnotations
+  rownames(GeneSymbolEset) <- as.character(NewAnnotations)
   AnnotatedArrayData <- GeneSymbolEset
-  
   return(AnnotatedArrayData)
 }
 

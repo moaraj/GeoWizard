@@ -88,6 +88,8 @@ server <- function(input, output, session) {
             MolQuery <- as.character(unlist(input$MolSelectInput))
         }
         
+        if (!isTruthy(MolQuery)) { stop("GEO Query is empty, please supply search string or keywords")}
+        
         message(paste("Called MultiGSEQuery function with query:", MolQuery))
         GseTable <- MultiGSEQuery(MolQuery)
         GseTable
@@ -274,6 +276,7 @@ server <- function(input, output, session) {
     
     
     observeEvent( input[["AnalyzeSelectedDatasets"]], { updateTabItems(session, "TabSet", "GSMMetadata")})
+    
     ################################### GSM Metadata TabItem ###################################
     
     SQLSearchData <- reactiveValues()
@@ -385,9 +388,9 @@ server <- function(input, output, session) {
         GdsInfo <- FilteredTable <- FilteredTable %>% select(gdsType) %>% as.character
         
         fluidRow(
-        column(3, h4(strong("n samples:")), h5(SamplesInfo)),
-        column(3, h4(strong("species:")), h5(SpeciesInfo)),
-        column(6, h4(strong("gdsType:")), h5(GdsInfo))
+        column(4, h4(strong("n samples:")), h5(SamplesInfo)),
+        column(4, h4(strong("species:")), h5(SpeciesInfo)),
+        column(4, h4(strong("gdsType:")), h5(GdsInfo))
         )
     })
     
@@ -472,6 +475,7 @@ server <- function(input, output, session) {
     #'
     output$FilterGSMbyFactor <- renderUI({
         shiny::req(input$UsefulColumnsCheckbox, input$GseGsmTable_rows_all)
+        input$FilterGSMLevels
         message("Rendering Selectize Inputs for filtering factor levels")
         FactorDF <- ExperimentalDesign$ExpFactorDF()
         FactorDF <- FactorDF %>% select(one_of(input$UsefulColumnsCheckbox))
@@ -570,22 +574,22 @@ server <- function(input, output, session) {
     #'
     output$FullFactorTable <- DT::renderDataTable({
         message("Rendering Factor Data Table")
-        shiny::req(input$UsefulColumnsCheckbox)
-        
         input$RefreshFullFactorTable
         FactorDF <- ExperimentalDesign$RowFilteredFactorDF()
         
         DT::datatable(data = FactorDF, extensions = 'ColReorder',class = 'compact',
             options = list(dom = 't', autoWidth = TRUE, scrollX = T, scrollY = '500px', paging = FALSE,
-                columnDefs = list(list(width = '150px', targets = c(1:ncol(FactorDF)))),
-                colReorder = list(realtime = FALSE))) %>%
+            columnDefs = list(list(width = '150px', targets = c(1:ncol(FactorDF)))),
+            colReorder = list(realtime = FALSE))) %>%
             formatStyle(names(FactorDF),color = 'black',fontWeight = 'bold')
         })
     ##### Excluded Factor Table
         output$ExcludedFactorTable <- DT::renderDataTable({
         message("Rendering Excluded Factor Data Table")
-        
+        input$RefreshFullFactorTable
+        shiny::req(input$UsefulColumnsCheckbox)
         FactorDF <- ExperimentalDesign$RowFilteredFactorDF()
+        
         ExcludedFactorDF <- FactorDF %>% select(-one_of(input$UsefulColumnsCheckbox))
         ExcludedFactorDF <- as.data.frame(ExcludedFactorDF)
      
@@ -604,7 +608,6 @@ server <- function(input, output, session) {
 
         output$RenameFactorDF_UI <- renderUI({
             FactorDF <- ExperimentalDesign$RowFilteredFactorDF()
-
             lapply(1:length(colnames(FactorDF)), function(FactorNameIndex){
                 orginalName <- colnames(FactorDF)[FactorNameIndex]
                 checkinputID <- paste("RenameFactorDFCheck", FactorNameIndex, sep = "")
@@ -718,6 +721,7 @@ server <- function(input, output, session) {
         DesignformulaFactors
     })
     
+    
     # From the factors found in the input formula, 
     # the 
     ExperimentalDesign$DesignMatrixInput <- eventReactive(input$SubmitFormula, {
@@ -798,6 +802,7 @@ server <- function(input, output, session) {
     #' reset the column names if the textinputID 
     #' for that specific column is checked
     ExperimentalDesign$DesignMatrix <- reactive({
+        input$GoToQCPage
         DesignMatrix <- ExperimentalDesign$DesignMatrixInput()
         colnamesIndex <- 1:length(colnames(DesignMatrix))
         
@@ -937,42 +942,31 @@ server <- function(input, output, session) {
         ContrastMatrix
         })  
     
-    
-    #' 
-    #'
-    #'
-    #'
-    # ExperimentalDesign$ContrastMatrix <- reactive({
-    #     shiny::req( input$SubmitFormula, input$UsefulColumnsCheckbox, input$WhereVarData, input$CustomExpressionTable_rows_all)
-    #     ContrastMatrix <- ExperimentalDesign$ContrastMatrixInput()
-    #     UserContrastMatrix <- ExperimentalDesign$UserContrastMatrixData()
-    #     
-    #     if (isTruthy(UserContrastMatrix)) {
-    #     UserContrastMatrix <- UserContrastMatrixData()
-    #     # the final contrast matrix will either be the concatination of the input and the use contrast input
-    #     ContrastMatrix <- cbind(ContrastMatrix,UserContrastMatrix)
-    #     }
-    #     ContrastMatrix
-    # })
-    #     
 
     # Render the Contrast matrix
     
     ExperimentalDesign$ContrastMatrix <- reactive({
+        # Need to find a way to ensure that if someones forgets to actually click on the design or contrast matrix tab
+        # that the design and contrast will still be generated
+
         ContrastMatrix <- ExperimentalDesign$ContrastMatrixInput()
         if(isTruthy(input$UserContrastMatrix_rows_all)){
-             UserContrastMAtrix <- ExperimentalDesign$UserContrastMatrixData()
-             ContrastMatrix <- cbind(ContrastMatrix, UserContrastMAtrix)
-         } else { ContrastMatrix <- ContrastMatrix}
+        UserContrastMatrix <- ExperimentalDesign$UserContrastMatrixData()
+                if (input$UseContrastOption == "appendtocont") {
+                ContrastMatrix <- cbind(ContrastMatrix, UserContrastMatrix)       
+                } else if(input$UseContrastOption == "cont"){
+                ContrastMatrix <- UserContrastMatrix
+                } 
+        } else { ContrastMatrix <- ContrastMatrix}
+        
         return(ContrastMatrix)
     })
-    
+
     output$ContrastMatrixTable <- renderDataTable({
         DT::datatable(
             data = ExperimentalDesign$ContrastMatrix(), rownames = TRUE, class = 'compact', 
             extensions = 'Buttons', options = list( scrollY = '300px', scrollX = T, paging = FALSE, dom = 'Bt', buttons = c('copy', 'csv', 'excel')))
     })
-     
 
     # Render the experimental blocks
     output$ExperimentalBlocksPlot <- renderPlot({
@@ -983,7 +977,6 @@ server <- function(input, output, session) {
         DesignExpression <- gsub(x = DesignExpression, pattern = ":",replacement = "\\+")
         DesignExpression <- gsub(x = DesignExpression, pattern = "\\*",replacement = "\\+")
         DesignExpression <- try(as.formula(DesignExpression))
-        
         RenderMosaicPlot <- try(vcd::mosaic(DesignExpression, DesignDF))
           
         if (class(RenderMosaicPlot)[1] == "try-error" |
@@ -1000,6 +993,12 @@ server <- function(input, output, session) {
     
     
     ######################## Data QC and Download Analysis
+    ######################## 
+    observeEvent( input[["QCTableToDiffExp"]], { updateTabItems(session, "TabSet", "DifferentialAnalysis")})
+    observeEvent( input[["QCTableToBioQC"]], { updateTabItems(session, "QCDataTabBox", "BioQC")})
+    observeEvent( input[["QCTableToBoxplot"]], { updateTabItems(session, "QCDataTabBox", "BoxPlots")})
+    observeEvent( input[["QCTableToPCA"]], { updateTabItems(session, "QCDataTabBox", "PCA")})
+    
     
         ##################### Data QC and Download Analysis
         ##### Download the Data
@@ -1064,12 +1063,8 @@ server <- function(input, output, session) {
                 "Then input them as a CSV or TSV"))
             } else {
             selectInput(
-                inputId = "GeneAnnotationType",
-                label = "Gene Annotations",
-                choices = colnames(FeatureData),
-                selected = colnames(FeatureData)[1],
-                multiple = F,
-                selectize = T)
+                inputId = "GeneAnnotationType", label = "Gene Annotations", choices = colnames(FeatureData), 
+                selected = colnames(FeatureData)[1],multiple = F,selectize = T)
             }
         })
                 #'
@@ -1080,30 +1075,36 @@ server <- function(input, output, session) {
         #'
         GSEdata$MatrixAnnotated <- reactive({
             shiny::req(input$GeneAnnotationType)
+            
+            # Data sournce is GEO then annotation 
             if(input$DataSourceSelection == 1) {
             message("Annotating ExpressionMatrix")
             GSEeset <- GSEdata$GMTinput_GEO()
             FeatureData <- try(fData(GSEeset))
             ExpressionMatrix <- exprs(GSEeset)
-                    if (length(FeatureData) == 0 | class(FeatureData) == "try-error") { stop("No Feature Data included in Expression Set")
-            } else {
-            rownames(ExpressionMatrix) <- make.names(FeatureData[,input$GeneAnnotationType])
+            # NGS datasets that have no annotation doesn't work
+            if (length(FeatureData) == 0 | class(FeatureData) == "try-error") { stop("No Feature Data included in Expression Set")
+            } else { rownames(ExpressionMatrix) <- make.names(FeatureData[,input$GeneAnnotationType])
             return(ExpressionMatrix)
             }
+            # No anntation is CSV srouce
             } else { return(NULL)}
         })
         
         GSEdata$ExpressionMatrix <- reactive({
             shiny::req(input$GeneAnnotationType)
+            
             if(input$DataSourceSelection == 1) {
                 message("Annotated GMT Matrix asigned to reactive value: GSEdata$ExpressionMatrix")
                 ExpressionMatrix <- GSEdata$MatrixAnnotated()
+            
             } else if(input$DataSourceSelection == 2) {
                 message("GMTinput_CSV asigned to reactive value: GSEdata$ExpressionMatrix")
                 if (isTruthy(input$GMTcsv)) {
                 ExpressionMatrix <- GSEdata$GMTinput_CSV()
                 }
-            }
+            } else { NULL }
+            
             return(ExpressionMatrix)
           })
                         #'
@@ -1112,12 +1113,12 @@ server <- function(input, output, session) {
         #'
         
         GSEdata$FactorGMT <- reactive({
-            ControlFactorDF <- ExperimentalDesign$ControlFactorDF()
+            FactorDF <- ExperimentalDesign$ControlFactorDF()
             message("Loading Expression Matrix fro Factor GMT input")
             ExpressionMatrix <- GSEdata$ExpressionMatrix()
             message("line 657: Generating FactorGMT")
-            FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix, FactorDF = ControlFactorDF)
-            return(FactorGMT)
+            FactorGMT <- GenFactorGMT(ExpressionMatrix, FactorDF)
+            FactorGMT
           })
                 #'
         #'
@@ -1133,72 +1134,82 @@ server <- function(input, output, session) {
             } else { stop("Data not loaded properly") }
                     DT::datatable(data = as.data.frame(TableData), rownames = TRUE, class = 'compact', extensions = 'Buttons',
                 options = list( scrollX = F, scrollY = '300px', paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
-          })
-                        #################### BoxPlot Tab
-                    output$BoxPlot_GeneSelect_UI <- renderUI({
-                message("Rendering BoxPlot Gene Select Input")
-                return(textInput( inputId = "BoxPlot_GeneSelect", label = "Plot Specific Gene"))
-            })
-                            GSEdata$FactorGMTMelt.Sampled <- reactive({
-                message("Generating FactorGMTMelt reactive values for BoxPlot Input")
-                message(paste("Adding custom input:", input$BoxPlot_GeneSelect))
-                input$RefreshBoxPlotSample
-                        GeneInput <- isolate(input$BoxPlot_GeneSelect)
-                if(!nchar(GeneInput) > 3){ GeneInput <- ""}
-                        FactorGMT.sampled <- sampleFactorGMT(FactorGMT = GSEdata$FactorGMT(),
-                    nFactors = ncol(ExperimentalDesign$ControlFactorDF()),
-                    SpecificGenes = GeneInput,
-                    nGenes = input$BoxPlot_nGenes)
+        })
+        
+        #################### BoxPlot Tab
+        output$BoxPlot_GeneSelect_UI <- renderUI({
+            message("Rendering BoxPlot Gene Select Input")
+            return(textInput( inputId = "BoxPlot_GeneSelect", label = "Plot Specific Gene"))
+        })
+        
+        GSEdata$FactorGMTMelt.Sampled <- reactive({
+            message("Generating FactorGMTMelt reactive values for BoxPlot Input")
+            message(paste("Adding custom input:", input$BoxPlot_GeneSelect))
+            input$RefreshBoxPlotSample
+            GeneInput <- isolate(input$BoxPlot_GeneSelect)
+            if(!nchar(GeneInput) > 3){ GeneInput <- ""}
+                FactorGMT.sampled <- sampleFactorGMT(FactorGMT = GSEdata$FactorGMT(),
+                nFactors = ncol(ExperimentalDesign$ControlFactorDF()),
+                SpecificGenes = GeneInput,
+                nGenes = input$BoxPlot_nGenes)
                 FactorGMTMelt.sampled <- melt(FactorGMT.sampled)
                 FactorGMTMelt.sampled
             })
-                    output$BoxPlot_FactorSelect_UI <- renderUI({
-                shiny::req(input$BoxPlot_PlotBy)
-                message("Rendering BoxPlot Factor Select Input")
-                        if(input$BoxPlot_PlotBy == "o"){ FactorOptions <- c("GSM",colnames(ExperimentalDesign$ControlFactorDF()))
-                } else { FactorOptions <- c(colnames(ExperimentalDesign$ControlFactorDF())) }
-                selectInput( inputId = "BoxPlot_FactorSelect", label = "Fill by Factor", choices = FactorOptions)
+        
+        output$BoxPlot_FactorSelect_UI <- renderUI({
+            shiny::req(input$BoxPlot_PlotBy)
+            message("Rendering BoxPlot Factor Select Input")
+            if(input$BoxPlot_PlotBy == "o"){ FactorOptions <- c("GSM",colnames(ExperimentalDesign$ControlFactorDF()))
+            } else { FactorOptions <- c(colnames(ExperimentalDesign$ControlFactorDF())) }
+            selectInput( inputId = "BoxPlot_FactorSelect", label = "Fill by Factor", choices = FactorOptions)
             })
             
-            output$BoxPlot_ggplot <- renderPlot({
+        output$BoxPlot_ggplot <- renderPlot({
             shiny::req(input$BoxPlot_PlotBy, input$BoxPlot_FactorSelect)
             message("Rednering BoxPlot")
             FactorGMTMelt <- GSEdata$FactorGMTMelt.Sampled()
             BoxPlot_JitterFill <- "red"
+            
             p <-BoxPlotGSE(
                     # Data
                     FactorGMTMelt = FactorGMTMelt,
                     BoxPlot_IndpVar = input$BoxPlot_IndpVar,
                     BoxPlot_PlotBy = input$BoxPlot_PlotBy,
                     BoxFactorSelectInput = input$BoxPlot_FactorSelect,
-                            # Colors and Aesthetics
+                    
+                     # Colors and Aesthetics
                     BoxPlot_Type =  input$BoxPlot_Type,
                     BoxPlot_showColor = input$BoxPlot_showColor,
                     BoxPlot_ThemeSelect = input$BoxPlot_ThemeSelect,
                     BoxPlot_ToggleLegend = input$BoxPlot_ToggleLegend,
-                            # Jitter Settings
+                    
+                    # Jitter Settings
                     BoxPlot_showData = input$BoxPlot_showData,
                     BoxPlot_showDataOption = input$BoxPlot_showDataOption,
                     BoxPlot_JitterWidth = input$BoxPlot_JitterWidth,
                     BoxPlot_JitterAlpha = input$BoxPlot_JitterAlpha,
                     BoxPlot_JitterFill = BoxPlot_JitterFill,
-                            # Margin Settings // Important for Plotly, ggplot doesnt really have trouble with Marigs
+                    
+                    # Margin Settings // Important for Plotly, ggplot doesnt really have trouble with Marigs
                     BoxPlot_showMargins = input$BoxPlot_showMargins,
                     BoxPlot_margin_top = input$BoxPlot_margin_top,
                     BoxPlot_margin_right = input$BoxPlot_margin_right,
                     BoxPlot_margin_bottom = input$BoxPlot_margin_bottom,
                     BoxPlot_margin_left = input$BoxPlot_margin_left,
-                            # Axis Flip
+                    
+                    # Axis Flip
                     BoxPlot_PlotAxisFlip = input$BoxPlot_PlotAxisFlip,
-                            # Labels
+                    
+                    # Labels
                     BoxPlot_main = input$BoxPlot_main,
                     BoxPlot_xlab = input$BoxPlot_xlab,
                     BoxPlot_ylab = input$BoxPlot_ylab,
                     BoxPlot_xlab_angle = input$BoxPlot_xlab_angle)
                 p
           })
-                                ########## PCA
-            FactorGMTCast <- reactive({
+            
+        ########## PCA
+        FactorGMTCast <- reactive({
                 FactorGMTCast <- GSEdata$FactorGMT()
                 DataDF <- GSEdata$ExpressionMatrix()
                 FactorDF <- ExperimentalDesign$ControlFactorDF()
@@ -1207,7 +1218,8 @@ server <- function(input, output, session) {
                 
                 return(list("FactorGMTCast" = FactorGMTCast, "DataDF" = DataDF,"FactorDF" = FactorDF))
                 })
-                        #' @param  DataDF gene expression matrix with samples in the columns and genes in the rows
+            
+                #' @param  DataDF gene expression matrix with samples in the columns and genes in the rows
                 #' @return list of Prcomp_res and PCA_ResDF
                 #' Prcomp_res principle components object genertated from perfoemd PCA on gene expression data
                 #' PCA_ResDF Data frame with the Prcomp_res object and Prcomp_res input matrix (x) coloumn bound
@@ -1281,7 +1293,8 @@ server <- function(input, output, session) {
                     pc_plot_groups
                   }
                 })
-                        output$PCA_ScreePlot <- renderPlot({
+            
+            output$PCA_ScreePlot <- renderPlot({
                   type <- input$ScreePlotType
                   Prcomp_res <- PCA_Data()$Prcomp_res
                   ScreeData <- Prcomp_res$sdev^2
@@ -1427,6 +1440,7 @@ server <- function(input, output, session) {
             ExpressionAnalysis <- reactiveValues()
             
             output$DiffExMethod_UI <- renderUI({
+                message("Rendering differential expression analysis type input")
                 DataSetType <- input$ExpressionDataType
                 if (DataSetType == "RNAseq" | DataSetType == "ssRNAseq") { selectedMethod <- "DESeq2"
                 } else { selectedMethod <- "Limma" }
@@ -1434,20 +1448,20 @@ server <- function(input, output, session) {
             })
 
 
-            ExpressionAnalysis$LimmaResults <- eventReactive(input$SubmitDEA, {
+            ExpressionAnalysis$LimmaResults <- eventReactive(input$SubmitDEA,{
                 # Functional Testing
                 #ExpressionMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ExpressionMatrix.rds")
                 #DesignMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_DesignMatrix.rds")
                 #ContrastMatrix <- readRDS("~/GeoWizard/TestObjects/GSE69967_ContrastMatrix.rds")
-            
-                message("Loading Objects from for limma analysis")
+                message("Loading Objects for limma analysis")
                 ExpressionMatrix <- GSEdata$ExpressionMatrix()
                 DesignMatrix <- ExperimentalDesign$DesignMatrix()
-                ContrastMatrix <- ExperimentalDesign$Contrast()
+                ContrastMatrix <- ExperimentalDesign$ContrastMatrix()
                 
                 if(!is.null(ExpressionMatrix) & !is.null(DesignMatrix) &!is.null(ContrastMatrix)){
                 message("Performing Limma DEA")
-                res <- LimmaOutput(ExpressionMatrix,DesignMatrix,ContrastMatrix)}
+                res <- LimmaOutput(ExpressionMatrix,DesignMatrix,ContrastMatrix)
+                }
                 return(res)
            })
             
@@ -1460,14 +1474,16 @@ server <- function(input, output, session) {
             output$PValThres <- renderUI({
             numericInput(inputId = "PValThresInput", label = "Adjusted -log(pValue) Threshold", value = 15, min = 1, step = 0.5)
             })
-                    output$LogFCThres <- renderUI({
+            
+            output$LogFCThres <- renderUI({
             numericInput(inputId = "LogFCThresInput", label = "Log2FC Threshold", value = 1, min = 0, max = 5, step = 0.5)
             })
             
+            observeEvent(input$SubmitDEA, {
             output$SelectContrast_UI <- renderUI({
-                shiny::req(input$DiffExMethod)
-                LimmaTable <- ExpressionAnalysis$LimmaResults()
-                selectInput(inputId = "Volcanoplot_SelectContrast", label = "Select Contrast", choices = unique(LimmaTable$Contrast))
+            LimmaTable <- ExpressionAnalysis$LimmaResults()
+            selectInput(inputId = "Volcanoplot_SelectContrast", label = "Select Contrast", choices = unique(LimmaTable[,"Contrast"]))
+            })
             })
             
             
@@ -1478,100 +1494,111 @@ server <- function(input, output, session) {
             #' @input LogFCThresInput
             #' @output Limma Table with new threshold factor column for coloring
             #' data points greater/lower than certain thresholds different colours
-            ExpressionAnalysis$VolcanoPlotData <- reactive({
-                LimmaTable <- ExpressionAnalysis$LimmaResults()
-                LimmaTable <- as.data.frame(LimmaTable)
-                
-                selectedContrast <- input$Volcanoplot_SelectContrast
-                LimmaTable <- LimmaTable %>% dplyr::filter(Contrast == selectedContrast) %>%
-                mutate(adj.P.Val = p.adjust(P.Value, method = input$MultiTestCorr))
-                
-                pValueThresHold <- input$PValThresInput
-                logFCThresHold <- input$LogFCThresInput
-                LimmaTable <- LimmaTable %>%
-                    mutate(LogThreshold = abs(logFC) > logFCThresHold) %>%
-                    mutate(PThreshold = as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold)) %>%
-                    mutate(Threshold = paste(LogThreshold, PThreshold))
-                LimmaTable
-            })
-            
-            ExpressionAnalysis$VolcanoPlotData <- reactive({
-                LimmaTable <- ExpressionAnalysis$VolcanoPlotData()
-                
-                p <- ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold))) + geom_point() + theme_grey()
-                    if (input$VolcanoPlot_showColor) {
-                if (input$VolcanoPlot_ThemeSelect == "default") { p <- p }
-                else if (input$VolcanoPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
-                else if (input$VolcanoPlot_ThemeSelect == "theme_bw") {p <- p + theme_bw()}
-                else if (input$VolcanoPlot_ThemeSelect == "theme_light") {p <- p + theme_light()}
-                else if (input$VolcanoPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
-                else if (input$VolcanoPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
-                else if (input$VolcanoPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
-                }
-            
-                if (length(BoxPlot_main) > 0) { p <- p + labs(title = VolcanoPlot_main)} else {p <- p + labs(title = "BoxPlot of Gene Series Data")}
-                if (length(BoxPlot_xlab) > 0) { p <- p + labs(x = VolcanoPlot_xlab)}
-                if (length(BoxPlot_ylab) > 0) { p <- p + labs(y = VolcanoPlot_ylab)}
-                
-                if(input$VolacanoPlot_LogLine) {p <- p + geom_vline(xintercept = c(logFCThresHold, -logFCThresHold), linetype="dashed", color="red", size=1.2)}
-                if(input$VolacanoPlot_PvalLine) {p <- p + geom_hline(yintercept = pValueThresHold, linetype="dashed", color="red", size=1.2)}
-            
-                p <- p + theme(axis.text = element_text(size = 14, hjust = 1)) +
-                    theme(axis.title = element_text(size = 14)) +
-                    theme(legend.text=element_text(size=14))
-            
-                if (length(input$VolcanoPlot_HighlightGene) > 1) {
-                    SelectedGenes <- input$VolcanoPlot_HighlightGene
-                    pValueThresHold <- input$PValThresInput
-                    logFCThresHold <- input$LogFCThresInput
-                    
-                    HighlightData <- LimmaTable %>% filter(gene %in% SelectedGenes)
-                    p <- p + 
-                        geom_point(data = HighlightData, aes(x = logFC, y = -log(adj.P.Val)), colour="red", size=5) +
-                        geom_label(data=HighlightData,aes(x = logFC, y = -log(adj.P.Val), label=gene, size=14, vjust=1, colour = "black"))
-                } else { p <- p }
-            
-                p <- p + scale_x_continuous(limits = c(-3, 3))
-                p <- p + theme(legend.position = "bottom")
-                p
-                
-            })
-            
-            output$VolcanoPlot <- renderPlot({
-                ExpressionAnalysis$VolcanoPlotData()
-            })
-            
-            output$VolcanoPlotly <- renderPlotly({
-                p <- ExpressionAnalysis$VolcanoPlotData
-                p <- ggplotly(p)
-                p
-            })
-            
-            output$VolcanoPlot_HighlightGene_UI <- renderUI({
+        #ExpressionAnalysis$LimmaResultSelectedContrast <- eventReactive(input$SubmitDEA, {
+        ExpressionAnalysis$LimmaThresholdFiltered <- reactive({
+            shiny::req(input$Volcanoplot_SelectContrast)
+
             LimmaTable <- ExpressionAnalysis$LimmaResults()
             
+            message("Filtering Limma Results by selected contrast")        
+            selectedContrast <- input$Volcanoplot_SelectContrast
+            LimmaTable <- LimmaTable %>% dplyr::filter(Contrast %in% selectedContrast) 
+
+            message("Filtering Limma Results Pvalue Adjustment")
+            LimmaTable <- LimmaTable %>% mutate(adj.P.Val = p.adjust(P.Value, method = input$MultiTestCorr))
+            
+            message("applying Threshold filters to Limma Table")
+            logFCThresHold <- input$LogFCThresInput
+            pValueThresHold <- input$PValThresInput
+            
+            LimmaTable <- LimmaTable %>%
+                mutate(LogThreshold = abs(logFC) > logFCThresHold) %>%
+                mutate(PThreshold = as.numeric(-log(LimmaTable$adj.P.Val) >= pValueThresHold)) %>%
+                mutate(Threshold = paste(LogThreshold, PThreshold))
+            
+            if (colnames(LimmaTable)[2]=="ID") {
+            message("Gene Name Hack")
+            LimmaTable$gene <- as.character(make.names(LimmaTable$ID))
+            }
+            
+            LimmaTable
+        })
+        
+        
+        output$VolcanoPlot_HighlightGene_UI <- renderUI({
+            message("Rendering Highlight Gene input")
+            LimmaTable <- ExpressionAnalysis$LimmaThresholdFiltered()
+            # Using a bit of a hack, I don't know why when I rename the rownames 
+            # thres is an ID column instead of a gene column
+            
             fluidRow(
-            selectInput(inputId = "VolcanoPlot_HighlightGene", label = "Highlight Gene", choices = LimmaTable$gene, multiple = T),
-            checkboxInput(inputId = "VolcanoPlot_PlotInteractive", label = "Interactive Plot"))
+            column(6, selectInput(inputId = "VolcanoPlot_HighlightGene",  label = "Highlight Gene", choices = LimmaTable[,"gene"], multiple = T)),
+            column(6
+            #checkboxInput(inputId = "VolcanoPlot_PlotInteractive", label = "Interactive Plot")
+            ))
+        })
+        
+        
+        ExpressionAnalysis$VolcanoPlotData <- reactive({
+            LimmaTable <- ExpressionAnalysis$LimmaThresholdFiltered()
+            logFCThresHold <- input$LogFCThresInput
+            pValueThresHold <- input$PValThresInput
+            
+            p <- ggplot(LimmaTable, aes(x = logFC, y = -log(adj.P.Val), color = factor(Threshold))) + geom_point() + theme_grey()
+            if (input$VolcanoPlot_showColor) {
+            if (input$VolcanoPlot_ThemeSelect == "default") { p <- p }
+            else if (input$VolcanoPlot_ThemeSelect == "theme_gray") {p <- p + theme_gray()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_bw") {p <- p + theme_bw()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_light") {p <- p + theme_light()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_dark") {p <- p + theme_dark()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_minimal") {p <- p + theme_minimal()}
+            else if (input$VolcanoPlot_ThemeSelect == "theme_classic") {p <- p + theme_classic()}
+            }
+            
+            #Plot Labels
+            if (length(input$VolcanoPlot_main) > 0) { p <- p + labs(title = input$VolcanoPlot_main)} else {p <- p + labs(title = "BoxPlot of Gene Series Data")}
+            if (length(input$VolcanoPlot_xlab) > 0) { p <- p + labs(x = input$VolcanoPlot_xlab)}
+            if (length(input$VolcanoPlot_ylab) > 0) { p <- p + labs(y = input$VolcanoPlot_ylab)}
+                
+            if(input$VolacanoPlot_LogLine) {p <- p + geom_vline(xintercept = c(logFCThresHold, -logFCThresHold), linetype="dashed", color="red", size=1.2)}
+            if(input$VolacanoPlot_PvalLine) {p <- p + geom_hline(yintercept = pValueThresHold, linetype="dashed", color="red", size=1.2)}
+            
+            p <- p + theme(axis.text = element_text(size = 14, hjust = 1)) +
+                theme(axis.title = element_text(size = 14)) +
+                theme(legend.text=element_text(size=14))
+            
+            
+            if (length(input$VolcanoPlot_HighlightGene) > 1) {
+                SelectedGenes <- input$VolcanoPlot_HighlightGene
+                HighlightData <- LimmaTable %>% filter(gene %in% SelectedGenes)
+                p <- p + geom_point(data = HighlightData, aes(x = logFC, y = -log(adj.P.Val)), colour="red", size=5) +
+                geom_label(data=HighlightData,aes(x = logFC, y = -log(adj.P.Val), label=gene, size=14, vjust=1, colour = "black"))
+            } else { p <- p }
+            
+            p <- p + scale_x_continuous(limits = c(-3, 3))
+            p <- p + theme(legend.position = "bottom")
+            p
+            })
+            
+            observeEvent(input$SubmitDEA,{
+            output$VolcanoPlot <- renderPlot({ ExpressionAnalysis$VolcanoPlotData() })
             })
             
             output$VolcanoPlot_TopTable <- renderDataTable({
-            LimmaTable <- ExpressionAnalysis$LimmaResults()
-            datatable(data = LimmaTable)
+            LimmaTable <- ExpressionAnalysis$LimmaThresholdFiltered()
             DT::datatable(data = LimmaTable, rownames = TRUE,
                         class = 'compact', extensions = 'Buttons', 
                         options = list(scrollY = '500px', scrollX = T, paging = T, dom = 'Bfrtip', buttons = c('copy', 'csv', 'excel')))
             })
-            
             
             #' The Plot output is not hgard coded to allow changes to the plot height and width
             #' and to toggle the interactive plots
             #'
             #'
             output$VolcanoPlot_Output <- renderUI({
-                plotOutput(outputId = "VolcanoPlot",height = input$VolcanoPlot_Height, width = input$VolcanoPlot_Width) %>% withSpinner(color = "#0dc5c1")
-                plotOutput(outputId = "VolcanoPlotly",height = input$VolcanoPlot_Height, width = input$VolcanoPlot_Width) %>% withSpinner(color = "#0dc5c1")
-                
+            if(isTruthy(input$VolcanoPlot_Height)){plotheight <- input$VolcanoPlot_Height} else {height <- NULL}
+            if(isTruthy(input$VolcanoPlot_Width)){plotwidth <- input$VolcanoPlot_Width} else {width <- NULL} 
+            plotOutput(outputId = "VolcanoPlot", height = plotheight, width = plotwidth) %>% withSpinner(color = "#0dc5c1")
             })
             
         
