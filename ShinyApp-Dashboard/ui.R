@@ -423,7 +423,7 @@ ui <- dashboardPage(
         
         fluidRow(
         column(6, actionButton("GoToDesignPage", "Use factors for analysis", width = "100%")),
-        column(4, bookmarkButton()),
+        column(4, disabled(bookmarkButton())),
         column(2, shiny::actionButton(inputId='YouTube2', label="", style='padding:4px; font-size:100%;',
         icon = icon("question-circle"), width = '100%' , onclick ="https://www.youtube.com/watch?v=7DG7a4mei3o&list=PL5P7savB6d69_JokGNpwGm0mZX_6aXmes&index=2', '_blank')"))
         
@@ -569,7 +569,7 @@ ui <- dashboardPage(
         width = 12,
         fluidRow(
         column(6, actionButton("GoToQCPage", "Use Design and Contrast Matrix", width = "100%")),
-        column(4, bookmarkButton()),
+        column(4, disabled(bookmarkButton())),
         column(2, shiny::actionButton(inputId='YouTube3', label="", style='padding:4px; font-size:100%;',
         icon = icon("question-circle"), width = '100%' , onclick ="window.open('https://www.youtube.com/watch?v=-LCxPyVXK5w&t=0s&list=PL5P7savB6d69_JokGNpwGm0mZX_6aXmes&index=3', '_blank')"))
         
@@ -738,7 +738,7 @@ ui <- dashboardPage(
         h4('Plot Selection'), 
         column(6, selectizeInput( inputId = "BoxPlot_IndpVar", label = "Independant Variable", choices = c("Sample" = "s", "Gene" = "g"), selected = "g")),
         column(6, selectizeInput(inputId = "BoxPlot_PlotBy", label = "Data to Plot", choices = c("Overall Distribution" = "o", "Factor Distribution" = "f"), selected = "")),
-        column(6, uiOutput("BoxPlot_GeneSelect_UI")),
+        column(6, disabled(uiOutput("BoxPlot_GeneSelect_UI"))),
         column(6, uiOutput("BoxPlot_FactorSelect_UI")),
         
         ##########################################################################
@@ -995,7 +995,7 @@ ui <- dashboardPage(
         fluidRow(
         column(12, uiOutput("VolcanoPlot_HighlightGene_UI")),
         column(12, hr()),
-        column(12, uiOutput("VolcanoPlot_Output"))
+        column(10, offset = 1, uiOutput("VolcanoPlot_Output") %>% withSpinner(color = "#0dc5c1"))
         )
         ),  # box(title = "Plot Output",
                       
@@ -1005,7 +1005,7 @@ ui <- dashboardPage(
         width = 12,
         collapsible = T,
         #wellPanel(
-        fluidRow( column(12, dataTableOutput("VolcanoPlot_TopTable")))
+        fluidRow( column(12, dataTableOutput("VolcanoPlot_TopTable") %>% withSpinner(color = "#0dc5c1")))
         ) # box(title = "Top Table",
         )
         )
@@ -1093,44 +1093,34 @@ ui <- dashboardPage(
         
         tabItem(tabName = "ExportSave",
                 
-        box(title = "Raw Data",
+        box(title = "Download Data",
         status = "warning",
         solidHeader = T,
         width = 4,
-        h4("Download Raw Data"),
-        column(12, hr()),
-        column(12, actionButton(inputId = "DownloadExpressionMatrix",label = "Expression Matrix")),
-        column(12, actionButton(inputId = "DownloadFactorExpressionMatrix",label = "Factor Expression Matrix")),
-        column(12, actionButton(inputId = "DownloadFactorDF",label = "Factor Dataframe")),
-        column(12, actionButton(inputId = "DownloadEsetRDS",label = "eset as RData")),
-        column(12, hr()),
-        column(12, actionButton(inputId = "DownloadDesignMatrix",label = "Design Matrix")),
-        column(12, actionButton(inputId = "DownloadContrastMatrix",label = "Contrast Matrix")),
-        column(12, hr()),
-        column(12, actionButton(inputId = "DownloadPlots",label = "Download all Plots in current state")),
-        column(12, actionButton(inputId = "DownloadAll",label = "Download as compressed CSV zip file")),
-        column(12, actionButton(inputId = "DownloadAll",label = "Download All data RData"))
-        ),
-                                
-        box(title = "Filtered Data",
-        status = "warning",
-        solidHeader = T,
-        width = 4,
-        h4("Download Raw Filtered Data"),
-        column(12, hr()),
-        column(12, actionButton(inputId = "DownloadExpressionMatrix",label = "Expression Matrix")),
-        column(12, actionButton(inputId = "DownloadFilteredFactorExpressionMatrix",label = "Factor Expression Matrix")),
-        column(12, actionButton(inputId = "DownloadFilteredFactorDF",label = "Factor Dataframe")),
-        column(12, actionButton(inputId = "DownloadFilteredEsetRDS",label = "eset as RData")),
-        column(12, hr()),
-        column(12, actionButton(inputId = "DownloadFilteredDesignMatrix",label = "Design Matrix")),
-        column(12, actionButton(inputId = "DownloadFilteredContrastMatrix",label = "Contrast Matrix")),
-        column(12, hr()),
-        column(12, actionButton(inputId = "DownloadFilteredPlots",label = "Download all Plots in current state")),
-        column(12, actionButton(inputId = "DownloadFilteredAll",label = "Download as compressed CSV zip file")),
-        column(12, actionButton(inputId = "DownloadFilteredAll",label = "Download All data RData"))
-        )
+        helpText(paste("Any samples that have been filtered out",
+                       "will not be present in the downloaded items",
+                       "If you would like a full expression, design",
+                       "matrix or toptable please reset the filters",
+                       "on the 'Filter GSM Metadata' page")),
         
+        h4("Expression and Factor Matrix"),
+        column(12, downloadButton(outputId = "DownloadExpressionMatrix",label = "Expression Matrix")),
+        column(12, downloadButton(outputId = "DownloadFactorExpressionMatrix",label = "Factor Expression Matrix")),
+        column(12, downloadButton(outputId = "DownloadFactorDF",label = "Factor Dataframe")),
+        column(12, downloadButton(outputId = "DownloadEsetRDS",label = "eset as RData")),
+        column(12, hr()),
+        h4("Experimental Model Matrix"),
+        column(12, downloadButton(outputId = "DownloadDesignMatrix",label = "Design Matrix")),
+        column(12, downloadButton(outputId = "DownloadContrastMatrix",label = "Contrast Matrix")),
+        column(12, hr()),
+        h4("Differential Expression Analysis Results"),
+        column(12, downloadButton(outputId = "DownloadTopTable",label = "Top Table")),
+        column(12, hr()),
+        h4("Plots and Environmental Factors"),
+        column(12, disabled(downloadButton(outputId = "DownloadPlots",label = "Download all Plots in current state"))),
+        column(12, disabled(downloadButton(outputId = "DownloadAll",label = "Download as compressed CSV zip file"))),
+        column(12, disabled(downloadButton(outputId = "DownloadAllRData",label = "Download All data RData")))
+        )
         ),
         
         

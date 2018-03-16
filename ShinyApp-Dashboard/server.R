@@ -540,6 +540,7 @@ server <- function(input, output, session) {
             stop("Error in FactorDF, restart app or select different factor columns") }
         
         
+        # After Row's to keep, also remove specific rows
         if(isTruthy(input$RemoveSpecificRows)){
             message("Removing specific Use selected row")
             removeSpecificRows <- as.numeric(input$RemoveSpecificRows)
@@ -1091,7 +1092,7 @@ server <- function(input, output, session) {
             } else { return(NULL)}
         })
         
-        GSEdata$ExpressionMatrix <- reactive({
+        GSEdata$ExpressionMatrixInput <- reactive({
             shiny::req(input$GeneAnnotationType)
             
             if(input$DataSourceSelection == 1) {
@@ -1107,6 +1108,18 @@ server <- function(input, output, session) {
             
             return(ExpressionMatrix)
           })
+        
+        
+        GSEdata$ExpressionMatrix <- reactive({
+            # Remove the samples from the expression matrix that aren't in the design and contrast matrix
+            # because they were filtered out
+            SamplesToKeep <- ExperimentalDesign$RowsToKeep
+            ExpressionMatrix <- GSEdata$ExpressionMatrixInput()
+            message("Filtering Expression Matrix Accoring to Filter GSM criteria")
+            FilteredExpressionMatrix <- ExpressionMatrix[, SamplesToKeep]
+            FilteredExpressionMatrix
+        })
+        
                         #'
         #'
         #'
@@ -1532,9 +1545,8 @@ server <- function(input, output, session) {
             # thres is an ID column instead of a gene column
             
             fluidRow(
-            column(6, selectInput(inputId = "VolcanoPlot_HighlightGene",  label = "Highlight Gene", choices = LimmaTable[,"gene"], multiple = T)),
-            column(6
-            #checkboxInput(inputId = "VolcanoPlot_PlotInteractive", label = "Interactive Plot")
+            column(10, offset = 1, selectInput(inputId = "VolcanoPlot_HighlightGene",  label = "Highlight Gene", choices = LimmaTable[,"gene"], multiple = T)),
+            column(6 #checkboxInput(inputId = "VolcanoPlot_PlotInteractive", label = "Interactive Plot")
             ))
         })
         
@@ -1598,7 +1610,7 @@ server <- function(input, output, session) {
             output$VolcanoPlot_Output <- renderUI({
             if(isTruthy(input$VolcanoPlot_Height)){plotheight <- input$VolcanoPlot_Height} else {height <- NULL}
             if(isTruthy(input$VolcanoPlot_Width)){plotwidth <- input$VolcanoPlot_Width} else {width <- NULL} 
-            plotOutput(outputId = "VolcanoPlot", height = plotheight, width = plotwidth) %>% withSpinner(color = "#0dc5c1")
+            plotOutput(outputId = "VolcanoPlot", height = plotheight, width = plotwidth)
             })
             
         
@@ -1766,20 +1778,11 @@ server <- function(input, output, session) {
        }
 
 
-       # if(!is.null(input$TopTable_true_search_columns))
-       #   data.in=data.in[activeRows(input$TopTable_true_search_columns,data.in),]
-       # if(input$colRngAuto){
-       #   ColLimits=NULL
-       # }else{
-       #   ColLimits=c(input$colorRng_min, input$colorRng_max)
-       # }
-
        distfun_row = function(x) dist(x, method = input$distFun_row)
        distfun_col =  function(x) dist(x, method = input$distFun_col)
 
        hclustfun_row = function(x) hclust(x, method = input$hclustFun_row)
        hclustfun_col = function(x) hclust(x, method = input$hclustFun_col)
-
 
        p <- heatmaply(HeatMapData$FactorGMT,
                       main = input$main,xlab = input$xlab,ylab = input$ylab,
@@ -1799,9 +1802,7 @@ server <- function(input, output, session) {
          layout(margin = list(l = input$l, b = input$b, r='0px'))
 
        p$elementId <- NULL
-
        p
-
      })
 
      #Render Plot ----
@@ -1840,6 +1841,116 @@ server <- function(input, output, session) {
      })
     
     
+     ########################{ Export and Save
+     
+     
+        output$DownloadExpressionMatrix <- downloadHandler(
+            filename = function() {
+            GSE <- input$GsmTableSelect
+            GPL <- input$GplTableSelect
+            GseGplID <- paste(GSE,GPL, sep = "-")
+            GseGplID <- paste(GseGplID, "-ExpressionMatrix.csv", sep = "")
+            return(GseGplID) 
+            },
+            content = function(file){
+            write.csv(GSEdata$ExpressionMatrix(), file, row.names = FALSE)
+            }
+            )
+        
+        output$DownloadFactorExpressionMatrix <- downloadHandler(
+            filename = function() {
+            GSE <- input$GsmTableSelect
+            GPL <- input$GplTableSelect
+            GseGplID <- paste(GSE,GPL, sep = "-")
+            GseGplID <- paste(GseGplID, "-FactorExpressionMatrix.csv", sep = "")
+            return(GseGplID) 
+            },
+            content = function(file){
+            write.csv(GSEdata$FactorGMT(), file, row.names = FALSE, quote = F)
+            }
+            )
+        
+        output$DownloadFactorDF <- downloadHandler(
+            filename = function() {
+            GSE <- input$GsmTableSelect
+            GPL <- input$GplTableSelect
+            GseGplID <- paste(GSE,GPL, sep = "-")
+            GseGplID <- paste(GseGplID, "-FactorDF.csv", sep = "")
+            return(GseGplID) 
+            },
+            content = function(file){
+            write.csv(ExperimentalDesign$ControlFactorDF(), file, row.names = FALSE, quote = F)
+            }
+            )
+        
+        
+        output$DownloadEsetRDS <- downloadHandler(
+            filename = function() {
+            GSE <- input$GsmTableSelect
+            GPL <- input$GplTableSelect
+            GseGplID <- paste(GSE,GPL, sep = "-")
+            GseGplID <- paste(GseGplID, "-eset.RData", sep = "")
+            return(GseGplID) 
+            },
+            content = function(file){
+            save(GSEdata$ExpressionMatrix(), file, row.names = FALSE, quote = F)
+            }
+            )
+        
+        
+        output$DownloadDesignMatrix <- downloadHandler(
+            filename = function() {
+            GSE <- input$GsmTableSelect
+            GPL <- input$GplTableSelect
+            GseGplID <- paste(GSE,GPL, sep = "-")
+            GseGplID <- paste(GseGplID, "-DesignMatrix.csv", sep = "")
+            return(GseGplID) 
+            },
+            content = function(file){
+            write.csv(ExperimentalDesign$DesignMatrix(), file, row.names = FALSE, quote = F)
+            }
+            )
+        
+        output$DownloadTopTable <- downloadHandler(
+            filename = function() {
+            GSE <- input$GsmTableSelect
+            GPL <- input$GplTableSelect
+            GseGplID <- paste(GSE,GPL, sep = "-")
+            GseGplID <- paste(GseGplID, "-TopTable.csv", sep = "")
+            return(GseGplID) 
+            },
+            content = function(file){
+            write.csv(ExpressionAnalysis$LimmaResults(), file, row.names = FALSE, quote = F)
+            }
+            )
+        
+        
+        
+        output$DownloadContrastMatrix <- downloadHandler(
+            filename = function() {
+            GSE <- input$GsmTableSelect
+            GPL <- input$GplTableSelect
+            GseGplID <- paste(GSE,GPL, sep = "-")
+            GseGplID <- paste(GseGplID, "-ContrastMatrix.csv", sep = "")
+            return(GseGplID) 
+            },
+            content = function(file){
+            write.csv(ExperimentalDesign$ContrastMatrix(), file, row.names = FALSE, quote = F)
+            }
+            )
+            
+ 
+
+        # output$DownloadAll
+        # output$DownloadAllRData
+     
+     
+     
+     
+     
+     
+     
+     
      
      
      ########################{ Disconnect from SQLite Server on Exit
