@@ -1,7 +1,4 @@
 enableBookmarking(store = "url")
-GeoWizard <- "~/GeoWizard"
-GeoRepo <- "~/GeoWizard/GeoRepo"
-setwd(GeoWizard)
 
 ## app.R ##
 if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()

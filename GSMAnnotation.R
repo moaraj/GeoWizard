@@ -1,5 +1,3 @@
-Keywordfile <- source(file = file.path(GeoWizard, "GeoTrainingSets/keywords.R"))
-
 #' The Following three functions classify the GSMs in each GSEwhether of not
 #' @param GsmDesignTxt input text string
 #' @param KeyList Ontology 

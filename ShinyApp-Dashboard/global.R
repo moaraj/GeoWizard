@@ -1,5 +1,7 @@
-GeoWizard <- "~/GeoWizard/"
-GeoRepo <- "~/GeoWizard/GeoRepo"
+# YOU HAVE TO CHANGE THIS THIS LINE TO YOUR GEOWIZARD CLONE
+GeoWizard <- "D:/GitHub/GeoWizard"
+GeoRepo <- paste(GeoWizard,"GeoRepo", sep = "/")
+dir.create(GeoRepo, showWarnings = FALSE) #dir.create does not crash if dir doesn't exist, just gives warning
 
 library(shiny)
 library(shinydashboard)
@@ -50,7 +52,7 @@ source(file = file.path(GeoWizard, "QCAnalysis.R")) # All functions for Downlaod
 source(file = file.path(GeoWizard, "ExpressionAnalysis.R")) 
 
 source(file = file.path(GeoWizard, "Ontologies/MoleculeLibraries.R")) # Cell line and Disease matching
-source(file = file.path(GeoWizard, "GeoTrainingSets/keywords.R")) # Training Sets/ Not used
+source(file = file.path(GeoWizard, "keywords.R")) # Training Sets/ Not used
 source(file = file.path(GeoWizard, "helpers.R"))  # ShinyJS 
 source(file = file.path(GeoWizard, "SeriesHanding.R"))
 source(file = file.path(GeoWizard, "GenContrast.R"))

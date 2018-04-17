@@ -1,5 +1,7 @@
-GeoWizard <- "~/GeoWizard/"
-GeoRepo <- "~/GeoWizard/GeoRepo"
+# If using this script with shiny app 
+# the Geo Wizard dir is assigend in the Global.R
+#GeoWizard <- "~/GeoWizard/"
+#GeoRepo <- "~/GeoWizard/GeoRepo"
 
 #'
 #' @param keyword is the Key word used to query GEO eutils esearch

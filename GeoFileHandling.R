@@ -30,7 +30,7 @@ use <- function(package, version=0, ...) {
 #setInternet2(use=FALSE)
 
 LoadGEOFiles <- function(GSE, GPL, GeoRepo){
-     GeoRepoFiles <- list.files(path = "~/GeoWizard/GEORepo/")
+     GeoRepoFiles <- list.files(path = GeoRepo)
 
     if(missing(GPL)) { 
         stop("Must supply GPL even if there is only one in the GSE")
