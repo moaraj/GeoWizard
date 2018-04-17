@@ -1,5 +1,8 @@
-GeoWizard <- "~/GeoWizard/"
-GeoRepo <- "~/GeoWizard/GeoRepo"
+# You Must Edit These following two lines yourself
+# ensure there is no / at the end of the line
+GeoWizard <- "D:/GitHub/GeoWizard/"
+GeoRepo <- "D:/GitHub/GeoWizard/GeoWizard/GeoRepo"
+setwd(GeoWizard)
 
 library(shiny)
 library(shinydashboard)
