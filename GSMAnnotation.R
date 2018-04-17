@@ -1,9 +1,7 @@
-Keywordfile <- source(file = file.path(GeoWizard, "GeoTrainingSets/keywords.R"))
-
-#' The Following three functions
-#' classify the GSMs in each GSEwhether of not
-#'
-
+#' The Following three functions classify the GSMs in each GSEwhether of not
+#' @param GsmDesignTxt input text string
+#' @param KeyList Ontology 
+#' @return logical vector if text mated the word list
 MatchExpKeys <- function(GsmDesignTxt, KeyList, perl = F) {
      keymatch <-
           grep(
@@ -22,11 +20,8 @@ MatchExpKeys <- function(GsmDesignTxt, KeyList, perl = F) {
 
 #'
 #'
-#' @Column takes a character vector and assign wheter it might be contorl pert or time
-#'
-#'
-#'
-
+#' @FactorColumn takes a character vector and assign wheter it can be found in the a set of key word lists provided
+#' @return a dataframe with a column for matching each f the ontology word lists from ExpKeywords
 AssignColContainsFactor <- function(FactorColumn) {
      FactorColumn <- as.character(FactorColumn)
      isContCol <- sapply(FactorColumn, FUN = MatchExpKeys, ExpKeywords$ControlKeywords)
@@ -125,13 +120,9 @@ ClassSummary <- function(GsmDesignDF) {
 #' this function is used in the design labs function to generate human readable design and contrasts
 #' 
 
-NumtoText <- function(strvec) {
-     strvec <- gsub(pattern = 1,
-                    replacement = "cont",
-                    x = strvec)
-     strvec <- gsub(pattern = 0,
-                    replacement = "pert",
-                    x = strvec)
+NumtoControlClass <- function(strvec) {
+     strvec <- gsub(pattern = 1, replacement = "cont", x = strvec)
+     strvec <- gsub(pattern = 0, replacement = "pert", x = strvec)
      return(strvec)
 }
 
@@ -147,9 +138,7 @@ DesignLabs <- function(FullClassDF) {
      GsmContDF <- FullClassDF %>% dplyr::select(matches("Cont"))
      GsmPertDF <- FullClassDF %>% dplyr::select(matches("Pert"))
      
-     UsefulCols <- 
-          c(DescerningFactors(GsmContDF),
-            DescerningFactors(GsmPertDF))
+     UsefulCols <-  c(DescerningFactors(GsmContDF), DescerningFactors(GsmPertDF))
      
      if (length(UsefulCols) != 0) {
           GsmContDF <- FullClassDF %>% 
@@ -158,10 +147,8 @@ DesignLabs <- function(FullClassDF) {
           DesignLabsDF <-
                sapply(UsefulCols, function(FactorCol) {
                     FactorColName <- str_split(FactorCol, "\\.")[[1]][1]
-                    isControlText <-
-                         NumtoText(as.numeric(GsmContDF[, FactorCol]))
-                    TreatLabs <-
-                         paste(FactorColName, ".", isControlText, sep = "")
+                    isControlText <- NumtoControlClass(as.numeric(GsmContDF[, FactorCol]))
+                    TreatLabs <- paste(FactorColName, ".", isControlText, sep = "")
                })
           
           UsefulTxtCols <-
@@ -178,7 +165,7 @@ DesignLabs <- function(FullClassDF) {
           colnames(FullClassDF) <- c(
                "ExpVar1.Text",
                "ExpVar1.ContClass",
-               "ExpVar1.PerClass",
+               "ExpVar1.PertClass",
                "ExpVar1.TimeClass",
                "ExpVar1.DilSClass")
           GsmTextDF <- FullClassDF[, 1:5]
@@ -187,6 +174,19 @@ DesignLabs <- function(FullClassDF) {
 }
 
 
+#' Determine if Time Series Experiment if keyword indicating time study in Overall Summary or factor text
+#'
+AssignTimeSeriesInformation <-  
+    function(GsmDesignDF, OverallSummary) {
+        message("Determining if study has a time series")
+        ClassTimeSeries <- MatchExpKeys(OverallSummary, ExpKeywords$is_time_study)
+        if (ClassTimeSeries == FALSE) { message("This gene series does not contain a time series experiment")
+        } else { message("This Gene Series contains a time series experiment")
+        }
+        GsmDesignDF <- GsmDesignDF %>% mutate(TimeSeries = ClassTimeSeries)
+        return(GsmDesignDF)
+     }
+
 #'
 #'
 #'
@@ -196,8 +196,11 @@ DesignLabs <- function(FullClassDF) {
 #'
 
 
-
-
+###################### All Code Below is not really relavent any more
+###################### it is from a time where I was going to make this app fully non-interactive
+###################### and this would involve first trying to determine what type of study we had 
+###################### and using some "pre fabricated" method to generate the design and contrast matrix
+###################### in the end it turned out to be a bad idea nad very inflexible
 
 ContMultiTreat <- function(GsmDesignDf) {
      DesignMatrix <-
@@ -266,22 +269,6 @@ AssignBlockCatagories <- function(GsmDesignDf, PertInformation) {
      return(GsmDesignDf)
 }
 
-
-
-
-#' Determine if Time Series Experiment
-#'
-#'
-AssignTimeSeriesInformation <-  
-    function(GsmDesignDF, OverallSummary) {
-        message("Determining if study has a time series")
-        ClassTimeSeries <- MatchExpKeys(OverallSummary, ExpKeywords$is_time_study)
-        if (ClassTimeSeries == FALSE) { message("This gene series does not contain a time series experiment")
-        } else { message("This Gene Series contains a time series experiment")
-        }
-        GsmDesignDF <- GsmDesignDF %>% mutate(TimeSeries = ClassTimeSeries)
-        return(GsmDesignDF)
-     }
 
 
 #' Contrast Matrix with One Factor Level

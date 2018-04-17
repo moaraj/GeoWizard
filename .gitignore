@@ -8,9 +8,9 @@
 *.txt.gz.rds
 
 # Session Data files
-.RData
-.rds
-.gz.rds
+*.RData
+*.rds
+*.gz.rds
 
 # Example code in package build process
 *-Ex.R
@@ -43,3 +43,4 @@ vignettes/*.pdf
 *.sqlite
 *.soft
 *.gz
+.Rproj.user

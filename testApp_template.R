@@ -1,69 +1,45 @@
-library(shiny)
-ui <- shinyUI(fluidPage(
-    
-    column(4,
-    wellPanel(
-           fluidRow(
-    
-    column(12,
-    fileInput("file1", "Choose CSV File", multiple = TRUE, accept = c("text/csv", "text/comma-separated-values,text/plain",".csv")),
-    tags$hr(),
-    column(4,
-    strong("Header"),
-    checkboxInput("header", "Data has header", TRUE),
-    radioButtons("disp", "Display", choices = c(Head = "head", All = "all"), selected = "head")
-    ),
-    column(4,radioButtons("sep", "Separator", choices = c(Comma = ",", Semicolon = ";", Tab = "\t"), selected = ",")),
-    column(4,radioButtons("quote", "Quote", choices = c(None = "", "Double Quote" = '"', "Single Quote" = "'"), selected = '"')),
-    tags$hr()
-    )
-    )
-    )
-    ),
-    column(6, wellPanel( tableOutput("contents")))
-
-  )
-
+## Only run this example in interactive R sessions
+if (interactive()) {
+# Define UI
+ui <- fluidPage(
+        actionButton("add", "Add UI"),
+        actionButton("rmv", "Remove UI")
 )
 
-
-server <- shinyServer(function(input, output) {
-    
-    output$RearrangeLevels <- renderUI({
-    radioButtons("DataSourceSelection", inputId = paste("Retreive GMT file", "GSE"), selected = 1, inline = T, choiceNames = c("Download from GEO", "Upload CSV") , choiceValues = c(1,2))
-    # conditionalPanel(paste("input.",checkinputID,"==1", sep = ""))
-    
-    
-    })
-    
-    
-      output$contents <- renderTable({
-
-    # input$file1 will be NULL initially. After the user selects
-    # and uploads a file, head of that data file by default,
-    # or all rows if selected, will be shown.
-
-    req(input$file1)
-
-    df <- read.csv(input$file1$datapath,
-             header = input$header,
-             sep = input$sep,
-             quote = input$quote)
-
-    if(input$disp == "head") {
-      return(head(df))
-    }
-    else {
-      return(df)
-    }
-
+# Server logic
+server <- function(input, output, session) {
+  observeEvent(input$add, {
+    insertUI(
+      selector = "#add",
+      where = "afterEnd",
+      ui = textInput(paste0("txt", input$add),
+                     "Insert some text")
+    )
   })
+}
+
+# Complete app with UI and server components
+shinyApp(ui, server)
+}
 
 
+## Only run this example in interactive R sessions
+if (interactive()) {
+# Define UI
+ui <- fluidPage(
+  actionButton("rmv", "Remove UI"),
+  textInput("txt", "This is no longer useful")
+)
 
-})
+# Server logic
+server <- function(input, output, session) {
+  observeEvent(input$rmv, {
+    removeUI(
+      selector = "div:has(> #txt)"
+    )
+  })
+}
 
-
-shinyApp(ui = ui, server = server)
-
-
+# Complete app with UI and server components
+shinyApp(ui, server)
+}

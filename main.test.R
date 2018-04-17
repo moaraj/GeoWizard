@@ -1,4 +1,5 @@
-GeoWizard <- "~/GeoWizard"
+GeoWizard <- "~/GeoWizard/"
+GeoRepo <- "~/GeoWizard/GEORepo/"
 setwd(GeoWizard)
 source("ShinyApp-Dashboard/global.R")
 
@@ -50,25 +51,33 @@ Step_6 <- DesignLabs(data.frame(Step_5))
 
 
 ######### Function to Download File
-GSE <- selectedGse
-GSEeset <- LoadGEOFiles(GSE = GSE, GeoRepo = GeoRepo)
+GSE <- "GSE69967"
+GPL <- "GPL570"
+source("GeoFileHandling.R")
+GSEeset <- LoadGEOFiles(GSE, GPL, GeoRepo)
+GSEeset <- readRDS(file = "GeoWizard/GEORepo/GSE69967-GPL570.rds")
 GSEeset <- GSEeset[[1]]
+FactorDF <- readRDS(file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.rds")
 
-ArrayData <- exprs(GSEeset)
-FactorDF <- Step_6[1:2]
-saveRDS(FactorDF,file = "~/GeoWizard/TestObjects/GSE69967_FactorDF.rds")
-FeatureData <- fData(GSEeset)
+
+colnames(FactorDF) <- c("GSM", "Treatment", "Tissue")
+
+ExpressionMatrix <- exprs(GSEeset)
 
 ########## Convert to Gene Symbol
-source(file = "GeoFileHandling.R")
-GeneSymbolArrayData <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "Gene Symbol")
+ExpressionMatrix.GeneSymbol <- ConvertGSEAnnotations(GSEeset = GSEeset, Annotation = "Gene Symbol")
+saveRDS(object = ExpressionMatrix.GeneSymbol, "~/GeoWizard/TestObjects/ExpressionMatrix.GeneSymbol.rds")
+FactorGMT <- GenFactorGMT(ExpressionMatrix = ExpressionMatrix.GeneSymbol, FactorDF)
 
-GSM <- Step_1$gsm
-GraphDF <- cbind(GSM, Step_6)
-DesignMatrix <- model.matrix( ~ 0 + ExpVar3.ContClass:ExpVar4.ContClass, GraphDF )
-colnames(DesignMatrix) <- c("Cont.Cont","Pert.Cont","Cont.Pert","Pert.Pert")
-ContrastString <- ConTextInput(DesignMatrix)
+DesignMatrix <- model.matrix( ~ Treatment + Tissue, FactorDF)
+colnames(DesignMatrix) <- c("Control.Lesion","Treatment.Lesion","Control.Healthy","Treatment.Healthy")
+colnames(DesignMatrix) <- c("Intercept","Treatment.Disease","Treatment.Healthy")
+
+ContrastString <- ConTextInput(DesignMatrix, "Treatment.Healthy")
+ContrastMatrix <- GenContrastMatrix(ContrastString)
 ContrastMatrix <- makeContrasts(ContrastString, levels = DesignMatrix)
+#if 0 in formula
+ContrastMatrix[1,] <- 0
 
 ######### Limma
-res <- LimmaOutput(GeneSymbolArrayData, DesignMatrix, ContrastMatrix)
+res <- LimmaOutput(ExpressionMatrix.GeneSymbol, DesignMatrix, ContrastMatrix)

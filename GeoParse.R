@@ -1,5 +1,7 @@
-GeoWizard <- "~/GeoWizard/"
-GeoRepo <- "~/GeoWizard/GeoRepo"
+# If using this script with shiny app 
+# the Geo Wizard dir is assigend in the Global.R
+#GeoWizard <- "~/GeoWizard/"
+#GeoRepo <- "~/GeoWizard/GeoRepo"
 
 #'
 #' @param keyword is the Key word used to query GEO eutils esearch
@@ -440,10 +442,10 @@ GseGsmCharExpand <- function(GseGsmTable, CharInputs) {
 
 DescerningFactors <- function(FactorDf) {
      FactorDf <- FactorDf %>% dplyr::select(starts_with("ExpVar"))
-     multiLevelFactors <-
-          sapply(FactorDf, function(x) {
+     multiLevelFactors <- sapply(FactorDf, function(x) {
                nlevels(factor(x))
           })
+     
      multiLevelFactors <- multiLevelFactors > 1
      if (length(multiLevelFactors) == 0) {
           stop("No Factors with more than one level found using GSM select columns")
@@ -462,10 +464,8 @@ DescerningFactors <- function(FactorDf) {
 DescerningClassDF <- function(ClassListDF) {
      message("Finding Useful Default ExpVars")
      ListElementName <- names(ClassListDF)
-     ClassDFRows <-
-          lapply(ListElementName, DescerningClassifications, ClassListDF)
-     ClassDF <-
-          data.frame(do.call(rbind, ClassDFRows), stringsAsFactors = F)
+     ClassDFRows <- lapply(ListElementName, DescerningClassifications, ClassListDF)
+     ClassDF <- data.frame(do.call(rbind, ClassDFRows), stringsAsFactors = F)
      colnames(ClassDF) <- c("ExpVar", "isUsefulClassDF")
      
      if (sum(as.numeric(ClassDF['isUsefulClassDF'] == 'UsefulDF')) == 0) {
@@ -486,6 +486,7 @@ DescerningClassDF <- function(ClassListDF) {
      return(res)
 }
 
+
 DescerningClassifications <-
      function(ListElementName, ClassListDF) {
           ClassDF <- ClassListDF[[ListElementName]]
@@ -504,13 +505,9 @@ DescerningClassifications <-
           return(multiClassVec)
      }
 
-###################################################################################################################
-
-
-
 #########################
 
-#'
+#' Stem words so matches can be more genrallized
 #'
 #'
 #' @param str character vector

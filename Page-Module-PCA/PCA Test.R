@@ -64,17 +64,14 @@ server <- function(input, output) {
 
             
             FactorGMTCast <- reactive({
-            FactorGMTMelt <- FactorGMTMelt
-            FormulaCast <- colnames(FactorGMTMelt)  
-            FactorNames <- FormulaCast[-grep(x = FormulaCast, pattern = "variable|value")]
-              
-            FormulaCast <- paste(FactorNames, collapse = " + ")
-            FormulaCast <- paste(FormulaCast, "~ variable", collapse = "")
-              
-            FactorGMTCast <- dcast(FactorGMTMelt, FormulaCast)
-            DataDF <- FactorGMTCast[,(length(FactorNames) + 1):ncol(FactorGMTCast)]
-            FactorDF <- FactorGMTCast[,1:length(FactorNames)]
-            return(list("FactorGMTCast" = FactorGMTCast, "DataDF" = DataDF,"FactorDF" = FactorDF))
+            FactorDF <- FactorDF
+            DataDF <- ExpressionMatrix
+            
+            if (nrow(FactorDF) != nrow(t(ExpressionMatrix))) { stop("Factor and Expression Matrix Incompatible")
+            } else { FactorGMTCast <- cbind(FactorDF, t(ExpressionMatrix)) }
+            
+            #Prcomp_res <- prcomp(na.omit(t(DataDF)),center = T, scale = T)
+            return(list("FactorGMTCast" = FactorGMTCast, "DataDF" = ExpressionMatrix,"FactorDF" = FactorDF))
             })
             
             
@@ -83,10 +80,13 @@ server <- function(input, output) {
             #' Prcomp_res principle components object genertated from perfoemd PCA on gene expression data
             #' PCA_ResDF Data frame with the Prcomp_res object and Prcomp_res input matrix (x) coloumn bound
             PCA_Data <- reactive({
+              
             PCA_DataInput <- FactorGMTCast()$DataDF
-            Prcomp_res <- prcomp(na.omit(PCA_DataInput), center = as.logical(input$PCA_center), scale = as.logical(input$PCA_scale)) 
-            #Prcomp_res <- prcomp(na.omit(DataDF),center = T, scale = T)
-            PCA_ResDF <- cbind(PCA_DataInput, Prcomp_res$x)
+            PCA_DataInput <- PCA_DataInput[ , apply(PCA_DataInput, 2, var) != 0] # Remover Cols with 0 variance
+            Prcomp_res <- prcomp(na.omit(t(PCA_DataInput)), center = as.logical(input$PCA_center), scale = as.logical(input$PCA_scale)) 
+            
+            FactorGMTCast <- FactorGMTCast()$FactorGMTCast
+            PCA_ResDF <- cbind(FactorGMTCast, Prcomp_res$x)
             return(list("Prcomp_res" = Prcomp_res, "PCA_ResDF" = PCA_ResDF))
             })
             
@@ -127,7 +127,7 @@ server <- function(input, output) {
             Prcomp_res <-  PCA_Data()$Prcomp_res
             FactorDF <- FactorGMTCast()$FactorDF
               
-            var_expl_x <- round(100 * Prcomp_res$sdev[as.numeric(gsub("[^0-9]", "", input$PCA_ycomp))]^2/sum(Prcomp_res$sdev^2), 1)
+            var_expl_x <- round(100 * Prcomp_res$sdev[as.numeric(gsub("[^0-9]", "", input$PCA_xcomp))]^2/sum(Prcomp_res$sdev^2), 1)
             var_expl_y <- round(100 * Prcomp_res$sdev[as.numeric(gsub("[^0-9]", "", input$PCA_ycomp))]^2/sum(Prcomp_res$sdev^2), 1)
             
             labeltype <- input$PCA_Label
