@@ -292,6 +292,7 @@ server <- function(input, output, session) {
         GseTable <- GeoSearchResults$SelectedRowsGSETable()
         message("SQL Query of Selected Datasets")
         shinyjs::show("GSMMetadataLoading")
+        message(paste ("SQL Query in Directory: ", getwd()))
         GsmTable <- SqlQueryMain(GseTable)
         shinyjs::hide("GSMMetadataLoading")
         GsmTable <- data.frame(GsmTable, stringsAsFactors = F)
@@ -1031,7 +1032,7 @@ server <- function(input, output, session) {
             GSE <- input$GsmTableSelect
             GPL <- input$GplTableSelect
             message(paste("Downloading", GSE, "Data from GEO"))
-            GSEeset <- LoadGEOFiles(GSE, GPL, GeoRepo = "~/GeoWizard/GEORepo")
+            GSEeset <- LoadGEOFiles(GSE, GPL, GeoRepo = "D:/GitHub/GeoWizard/GeoRepo/")
             return(GSEeset)
         })
                 #'

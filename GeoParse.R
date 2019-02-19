@@ -217,7 +217,7 @@ SqlGSEInput <- function(QueryInput){
 
 SqlQueryMain <- function(QueryInput) {
   GSEinput <- SqlGSEInput(QueryInput)
-  con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
+  con <- dbConnect(SQLite(), 'D:/GitHub/GeoWizard/GeoRepo/GEOmetadb.sqlite')
   GsmTable <- FetchGSMMetaData(GSEinput, con)
   colnames(GsmTable)[grep(pattern = "title", x = colnames(GsmTable))] <- "gsm.title"
   

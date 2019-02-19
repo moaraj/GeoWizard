@@ -1,11 +1,11 @@
-GeoWizard <- "~/GeoWizard/"
-GeoRepo <- "~/GeoWizard/GEORepo/"
+GeoWizard <- "D:/GitHub/GeoWizard/"
+GeoRepo <- "./GEORepo/"
 setwd(GeoWizard)
 source("ShinyApp-Dashboard/global.R")
 
 
-if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile()
-con <- dbConnect(SQLite(), 'GEOmetadb.sqlite')
+if(!file.exists('GEOmetadb.sqlite')) getSQLiteFile(destdir = "./GeoRepo/")
+con <- dbConnect(SQLite(), "./GeoRepo/GEOmetadb.sqlite")
 message(paste('\nConnected Database Tables:', dbListTables(con)))
 
 MolQuery = c("Mycophenolate mofetil")
