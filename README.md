@@ -1,20 +1,26 @@
 # GeoWizard
+GeoWizard is an Shiny App that automates the search, retrieval and analysis of publicly available expression data available on the GEOdatabase. The following page outlines the steps required to analysis a given expression dataset and export the results.
 
-Shiny App to automate the analysis of publically available expression data available on the GEOdatabase
+1. [Querying Datasets from GEO](#querying-datasets)
+2. [Assigning samples to experimental Blocks](#parsing-samples-into-experimental-groups)
+3. [Downloading, Filtering and Visualizing the Raw data](#downloading-data-and-qc)
+4. [Normalizing Data and performing Differential Expression Analysis](#differential-expression-analysis)
+5. [Exporting a Report and Data Tables](#export)
 
-## Query Datasets
+
+## Querying Datasets
 ![](https://github.com/moaraj/GeoWizard/blob/master/Documentation/1.Query.PNG)
 
-# Parsing Data
+# Parsing Samples into Experimental Groups
 Processing of the annotations of the expression data and automatically detect experimental Groups
 
-## Design Matrix
+## Generating the Design and Contrast Matrix
 ![](https://github.com/moaraj/GeoWizard/blob/master/Documentation/2.Factors.PNG)
 
 ## Model Generation
 ![](https://github.com/moaraj/GeoWizard/blob/master/Documentation/3.Model.PNG)
 
-# Download and QC 
+# Downloading Data and QC
 ![](https://github.com/moaraj/GeoWizard/blob/master/Documentation/4.0%20-Download.PNG)
 
 ## BioQC
@@ -23,7 +29,7 @@ Processing of the annotations of the expression data and automatically detect ex
 ## PCA
 ![](https://github.com/moaraj/GeoWizard/blob/master/Documentation/4.3%20-%20PCA.PNG)
 
-# Expression Analysis
+# Differential Expression Analysis
 ![](https://github.com/moaraj/GeoWizard/blob/master/Documentation/5%20-%20Expression.PNG)
 
 # Export
