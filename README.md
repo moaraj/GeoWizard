@@ -23,4 +23,8 @@ Processing of the annotations of the expression data and automatically detect ex
 ## PCA
 ![](https://github.com/moaraj/GeoWizard/blob/master/Documentation/4.3%20-%20PCA.PNG)
 
-## Expression Analysis
+# Expression Analysis
+![](https://github.com/moaraj/GeoWizard/blob/master/Documentation/5%20-%20Expression.PNG)
+
+# Export
+![](https://github.com/moaraj/GeoWizard/blob/master/Documentation/6%20-%20ExportPNG.PNG)
