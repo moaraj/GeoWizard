@@ -1,10 +1,10 @@
 # GeoWizard
 
 
-#Introduction
+# Introduction
 
 # Ui
-##Query Datasets
+## Query Datasets
 ## Design Matrix
 ## Downlaod and QC 
 ## Expression Analysis
