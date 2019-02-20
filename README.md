@@ -2,10 +2,10 @@
 GeoWizard is an Shiny App that automates the search, retrieval and analysis of publicly available expression data available on the GEOdatabase. The following page outlines the steps required to analysis a given expression dataset and export the results.
 
 1. [Querying Datasets from GEO](#querying-datasets)
-2. [Assigning samples to experimental Blocks](#parsing-samples-into-experimental-groups)
-3. [Downloading, Filtering and Visualizing the Raw data](#downloading-data-and-qc)
-4. [Normalizing Data and performing Differential Expression Analysis](#differential-expression-analysis)
-5. [Exporting a Report and Data Tables](#export)
+2. [Assigning Samples to Experimental Blocks](#parsing-samples-into-experimental-groups)
+3. [Downloading, Filtering and Visualizing Raw data](#downloading-data-and-qc)
+4. [Normalizing Data and Performing Differential Expression Analysis](#differential-expression-analysis)
+5. [Exporting Reports and Data Tables](#export)
 
 
 ## Querying Datasets
